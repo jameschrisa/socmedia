@@ -2,7 +2,7 @@
 # In Render: New → Blueprint → pick this repo. Set the secret env vars when prompted.
 services:
   - type: web
-    name: pulse-api
+    name: suprstar-api
     runtime: docker
     plan: starter
     region: oregon
@@ -11,7 +11,7 @@ services:
     healthCheckPath: /api/health
     autoDeploy: true
     disk:
-      name: pulse-data
+      name: suprstar-data
       mountPath: /data
       sizeGB: 5
     envVars:
