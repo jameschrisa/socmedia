@@ -1,4 +1,4 @@
-# Pulse — Social Studio
+# suprstar — Social Studio
 
 Plan, publish and monitor TikTok, YouTube, LinkedIn and Instagram from one place, organised by organization.
 

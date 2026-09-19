@@ -105,7 +105,7 @@ export function statusColor(status: PostStatus): string {
     case "approved":
       return "#59d8e6";
     case "scheduled":
-      return "#e0524e";
+      return "#59d8e6";
     case "draft":
     default:
       return "#7a7987";

@@ -20,7 +20,7 @@ export function PlatformGlyph({ platform, className }: { platform: Platform; cla
 /** Rounded colour badge with the brand glyph, as in the reference design. */
 export function PlatformIcon({ platform, size = 36, className, mono }: { platform: Platform; size?: number; className?: string; mono?: boolean }) {
   const spec = PLATFORM_SPECS[platform];
-  const bg = mono ? "rgba(255,255,255,0.10)" : spec.color;
+  const bg = mono ? "var(--c-glass-strong)" : spec.color;
   return (
     <span
       className={cn("inline-flex items-center justify-center rounded-xl shrink-0", className)}

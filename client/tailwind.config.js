@@ -1,47 +1,44 @@
 /** @type {import('tailwindcss').Config} */
-// Modern Glass palette: near-black blue-leaning grounds, frosted white glass, ink text, one coral signal.
-const glass = (a) => `rgba(255, 255, 255, ${a})`;
-const tint = (rgb, a) => `rgba(${rgb}, ${a})`;
+// Modern Glass palette driven by CSS variables (see src/styles.css) so dark and light modes share one token set.
+// Primary accent is Glow Cyan; coral is reserved for destructive/failed states.
+const v = (name) => `var(--c-${name})`;
 
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  darkMode: ["selector", '[data-theme="dark"]'],
   theme: {
     extend: {
       colors: {
-        canvas: "#0d0f16",   // Void: app ground
-        surface: "#14161f",  // raised dark
+        canvas: v("canvas"),
+        surface: v("surface"),
         stage: "#3d4159",
-        glass: { DEFAULT: glass(0.07), veil: glass(0.05), panel: glass(0.07), sheet: glass(0.10), strong: glass(0.14) },
-        // Ink scale inverted for dark grounds: 900 is the brightest text, 50 the faintest fill.
+        glass: { DEFAULT: v("glass-panel"), veil: v("glass-veil"), panel: v("glass-panel"), sheet: v("glass-sheet"), strong: v("glass-strong") },
         ink: {
-          900: "#f0eef3", 800: "#dcdae6", 700: "#c9c7d4", 600: "#b5b3c2", 500: "#a5a3b2", 400: "#7a7987",
-          300: glass(0.18), 200: glass(0.12), 100: glass(0.07), 50: glass(0.05),
+          900: v("ink-900"), 800: v("ink-800"), 700: v("ink-700"), 600: v("ink-600"), 500: v("ink-500"), 400: v("ink-400"),
+          300: v("ink-300"), 200: v("ink-200"), 100: v("ink-100"), 50: v("ink-50"),
         },
-        // Signal coral is the brand/primary accent.
         brand: {
-          50: tint("224,82,78", 0.10), 100: tint("224,82,78", 0.18), 200: tint("224,82,78", 0.32), 300: "#f08a86", 400: "#e86d69",
-          500: "#e0524e", 600: "#cf4743", 700: "#f4a3a0", 800: "#f7bcb9", 900: "#fbd9d7",
+          50: v("brand-50"), 100: v("brand-100"), 200: v("brand-200"), 300: v("brand-300"), 400: v("brand-400"),
+          500: v("brand-500"), 600: v("brand-600"), 700: v("brand-700"), 800: v("brand-800"), 900: v("brand-900"),
         },
-        // Expanded accent palette (imagery hues used sparingly for state).
         ember: "#e89a45",
         crimson: "#ff3b4e",
         orchid: "#c86bd9",
         cyan: { DEFAULT: "#59d8e6", 400: "#59d8e6", 500: "#59d8e6" },
         mint: "#6fd3a5",
         success: "#6fd3a5",
-        // Remap Tailwind status palettes so existing badge/tone classes read well on dark glass.
-        green: { 50: tint("111,211,165", 0.14), 100: tint("111,211,165", 0.22), 200: tint("111,211,165", 0.35), 400: "#6fd3a5", 500: "#6fd3a5", 600: "#8fe0bb", 700: "#a9e9cb", 800: "#c4f1dc" },
-        amber: { 50: tint("232,154,69", 0.14), 100: tint("232,154,69", 0.22), 200: tint("232,154,69", 0.35), 400: "#e89a45", 500: "#e89a45", 600: "#f0b46f", 700: "#f4c690", 800: "#f8d9b3" },
-        orange: { 50: tint("232,154,69", 0.14), 100: tint("232,154,69", 0.22), 500: "#e89a45", 600: "#f0b46f" },
-        red: { 50: tint("255,59,78", 0.14), 100: tint("255,59,78", 0.22), 200: tint("255,59,78", 0.35), 500: "#ff3b4e", 600: "#ff6b7a", 700: "#ff8f9a", 800: "#ffb3bb" },
-        sky: { 50: tint("89,216,230", 0.14), 100: tint("89,216,230", 0.22), 500: "#59d8e6", 600: "#59d8e6", 700: "#8ae4ee", 800: "#b0edf4" },
-        pink: { 50: tint("200,107,217", 0.14), 100: tint("200,107,217", 0.22), 500: "#c86bd9", 600: "#d58ae2", 700: "#e0a6ea" },
-        purple: { 50: tint("200,107,217", 0.14), 500: "#c86bd9", 600: "#d58ae2" },
+        green: { 50: v("green-50"), 100: v("green-100"), 200: v("green-200"), 400: "#6fd3a5", 500: "#6fd3a5", 600: v("green-fg"), 700: v("green-fg"), 800: v("green-fg") },
+        amber: { 50: v("amber-50"), 100: v("amber-100"), 200: v("amber-200"), 400: "#e89a45", 500: "#e89a45", 600: v("amber-fg"), 700: v("amber-fg"), 800: v("amber-fg") },
+        orange: { 50: v("amber-50"), 100: v("amber-100"), 500: "#e89a45", 600: v("amber-fg") },
+        red: { 50: v("red-50"), 100: v("red-100"), 200: v("red-200"), 500: "#ff3b4e", 600: v("red-fg"), 700: v("red-fg"), 800: v("red-fg") },
+        sky: { 50: v("sky-50"), 100: v("sky-100"), 500: "#59d8e6", 600: v("sky-fg"), 700: v("sky-fg"), 800: v("sky-fg") },
+        pink: { 50: v("pink-50"), 100: v("pink-100"), 500: "#c86bd9", 600: v("pink-fg"), 700: v("pink-fg") },
+        purple: { 50: v("pink-50"), 500: "#c86bd9", 600: v("pink-fg") },
       },
       boxShadow: {
-        card: "inset 0 1px 0 rgba(255,255,255,0.10), 0 18px 48px rgba(5,6,12,0.50)",
-        pop: "inset 0 1px 0 rgba(255,255,255,0.12), 0 24px 64px rgba(5,6,12,0.65)",
-        glow: "0 0 24px rgba(224,82,78,0.35)",
+        card: "var(--sh-card)",
+        pop: "var(--sh-pop)",
+        glow: "0 0 24px rgba(89,216,230,0.35)",
       },
       // Square corners everywhere except `rounded-full`, which is reserved for badges, tags, dots and toggles.
       borderRadius: { none: "0", sm: "0", DEFAULT: "0", md: "0", lg: "0", xl: "0", "2xl": "0", "3xl": "0", xl2: "0", card: "0", row: "0", full: "9999px" },

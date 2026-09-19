@@ -18,7 +18,7 @@ function DraggableMedia({ asset }: { asset: MediaAsset }) {
       {...attributes}
       type="button"
       style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.4 : 1 }}
-      className="relative aspect-square cursor-grab overflow-hidden rounded-lg border border-ink-200 bg-ink-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+      className="relative aspect-square cursor-grab overflow-hidden rounded-lg border border-ink-200 bg-ink-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
       aria-label={`Drag ${asset.filename} onto the calendar to schedule it`}
     >
       {asset.thumbnailUrl || asset.url ? (
@@ -49,7 +49,7 @@ function DraggableDraft({ post }: { post: Post }) {
       role="button"
       tabIndex={0}
       style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.4 : 1 }}
-      className="cursor-grab rounded-lg border border-ink-200 bg-glass p-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+      className="cursor-grab rounded-lg border border-ink-200 bg-glass p-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
       aria-label={`Drag draft "${post.title.trim() || excerpt}" onto the calendar to schedule it`}
     >
       <p className="truncate text-xs font-semibold text-ink-800">{post.title.trim() || "Untitled draft"}</p>

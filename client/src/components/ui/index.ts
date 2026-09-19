@@ -10,3 +10,4 @@ export * from "./Tabs";
 export * from "./TimeScroller";
 export * from "./OrgLogo";
 export * from "./Portal";
+export * from "./Wordmark";

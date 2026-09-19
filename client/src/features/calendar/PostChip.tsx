@@ -39,7 +39,7 @@ export function PostChip({ post, onClick, compact, dragDisabled, className }: Po
         opacity: isDragging ? 0.4 : 1,
       }}
       className={cn(
-        "w-full cursor-grab rounded-md border-l-[3px] bg-glass px-1.5 py-1 text-left shadow-sm ring-1 ring-ink-100 transition hover:ring-ink-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40",
+        "w-full cursor-grab rounded-md border-l-[3px] bg-glass px-1.5 py-1 text-left shadow-sm ring-1 ring-ink-100 transition hover:ring-ink-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-200",
         compact ? "text-[11px]" : "text-xs",
         className,
       )}

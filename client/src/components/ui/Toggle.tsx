@@ -23,7 +23,7 @@ export function Toggle({ checked, onChange, disabled, size = "md", label, classN
       disabled={disabled}
       onClick={(e) => { e.stopPropagation(); onChange(!checked); }}
       className={cn(
-        "relative inline-flex shrink-0 items-center rounded-full p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40",
+        "relative inline-flex shrink-0 items-center rounded-full p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-200",
         w, checked ? "bg-success" : "bg-ink-300", disabled && "opacity-50 cursor-not-allowed", className,
       )}
     >

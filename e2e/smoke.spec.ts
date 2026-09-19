@@ -7,7 +7,7 @@ async function gotoApp(page: Page, path = "/") {
   await expect(page.getByTestId("org-switcher")).toBeVisible();
 }
 
-test.describe("Pulse smoke", () => {
+test.describe("suprstar smoke", () => {
   test("API health and seeded organizations", async ({ request }) => {
     const health = await request.get("http://localhost:4000/api/health");
     expect(health.ok()).toBeTruthy();

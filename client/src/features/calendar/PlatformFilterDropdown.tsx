@@ -45,7 +45,7 @@ export function PlatformFilterDropdown({ active, onToggle, onSetAll }: PlatformF
         aria-label="Filter by platform"
         data-testid="platform-filter"
         onClick={() => setOpen((o) => !o)}
-        className={cn("inline-flex h-9 items-center gap-2 border bg-glass px-3 text-sm font-medium text-ink-700 transition-colors hover:border-ink-300", open ? "border-brand-400 ring-2 ring-brand-500/20" : "border-ink-200", !allSelected && "border-brand-300 text-brand-700")}
+        className={cn("inline-flex h-9 items-center gap-2 border bg-glass px-3 text-sm font-medium text-ink-700 transition-colors hover:border-ink-300", open ? "border-brand-400 ring-2 ring-brand-200" : "border-ink-200", !allSelected && "border-brand-300 text-brand-700")}
       >
         <Filter className="h-4 w-4 text-ink-400" />
         <span className="flex -space-x-1">

@@ -238,10 +238,10 @@ export function AnalyticsPage() {
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={impressionsPivot}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.08)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#7a7987" }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: "#7a7987" }} axisLine={false} tickLine={false} tickFormatter={(v) => compactNumber(v)} />
-                    <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(20,22,31,0.94)", color: "#f0eef3", boxShadow: "0 18px 48px rgba(5,6,12,0.5)", fontSize: 12 }} itemStyle={{ color: "#f0eef3" }} labelStyle={{ color: "#a5a3b2" }} formatter={(v) => compactNumber(Number(v))} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--chart-grid)" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: "var(--chart-tick)" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: "var(--chart-tick)" }} axisLine={false} tickLine={false} tickFormatter={(v) => compactNumber(v)} />
+                    <Tooltip contentStyle={{ borderRadius: 0, border: "1px solid var(--c-edge-strong)", background: "var(--c-glass-menu)", color: "var(--c-ink-900)", boxShadow: "var(--sh-pop)", fontSize: 12 }} itemStyle={{ color: "var(--c-ink-900)" }} labelStyle={{ color: "var(--c-ink-500)" }} formatter={(v) => compactNumber(Number(v))} />
                     {activePlatforms.map((p) => (
                       <Area key={p} type="monotone" dataKey={p} stackId="impressions" stroke={platformColor(p)} fill={platformColor(p)} fillOpacity={0.15} strokeWidth={1.75} name={PLATFORM_SPECS[p].name} />
                     ))}
@@ -258,10 +258,10 @@ export function AnalyticsPage() {
                 <div className="h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={engagementByPlatform} layout="vertical" margin={{ left: 8 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.08)" />
-                      <XAxis type="number" tick={{ fontSize: 11, fill: "#7a7987" }} axisLine={false} tickLine={false} tickFormatter={(v) => compactNumber(v)} />
-                      <YAxis type="category" dataKey="platform" tick={{ fontSize: 11, fill: "#c9c7d4" }} axisLine={false} tickLine={false} tickFormatter={(p: Platform) => PLATFORM_SPECS[p].name} width={70} />
-                      <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(20,22,31,0.94)", color: "#f0eef3", boxShadow: "0 18px 48px rgba(5,6,12,0.5)", fontSize: 12 }} itemStyle={{ color: "#f0eef3" }} labelStyle={{ color: "#a5a3b2" }} formatter={(v) => compactNumber(Number(v))} />
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--chart-grid)" />
+                      <XAxis type="number" tick={{ fontSize: 11, fill: "var(--chart-tick)" }} axisLine={false} tickLine={false} tickFormatter={(v) => compactNumber(v)} />
+                      <YAxis type="category" dataKey="platform" tick={{ fontSize: 11, fill: "var(--c-ink-700)" }} axisLine={false} tickLine={false} tickFormatter={(p: Platform) => PLATFORM_SPECS[p].name} width={70} />
+                      <Tooltip contentStyle={{ borderRadius: 0, border: "1px solid var(--c-edge-strong)", background: "var(--c-glass-menu)", color: "var(--c-ink-900)", boxShadow: "var(--sh-pop)", fontSize: 12 }} itemStyle={{ color: "var(--c-ink-900)" }} labelStyle={{ color: "var(--c-ink-500)" }} formatter={(v) => compactNumber(Number(v))} />
                       <Bar dataKey="engagement" radius={[0, 6, 6, 0]}>
                         {engagementByPlatform.map((row) => <Cell key={row.platform} fill={platformColor(row.platform)} />)}
                       </Bar>
@@ -277,10 +277,10 @@ export function AnalyticsPage() {
                 <div className="h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={followersPivot}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.08)" />
-                      <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#7a7987" }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 11, fill: "#7a7987" }} axisLine={false} tickLine={false} tickFormatter={(v) => compactNumber(v)} />
-                      <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(20,22,31,0.94)", color: "#f0eef3", boxShadow: "0 18px 48px rgba(5,6,12,0.5)", fontSize: 12 }} itemStyle={{ color: "#f0eef3" }} labelStyle={{ color: "#a5a3b2" }} formatter={(v) => compactNumber(Number(v))} />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--chart-grid)" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11, fill: "var(--chart-tick)" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11, fill: "var(--chart-tick)" }} axisLine={false} tickLine={false} tickFormatter={(v) => compactNumber(v)} />
+                      <Tooltip contentStyle={{ borderRadius: 0, border: "1px solid var(--c-edge-strong)", background: "var(--c-glass-menu)", color: "var(--c-ink-900)", boxShadow: "var(--sh-pop)", fontSize: 12 }} itemStyle={{ color: "var(--c-ink-900)" }} labelStyle={{ color: "var(--c-ink-500)" }} formatter={(v) => compactNumber(Number(v))} />
                       {activePlatforms.map((p) => (
                         <Line key={p} type="monotone" dataKey={p} stroke={platformColor(p)} strokeWidth={1.75} dot={false} name={PLATFORM_SPECS[p].name} />
                       ))}

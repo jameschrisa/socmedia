@@ -49,7 +49,7 @@ function CheckboxRow({ label, checked, onChange, id }: { label: string; checked:
   return (
     <label htmlFor={id} className="flex items-center justify-between gap-3 rounded-lg border border-ink-100 px-3 py-2 text-sm cursor-pointer hover:bg-ink-50">
       <span className="text-ink-700">{label}</span>
-      <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500/40" />
+      <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-200" />
     </label>
   );
 }

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import type { Organization, OrganizationInput } from "@socmedia/shared";
-import { Badge, Button, Card, Modal, OrgLogo, SectionTitle } from "@/components/ui";
+import { Badge, Button, Card, Modal, OrgLogo, SectionTitle, SegmentedTabs } from "@/components/ui";
+import { useAppStore, type ThemePref } from "@/store/appStore";
 import { useOrgMutations, useOrgs } from "@/hooks/useOrg";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -110,7 +111,7 @@ export function SettingsPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-ink-900">Settings</h1>
-        <p className="mt-1 text-sm text-ink-500">Manage organizations and review how Pulse publishes on your behalf.</p>
+        <p className="mt-1 text-sm text-ink-500">Manage organizations and review how suprstar publishes on your behalf.</p>
       </div>
 
       <section className="space-y-3">
@@ -144,6 +145,11 @@ export function SettingsPage() {
       <section className="space-y-3">
         <SectionTitle>AI providers</SectionTitle>
         <AiProviderSettings />
+      </section>
+
+      <section className="space-y-3">
+        <SectionTitle>Appearance</SectionTitle>
+        <AppearanceCard />
       </section>
 
       <section className="space-y-3">
@@ -204,5 +210,24 @@ export function SettingsPage() {
         <p className="text-sm text-ink-500">Connections, media and posts for this organization will be permanently deleted.</p>
       </Modal>
     </div>
+  );
+}
+
+function AppearanceCard() {
+  const theme = useAppStore((s) => s.theme);
+  const setTheme = useAppStore((s) => s.setTheme);
+  return (
+    <Card className="p-5 flex flex-wrap items-center justify-between gap-4" data-testid="appearance-card">
+      <div>
+        <h3 className="text-sm font-semibold text-ink-900">Theme</h3>
+        <p className="mt-1 text-sm text-ink-500">Dark glass is the default. Light mode keeps the same frosted panels on a pale ground. System follows your OS setting.</p>
+      </div>
+      <SegmentedTabs<ThemePref>
+        size="md"
+        value={theme}
+        onChange={setTheme}
+        items={[{ id: "dark", label: "Dark" }, { id: "light", label: "Light" }, { id: "system", label: "System" }]}
+      />
+    </Card>
   );
 }
