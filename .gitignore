@@ -1,0 +1,10 @@
+node_modules
+dist
+*.log
+.env
+# runtime database + user uploads (any workspace)
+data/
+**/data/
+test-results
+playwright-report
+.DS_Store
