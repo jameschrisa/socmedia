@@ -123,7 +123,7 @@ export function ImageEditor({ asset, initialFormat, allowedFormats, onExport, on
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" onClick={handleExport} data-testid="editor-export">Save export</Button>
+          <Button variant="primary" onClick={handleExport} data-testid="editor-export">Save changes</Button>
         </>
       }
     >
