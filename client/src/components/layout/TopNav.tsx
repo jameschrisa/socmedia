@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Sparkles, Plus, Sun, Moon, Monitor } from "lucide-react";
 import { OrgSwitcher } from "./OrgSwitcher";
-import { Button, Wordmark } from "@/components/ui";
+import { Button, SparkMark, Wordmark } from "@/components/ui";
 import { useAppStore } from "@/store/appStore";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +17,8 @@ const tabs = [
 
 export function Logo() {
   return (
-    <div className="flex items-center">
+    <div className="flex items-center gap-2">
+      <SparkMark size={24} />
       <Wordmark />
     </div>
   );
