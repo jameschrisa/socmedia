@@ -63,4 +63,4 @@ Environment: `PORT`, `DATA_DIR`, `SECRET_KEY` (encrypts stored credentials), `CL
 
 ### Client (Vercel)
 
-Import the repo and leave **Root Directory** at the repository root: the root `vercel.json` installs the workspaces, builds the client and publishes `client/dist`, with the SPA fallback and cache headers. (If you prefer Root Directory `client`, `client/vercel.json` provides the same settings for the Vite preset.) Replace `YOUR-API-HOST` in the rewrites with your API domain so `/api` and `/uploads` proxy to the server.
+Import the repo and leave **Root Directory** at the repository root: the root `vercel.json` installs the workspaces, builds the client and publishes `client/dist`, with the SPA fallback and cache headers. (If you prefer Root Directory `client`, `client/vercel.json` provides the same settings for the Vite preset.) The rewrites proxy `/api` and `/uploads` to the Render service `pulse-api-e3q3.onrender.com`; change them if the API moves.
