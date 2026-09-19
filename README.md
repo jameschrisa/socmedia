@@ -61,4 +61,4 @@ Environment: `PORT`, `DATA_DIR`, `SECRET_KEY` (encrypts stored credentials), `CL
 
 ### Client (Vercel)
 
-Import the repo with **Root directory** `client` and the **Vite** preset; `client/vercel.json` supplies the build settings, SPA fallback and cache headers. Replace `YOUR-API-HOST` in its rewrites with your API domain so `/api` and `/uploads` proxy to the server.
+Import the repo and leave **Root Directory** at the repository root: the root `vercel.json` installs the workspaces, builds the client and publishes `client/dist`, with the SPA fallback and cache headers. (If you prefer Root Directory `client`, `client/vercel.json` provides the same settings for the Vite preset.) Replace `YOUR-API-HOST` in the rewrites with your API domain so `/api` and `/uploads` proxy to the server.
