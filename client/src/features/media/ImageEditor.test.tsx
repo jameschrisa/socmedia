@@ -23,7 +23,7 @@ vi.mock("react-konva", async () => {
 vi.mock("use-image", () => ({ default: () => [undefined, "loading"] }));
 
 vi.mock("konva", () => ({
-  default: { Filters: { Brighten: vi.fn(), Contrast: vi.fn(), HSL: vi.fn(), Blur: vi.fn() } },
+  default: { Filters: { Brighten: vi.fn(), Contrast: vi.fn(), HSL: vi.fn(), Blur: vi.fn(), Grayscale: vi.fn(), Sepia: vi.fn(), Noise: vi.fn() } },
 }));
 
 const asset: MediaAsset = {
@@ -140,5 +140,20 @@ describe("ImageEditor", () => {
     expect((screen.getByLabelText("Badge text colour") as HTMLInputElement).value).toBe("#000000");
     fireEvent.change(screen.getByLabelText("Badge corner"), { target: { value: "bottom-right" } });
     expect((screen.getByLabelText("Badge corner") as HTMLSelectElement).value).toBe("bottom-right");
+  });
+
+  it("applies a filter preset and exposes its sliders for fine-tuning", () => {
+    renderWithProviders(<ImageEditor asset={asset} initialFormat="square" onExport={vi.fn()} onClose={vi.fn()} />);
+    const list = screen.getByRole("listbox", { name: "Filter presets" });
+    expect(list.querySelectorAll("[role=option]").length).toBeGreaterThanOrEqual(10);
+    fireEvent.click(screen.getByTestId("filter-polaroid"));
+    expect(screen.getByTestId("filter-polaroid")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByLabelText("Tint colour")).toBeInTheDocument();
+    const fade = screen.getByLabelText(/^Fade/) as HTMLInputElement;
+    expect(Number(fade.value)).toBeGreaterThan(0);
+    fireEvent.click(screen.getByTestId("filter-noir"));
+    expect(screen.queryByLabelText("Tint colour")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Reset"));
+    expect(screen.getByTestId("filter-none")).toHaveAttribute("aria-selected", "true");
   });
 });

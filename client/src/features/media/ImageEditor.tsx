@@ -12,6 +12,7 @@ import { useOrgs } from "@/hooks/useOrg";
 import { cn } from "@/lib/utils";
 import { useImageEditor } from "./useImageEditor";
 import { FontPicker } from "./FontPicker";
+import { FILTER_PRESETS, adjustmentsForPreset, cssFilterFor, cssTintFor, matchingPreset } from "./filterPresets";
 import { MediaPicker } from "./MediaPicker";
 import { useMedia } from "@/hooks/useMedia";
 import { toast } from "sonner";
@@ -53,7 +54,7 @@ export function ImageEditor({ asset, initialFormat, allowedFormats, onExport, on
       /* jsdom / mocked konva */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor.image, editor.displaySize.width, editor.displaySize.height, adj.brightness, adj.contrast, adj.saturation, adj.blur]);
+  }, [editor.image, editor.displaySize.width, editor.displaySize.height, adj.brightness, adj.contrast, adj.saturation, adj.blur, adj.hue, adj.sepia, adj.grayscale, adj.noise]);
 
   // Load any self-hosted font faces used by text layers before Konva draws them, then redraw.
   const usedFonts = editor.textLayers.map((t) => t.fontFamily).join("|");
@@ -176,11 +177,35 @@ export function ImageEditor({ asset, initialFormat, allowedFormats, onExport, on
                     rotation={editor.rotation}
                     draggable
                     onDragMove={(e: any) => editor.onDragMove({ x: e.target.x(), y: e.target.y() })}
-                    filters={[Konva.Filters.Brighten, Konva.Filters.Contrast, Konva.Filters.HSL, Konva.Filters.Blur]}
+                    filters={[
+                      Konva.Filters.Brighten, Konva.Filters.Contrast, Konva.Filters.HSL, Konva.Filters.Blur,
+                      ...(adj.grayscale ? [Konva.Filters.Grayscale] : []),
+                      ...(adj.sepia ? [Konva.Filters.Sepia] : []),
+                      ...(adj.noise > 0 ? [Konva.Filters.Noise] : []),
+                    ]}
+                    hue={adj.hue}
+                    noise={adj.noise}
                     brightness={editor.adjustments.brightness}
                     contrast={editor.adjustments.contrast}
                     saturation={editor.adjustments.saturation}
                     blurRadius={editor.adjustments.blur}
+                  />
+                )}
+                {/* look overlays: tint, matte fade, vignette (exported with the image) */}
+                {adj.tint && (
+                  <Rect x={0} y={0} width={editor.stageSize.width} height={editor.stageSize.height} fill={adj.tint.color} opacity={adj.tint.alpha} globalCompositeOperation={adj.tint.blend} listening={false} />
+                )}
+                {adj.fade > 0 && (
+                  <Rect x={0} y={0} width={editor.stageSize.width} height={editor.stageSize.height} fill="#e9e4dc" opacity={adj.fade * 0.32} globalCompositeOperation="lighten" listening={false} />
+                )}
+                {adj.vignette > 0 && (
+                  <Rect
+                    x={0} y={0} width={editor.stageSize.width} height={editor.stageSize.height} listening={false}
+                    fillRadialGradientStartPoint={{ x: editor.stageSize.width / 2, y: editor.stageSize.height / 2 }}
+                    fillRadialGradientEndPoint={{ x: editor.stageSize.width / 2, y: editor.stageSize.height / 2 }}
+                    fillRadialGradientStartRadius={Math.min(editor.stageSize.width, editor.stageSize.height) * 0.35}
+                    fillRadialGradientEndRadius={Math.max(editor.stageSize.width, editor.stageSize.height) * 0.75}
+                    fillRadialGradientColorStops={[0, "rgba(0,0,0,0)", 1, `rgba(0,0,0,${(adj.vignette * 0.8).toFixed(3)})`]}
                   />
                 )}
                 {/* dim overlay outside the crop frame */}
@@ -259,12 +284,53 @@ export function ImageEditor({ asset, initialFormat, allowedFormats, onExport, on
 
         {/* Right: adjustments, text, badge */}
         <div className="space-y-5">
+          <div data-testid="filters-panel">
+            <h3 className="mb-2 text-sm font-semibold text-ink-900">Filters</h3>
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin" role="listbox" aria-label="Filter presets">
+              {FILTER_PRESETS.map((preset) => {
+                const active = (matchingPreset(adj) ?? "custom") === preset.key || (preset.key === "none" && matchingPreset(adj) === null && JSON.stringify(adj) === JSON.stringify(adjustmentsForPreset("none")));
+                const tint = cssTintFor(preset.look);
+                return (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    title={preset.description}
+                    data-testid={`filter-${preset.key}`}
+                    onClick={() => editor.applyLook(adjustmentsForPreset(preset.key))}
+                    className={cn("group flex w-[68px] shrink-0 flex-col items-center gap-1 text-[10px] text-ink-600 transition", active ? "text-ink-900" : "hover:text-ink-900")}
+                  >
+                    <span className={cn("relative block h-12 w-full overflow-hidden border", active ? "border-brand-500 ring-2 ring-brand-200" : "border-ink-200")}>
+                      <img src={asset.thumbnailUrl ?? asset.url} alt="" className="h-full w-full object-cover" style={{ filter: cssFilterFor(preset.look) }} draggable={false} />
+                      {tint && <span aria-hidden className="absolute inset-0" style={{ background: tint.background, mixBlendMode: tint.mixBlendMode }} />}
+                      {(preset.look.vignette ?? 0) > 0.3 && <span aria-hidden className="absolute inset-0" style={{ background: "radial-gradient(circle at 50% 50%, transparent 45%, rgba(0,0,0,0.55) 100%)" }} />}
+                    </span>
+                    <span className="truncate w-full text-center">{preset.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div>
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-ink-900">Adjustments</h3>
               <button type="button" className="link text-xs" onClick={editor.resetAdjustments}>Reset</button>
             </div>
             <div className="space-y-2.5">
+              <SliderField label="Hue" min={-180} max={180} step={5} value={adj.hue} onChange={(v) => editor.setAdjustments((a) => ({ ...a, hue: v }))} />
+              <SliderField label="Fade" min={0} max={100} step={5} value={Math.round(adj.fade * 100)} onChange={(v) => editor.setAdjustments((a) => ({ ...a, fade: v / 100 }))} />
+              <SliderField label="Vignette" min={0} max={100} step={5} value={Math.round(adj.vignette * 100)} onChange={(v) => editor.setAdjustments((a) => ({ ...a, vignette: v / 100 }))} />
+              <SliderField label="Grain" min={0} max={100} step={5} value={Math.round(adj.noise * 100)} onChange={(v) => editor.setAdjustments((a) => ({ ...a, noise: v / 100 }))} />
+              {adj.tint && (
+                <label className="flex items-center gap-2 text-xs text-ink-600">
+                  <span className="w-20 shrink-0">Tint</span>
+                  <input type="color" aria-label="Tint colour" value={adj.tint.color} onChange={(e) => editor.setAdjustments((a) => ({ ...a, tint: a.tint ? { ...a.tint, color: e.target.value } : null }))} />
+                  <input type="range" aria-label="Tint strength" min={0} max={60} step={2} className="flex-1" value={Math.round(adj.tint.alpha * 100)} onChange={(e) => editor.setAdjustments((a) => ({ ...a, tint: a.tint ? { ...a.tint, alpha: Number(e.target.value) / 100 } : null }))} />
+                  <button type="button" className="link" onClick={() => editor.setAdjustments((a) => ({ ...a, tint: null }))}>Remove</button>
+                </label>
+              )}
               <SliderField label="Brightness" min={-1} max={1} step={0.05} value={editor.adjustments.brightness} onChange={(v) => editor.setAdjustments((a) => ({ ...a, brightness: v }))} />
               <SliderField label="Contrast" min={-100} max={100} step={5} value={editor.adjustments.contrast} onChange={(v) => editor.setAdjustments((a) => ({ ...a, contrast: v }))} />
               <SliderField label="Saturation" min={-2} max={2} step={0.1} value={editor.adjustments.saturation} onChange={(v) => editor.setAdjustments((a) => ({ ...a, saturation: v }))} />

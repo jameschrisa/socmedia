@@ -17,7 +17,7 @@ vi.mock("react-konva", () => ({
   Group: ({ children }: any) => <>{children}</>,
 }));
 vi.mock("use-image", () => ({ default: () => [undefined, "loading"] }));
-vi.mock("konva", () => ({ default: { Filters: { Brighten: vi.fn(), Contrast: vi.fn(), HSL: vi.fn(), Blur: vi.fn() } } }));
+vi.mock("konva", () => ({ default: { Filters: { Brighten: vi.fn(), Contrast: vi.fn(), HSL: vi.fn(), Blur: vi.fn(), Grayscale: vi.fn(), Sepia: vi.fn(), Noise: vi.fn() } } }));
 
 function connection(platform: Platform, overrides: Partial<PlatformConnection> = {}): PlatformConnection {
   return {

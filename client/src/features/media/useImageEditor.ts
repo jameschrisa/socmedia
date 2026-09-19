@@ -45,9 +45,16 @@ export interface Adjustments {
   contrast: number; // -100..100
   saturation: number; // -2..2
   blur: number; // 0..20 (px radius)
+  hue: number; // -180..180 degrees
+  sepia: 0 | 1;
+  grayscale: 0 | 1;
+  noise: number; // 0..1 film grain
+  vignette: number; // 0..1 darkened corners
+  fade: number; // 0..1 lifted blacks (matte)
+  tint: { color: string; alpha: number; blend: "multiply" | "screen" | "soft-light" | "overlay" } | null;
 }
 
-export const DEFAULT_ADJUSTMENTS: Adjustments = { brightness: 0, contrast: 0, saturation: 0, blur: 0 };
+export const DEFAULT_ADJUSTMENTS: Adjustments = { brightness: 0, contrast: 0, saturation: 0, blur: 0, hue: 0, sepia: 0, grayscale: 0, noise: 0, vignette: 0, fade: 0, tint: null };
 
 const STAGE_MAX = 520;
 
@@ -124,6 +131,8 @@ export function useImageEditor(imageUrl: string, initialFormat: PostFormat, allo
   const onDragMove = (pos: Point) => setPosition(clampPosition(pos, displaySize, frame));
 
   const resetAdjustments = () => setAdjustments(DEFAULT_ADJUSTMENTS);
+  /** Replace all adjustments with a named look from filterPresets. */
+  const applyLook = (next: Adjustments) => setAdjustments(next);
   const resetTransform = () => {
     setZoomState(1);
     setRotationStep(0);
@@ -213,6 +222,7 @@ export function useImageEditor(imageUrl: string, initialFormat: PostFormat, allo
     adjustments,
     setAdjustments,
     resetAdjustments,
+    applyLook,
     resetTransform,
     textLayers,
     addTextLayer,
