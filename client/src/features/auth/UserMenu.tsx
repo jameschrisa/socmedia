@@ -1,11 +1,11 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { KeyRound, LogOut, Users as UsersIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth, useAuthMutations } from "@/hooks/useAuth";
 import { Badge, Button, Field, Input, Modal, Portal, useAnchorPosition } from "@/components/ui";
-import { cn, initials } from "@/lib/utils";
+import { initials } from "@/lib/utils";
 
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : "Something went wrong";
@@ -43,7 +43,7 @@ function ChangePasswordModal({ open, onClose }: { open: boolean; onClose: () => 
         <Field label="New password" htmlFor="menu-new-password" hint="At least 8 characters.">
           <Input id="menu-new-password" type="password" autoComplete="new-password" minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
         </Field>
-        {changePassword.isError && <p className="text-sm text-red-600" role="alert">{errorMessage(changePassword.error)}</p>}
+        {changePassword.isError && <p className="notice-danger" role="alert">{errorMessage(changePassword.error)}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="ghost" onClick={close}>Cancel</Button>
           <Button type="submit" loading={changePassword.isPending} disabled={!valid}>Update password</Button>
@@ -60,19 +60,45 @@ export function UserMenu() {
   const [open, setOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const MENU_W = 240;
   const pos = useAnchorPosition(triggerRef, open, { align: "right", offset: 8, width: MENU_W });
+
+  // The menu lives in a portal, so Tab from the trigger would skip it. Move focus into the
+  // first item on open, and hand it back to the trigger on close.
+  useEffect(() => {
+    if (!open) return;
+    const first = menuRef.current?.querySelector<HTMLElement>("[data-menu-item]");
+    first?.focus();
+    return () => {
+      // Only reclaim focus when nothing else took it (e.g. the change-password modal autofocusing its input).
+      if (document.activeElement === document.body || document.activeElement === null) triggerRef.current?.focus();
+    };
+  }, [open]);
 
   // Only mount once a user is actually loaded, so pages/tests that never stub
   // /auth/me (treated as signed out) render a normal header without this control.
   if (!user) return null;
 
+  const close = () => setOpen(false);
+
   const doLogout = () => {
-    setOpen(false);
+    close();
     logout.mutate(undefined, {
       onError: (e) => toast.error(errorMessage(e)),
     });
+  };
+
+  const onMenuKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>("[data-menu-item]") ?? []);
+    const idx = items.indexOf(document.activeElement as HTMLElement);
+    if (e.key === "Escape") { e.preventDefault(); close(); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); items[(idx + 1) % items.length]?.focus(); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); items[(idx - 1 + items.length) % items.length]?.focus(); return; }
+    if (e.key === "Home") { e.preventDefault(); items[0]?.focus(); return; }
+    if (e.key === "End") { e.preventDefault(); items[items.length - 1]?.focus(); return; }
+    if (e.key === "Tab") close();
   };
 
   return (
@@ -81,11 +107,13 @@ export function UserMenu() {
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
+        onKeyDown={(e) => { if (e.key === "ArrowDown" && !open) { e.preventDefault(); setOpen(true); } }}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Account menu for ${user.name}`}
+        title={`${user.name} (${user.role})`}
         data-testid="user-menu-trigger"
-        className="flex h-8 w-8 shrink-0 items-center justify-center bg-brand-500 text-[11px] font-bold text-[color:var(--c-on-brand)] hover:bg-brand-600"
+        className="focus-ring flex h-8 w-8 shrink-0 items-center justify-center bg-brand-500 text-[11px] font-bold text-[color:var(--c-on-brand)] hover:bg-brand-600"
       >
         {initials(user.name)}
       </button>
@@ -94,8 +122,12 @@ export function UserMenu() {
         <AnimatePresence>
           {open && (
             <>
-              <div className="fixed inset-0 z-[90]" onClick={() => setOpen(false)} />
+              <div className="fixed inset-0 z-[90]" onClick={close} />
               <motion.div
+                ref={menuRef}
+                role="group"
+                aria-label="Account"
+                onKeyDown={onMenuKeyDown}
                 initial={{ opacity: 0, y: -4, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -4, scale: 0.98 }}
                 transition={{ duration: 0.15 }}
                 style={{ position: "fixed", top: pos.top, left: pos.left, width: MENU_W }}
@@ -104,31 +136,19 @@ export function UserMenu() {
               >
                 <div className="px-2.5 py-2">
                   <p className="truncate text-sm font-semibold text-ink-900">{user.name}</p>
-                  <p className="truncate text-xs text-ink-500">{user.email}</p>
+                  <p className="truncate text-xs text-ink-500" title={user.email}>{user.email}</p>
                   <Badge tone={ROLE_TONE[user.role]} className="mt-1.5">{user.role}</Badge>
                 </div>
-                <div className={cn("border-t border-ink-100 pt-1")}>
-                  <button
-                    type="button"
-                    onClick={() => { setOpen(false); setPwOpen(true); }}
-                    className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-sm text-ink-700 hover:bg-ink-50"
-                  >
+                <div className="border-t border-ink-100 pt-1">
+                  <button type="button" data-menu-item onClick={() => { close(); setPwOpen(true); }} className="menu-item">
                     <KeyRound className="h-4 w-4" /> Change password
                   </button>
                   {can.manageUsers && (
-                    <button
-                      type="button"
-                      onClick={() => { setOpen(false); navigate("/settings#users"); }}
-                      className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-sm text-ink-700 hover:bg-ink-50"
-                    >
-                      <UsersIcon className="h-4 w-4" /> Users
+                    <button type="button" data-menu-item onClick={() => { close(); navigate("/settings#users"); }} className="menu-item">
+                      <UsersIcon className="h-4 w-4" /> Users &amp; access
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={doLogout}
-                    className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                  >
+                  <button type="button" data-menu-item onClick={doLogout} className="menu-item text-red-600 hover:bg-red-50 focus-visible:bg-red-50">
                     <LogOut className="h-4 w-4" /> Sign out
                   </button>
                 </div>

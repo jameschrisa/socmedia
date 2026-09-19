@@ -3,7 +3,13 @@ import { Copy, Film, ImagePlus, Pencil, Play, Scissors, Trash2 } from "lucide-re
 import { FORMAT_SPECS, type MediaAsset } from "@socmedia/shared";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
-import { formatTimecode } from "./videoMath";
+
+/** Library cards show whole seconds; tenths only matter inside the editor. */
+function formatDuration(seconds: number): string {
+  const total = Math.round(Math.max(0, seconds));
+  const minutes = Math.floor(total / 60);
+  return `${minutes}:${String(total % 60).padStart(2, "0")}`;
+}
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -42,15 +48,19 @@ export function MediaCard({
           <>
             <img src={asset.thumbnailUrl} alt={asset.filename} className="h-full w-full object-cover" />
             <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/60 text-white shadow-[0_6px_18px_rgba(5,6,12,0.45)]">
                 <Play className="h-4 w-4 translate-x-0.5" fill="currentColor" />
               </span>
             </div>
+
           </>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-ink-400">
             <Film className="h-8 w-8" />
           </div>
+        )}
+        {asset.kind === "video" && asset.durationSeconds != null && (
+          <span className="media-chip absolute bottom-2.5 right-2.5 normal-case tracking-normal tabular-nums" aria-label={`Duration ${formatDuration(asset.durationSeconds)}`}>{formatDuration(asset.durationSeconds)}</span>
         )}
         {/* top scrim so badges and controls read on bright imagery */}
         <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/70 via-black/35 to-transparent" />
@@ -109,12 +119,11 @@ export function MediaCard({
         <p className="truncate text-sm font-medium text-ink-900" title={asset.filename}>{asset.filename}</p>
         <p className="text-xs text-ink-500">
           {asset.width && asset.height ? `${asset.width}×${asset.height} · ` : ""}
-          {asset.kind === "video" && asset.durationSeconds != null ? `${formatTimecode(asset.durationSeconds)} · ` : ""}
           {formatSize(asset.size)}
         </p>
         <input
           className="input text-xs"
-          placeholder="tags, comma, separated"
+          placeholder="Add tags, comma separated"
           value={tagDraft}
           onChange={(e) => setTagDraft(e.target.value)}
           onBlur={commitTags}

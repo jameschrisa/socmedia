@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOrgs } from "@/hooks/useOrg";
 import { api } from "@/lib/api";
 import { qk } from "@/lib/queryClient";
-import { relativeTime } from "@/lib/utils";
+import { cn, relativeTime } from "@/lib/utils";
 
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : "Something went wrong";
@@ -30,7 +30,7 @@ async function copyToClipboard(value: string) {
     await navigator.clipboard.writeText(value);
     toast.success("Copied to clipboard");
   } catch {
-    toast.error("Couldn't copy — select and copy manually");
+    toast.error("Couldn't copy. Select the password and copy it manually.");
   }
 }
 
@@ -74,6 +74,11 @@ function useOrgAccessState(initial: string[] | "*") {
   return { mode, setMode, selected, toggle, value };
 }
 
+/** True when the access choice would leave the user unable to open anything. */
+function orgAccessEmpty(mode: OrgAccessMode, selected: string[]): boolean {
+  return mode === "pick" && selected.length === 0;
+}
+
 function OrgAccessField({ formId, orgs, mode, setMode, selected, toggle }: {
   formId: string;
   orgs: Organization[];
@@ -82,26 +87,30 @@ function OrgAccessField({ formId, orgs, mode, setMode, selected, toggle }: {
   selected: string[];
   toggle: (id: string, checked: boolean) => void;
 }) {
+  const empty = orgAccessEmpty(mode, selected);
   return (
-    <Field label="Organization access">
+    <Field label="Organization access" hint={mode === "all" ? "Includes organizations created later." : undefined}>
       <div className="space-y-2">
         <label className="flex items-center gap-2 text-sm text-ink-700">
-          <input type="radio" name={`${formId}-org-access`} checked={mode === "all"} onChange={() => setMode("all")} />
+          <input type="radio" className="control-accent focus-ring" name={`${formId}-org-access`} checked={mode === "all"} onChange={() => setMode("all")} />
           All organizations
         </label>
         <label className="flex items-center gap-2 text-sm text-ink-700">
-          <input type="radio" name={`${formId}-org-access`} checked={mode === "pick"} onChange={() => setMode("pick")} />
+          <input type="radio" className="control-accent focus-ring" name={`${formId}-org-access`} checked={mode === "pick"} onChange={() => setMode("pick")} />
           Specific organizations
         </label>
         {mode === "pick" && (
-          <div className="ml-6 max-h-36 space-y-1 overflow-y-auto pr-1">
-            {orgs.length === 0 && <p className="text-xs text-ink-500">No organizations yet.</p>}
-            {orgs.map((o) => (
-              <label key={o.id} className="flex items-center gap-2 text-sm text-ink-700">
-                <input type="checkbox" checked={selected.includes(o.id)} onChange={(e) => toggle(o.id, e.target.checked)} />
-                {o.name}
-              </label>
-            ))}
+          <div className="ml-6 space-y-2">
+            <div className="max-h-36 space-y-1 overflow-y-auto pr-1">
+              {orgs.length === 0 && <p className="text-xs text-ink-500">No organizations yet. Create one first, or choose All organizations.</p>}
+              {orgs.map((o) => (
+                <label key={o.id} className="flex items-center gap-2 text-sm text-ink-700">
+                  <input type="checkbox" className="control-accent focus-ring" checked={selected.includes(o.id)} onChange={(e) => toggle(o.id, e.target.checked)} />
+                  {o.name}
+                </label>
+              ))}
+            </div>
+            {empty && orgs.length > 0 && <p className="notice-warning">Pick at least one organization. With none, this user can sign in but sees nothing.</p>}
           </div>
         )}
       </div>
@@ -116,7 +125,7 @@ function PasswordField({ id, value, onChange, hint }: { id: string; value: strin
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Input id={id} type={reveal ? "text" : "password"} className="pr-9 font-mono" autoComplete="new-password" value={value} onChange={(e) => onChange(e.target.value)} />
-          <button type="button" aria-label={reveal ? "Hide password" : "Show password"} onClick={() => setReveal((r) => !r)} className="absolute right-2 top-2 text-ink-400 hover:text-ink-700">
+          <button type="button" aria-label={reveal ? "Hide password" : "Show password"} aria-pressed={reveal} onClick={() => setReveal((r) => !r)} className="focus-ring absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-ink-400 hover:text-ink-700">
             {reveal ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
@@ -130,10 +139,10 @@ function TemporaryPasswordReveal({ password, note }: { password: string; note: s
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <Input readOnly value={password} className="font-mono" aria-label="Temporary password" />
-        <Button type="button" variant="outline" icon={<Copy className="h-4 w-4" />} onClick={() => copyToClipboard(password)}>Copy</Button>
+        <Input readOnly value={password} className="font-mono" aria-label="Temporary password" onFocus={(e) => e.currentTarget.select()} />
+        <Button type="button" variant="outline" icon={<Copy className="h-4 w-4" />} onClick={() => copyToClipboard(password)} autoFocus>Copy</Button>
       </div>
-      <p className="text-xs text-amber-600">{note} It won't be shown again.</p>
+      <p className="notice-warning" role="status">{note} It won't be shown again.</p>
     </div>
   );
 }
@@ -163,7 +172,7 @@ function InviteModal({ open, orgs, iAmOwner, onClose }: InviteModalProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const valid = !!name && !!email && password.length >= 8;
+  const valid = !!name && !!email && password.length >= 8 && !orgAccessEmpty(orgAccess.mode, orgAccess.selected);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -237,7 +246,7 @@ function EditModal({ user, orgs, iAmOwner, canChangeRoleOrActive, onClose }: Edi
   }, [user?.id]);
 
   if (!user) return null;
-  const valid = !!name;
+  const valid = !!name && !orgAccessEmpty(orgAccess.mode, orgAccess.selected);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -355,39 +364,45 @@ function UserRow({ user, me, orgs, iAmOwner, onEdit, onSetPassword, onDelete }: 
   const targetIsOwner = user.role === "owner";
   const canChangeRoleOrActive = !isSelf && (!targetIsOwner || iAmOwner);
   const canDelete = !isSelf && (!targetIsOwner || iAmOwner);
+  const noOrgs = user.orgIds !== "*" && user.orgIds.length === 0;
 
   return (
-    <tr className="border-b border-ink-100 last:border-0">
+    <tr className="border-b border-ink-100 last:border-0 hover:bg-ink-50">
       <td className="px-5 py-3">
         <div className="font-medium text-ink-900">{user.name}</div>
         <div className="text-xs text-ink-500">{user.email}</div>
       </td>
       <td className="px-5 py-3"><Badge tone={ROLE_TONE[user.role]}>{ROLE_LABEL[user.role]}</Badge></td>
-      <td className="px-5 py-3 text-xs text-ink-600">{orgAccessLabel(user.orgIds, orgs)}</td>
-      <td className="px-5 py-3"><Badge tone={user.active ? "success" : "neutral"} dot>{user.active ? "Active" : "Inactive"}</Badge></td>
-      <td className="px-5 py-3 text-xs text-ink-500">{relativeTime(user.lastLoginAt)}</td>
+      <td className={cn("px-5 py-3 text-xs", noOrgs ? "text-amber-600" : "text-ink-600")}>{orgAccessLabel(user.orgIds, orgs)}</td>
       <td className="px-5 py-3">
-        <div className="flex items-center justify-end gap-1">
-          <Button variant="ghost" size="xs" onClick={() => onEdit(user)} aria-label={`Edit ${user.name}`}><Pencil className="h-3.5 w-3.5" /></Button>
-          <Button variant="ghost" size="xs" onClick={() => onSetPassword(user)} aria-label={`Set temporary password for ${user.name}`} disabled={isSelf} title={isSelf ? "Use “Change password” for your own account" : undefined}>
-            <KeyRound className="h-3.5 w-3.5" />
-          </Button>
+        <div className="flex items-center gap-2" title={!canChangeRoleOrActive ? (isSelf ? "You can't deactivate yourself" : "Only an owner can deactivate another owner") : undefined}>
           <Toggle
             size="sm"
             checked={user.active}
-            disabled={!canChangeRoleOrActive}
+            disabled={!canChangeRoleOrActive || update.isPending}
             label={user.active ? `Deactivate ${user.name}` : `Activate ${user.name}`}
             onChange={(active) => update.mutate({ id: user.id, input: { active } }, { onError: (err) => toast.error(errorMessage(err)) })}
           />
+          <span className={cn("text-xs", user.active ? "text-ink-700" : "text-ink-500")} aria-hidden>{user.active ? "Active" : "Inactive"}</span>
+        </div>
+      </td>
+      <td className="px-5 py-3 text-xs text-ink-500">{relativeTime(user.lastLoginAt)}</td>
+      <td className="px-5 py-3">
+        <div className="flex items-center justify-end gap-1">
+          <Button variant="ghost" size="xs" onClick={() => onEdit(user)} aria-label={`Edit ${user.name}`} title="Edit name, role and access"><Pencil className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="xs" onClick={() => onSetPassword(user)} aria-label={`Set temporary password for ${user.name}`} disabled={isSelf} title={isSelf ? "Use Change password in your account menu for your own password" : "Set a temporary password"}>
+            <KeyRound className="h-4 w-4" />
+          </Button>
           <Button
             variant="ghost"
             size="xs"
+            className="text-red-600 hover:bg-red-50"
             onClick={() => onDelete(user)}
             disabled={!canDelete}
             aria-label={`Delete ${user.name}`}
-            title={canDelete ? undefined : isSelf ? "You can't remove yourself" : "Only an owner can remove another owner"}
+            title={canDelete ? "Remove user" : isSelf ? "You can't remove yourself" : "Only an owner can remove another owner"}
           >
-            <Trash2 className="h-3.5 w-3.5 text-red-500" />
+            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       </td>
@@ -418,14 +433,22 @@ export function UsersCard() {
       />
       <CardBody className="p-0">
         {isLoading ? (
-          <div className="p-5"><Skeleton className="h-24" /></div>
+          <div className="space-y-2 p-5" aria-busy="true" aria-label="Loading users">
+            <Skeleton className="h-10" />
+            <Skeleton className="h-10" />
+            <Skeleton className="h-10" />
+          </div>
         ) : !users || users.length === 0 ? (
-          <EmptyState title="No users yet" description="Invite your team to give them access to suprstar." />
+          <EmptyState
+            title="No users yet"
+            description="Invite your team to give them access to suprstar."
+            action={<Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setInviteOpen(true)}>Invite user</Button>}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm" data-testid="users-table">
               <thead>
-                <tr className="border-b border-ink-100 text-left text-xs font-medium uppercase tracking-wide text-ink-500">
+                <tr className="border-b border-ink-100 text-left text-xs font-medium uppercase tracking-wide text-ink-500 [&>th]:whitespace-nowrap">
                   <th className="px-5 py-2">Name</th>
                   <th className="px-5 py-2">Role</th>
                   <th className="px-5 py-2">Org access</th>

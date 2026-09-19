@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import { hasErrors, postInputSchema, postUpdateSchema, validatePost } from "@socmedia/shared";
 import type { Platform, Post, PostStatus } from "@socmedia/shared";
 import type { Db } from "../db/database";
+import { ConnectionsRepo } from "../db/repositories/connections";
 import { MediaRepo } from "../db/repositories/media";
 import { PostsRepo } from "../db/repositories/posts";
 import { BadRequestError, NotFoundError } from "../middleware/errors";
@@ -18,6 +19,8 @@ export function postsRouter(db: Db): Router {
   const router = Router();
   const repo = new PostsRepo(db);
   const mediaRepo = new MediaRepo(db);
+  const connectionsRepo = new ConnectionsRepo(db);
+  const accountLabelsFor = (orgId: string) => Object.fromEntries(connectionsRepo.listByOrg(orgId).map((c) => [c.id, c.label]));
 
   router.get(
     "/",
@@ -105,7 +108,7 @@ export function postsRouter(db: Db): Router {
       const post = repo.get(req.params.id);
       if (!post || post.orgId !== req.org!.id) throw new NotFoundError(`Post ${req.params.id} not found`);
       const media = mediaRepo.listByOrg(req.org!.id);
-      const issues = validatePost(post, media);
+      const issues = validatePost(post, media, accountLabelsFor(req.org!.id));
       res.json({ issues });
     })
   );
@@ -120,7 +123,7 @@ export function postsRouter(db: Db): Router {
 
       const candidate: Post = { ...existing, scheduledAt };
       const media = mediaRepo.listByOrg(req.org!.id);
-      const issues = validatePost(candidate, media);
+      const issues = validatePost(candidate, media, accountLabelsFor(req.org!.id));
       if (hasErrors(issues)) {
         res.status(400).json({ error: "Post is not valid for scheduling", issues });
         return;

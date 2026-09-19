@@ -23,8 +23,15 @@ export function effectiveCaption(post: Pick<Post, "caption" | "hashtags">, targe
 }
 
 /** Validate a post against each target platform's rules. */
-export function validatePost(post: Pick<Post, "caption" | "hashtags" | "mediaIds" | "targets" | "title" | "scheduledAt"> & Partial<Pick<Post, "publishMode">>, media: MediaAsset[] = []): ValidationIssue[] {
+export function validatePost(
+  post: Pick<Post, "caption" | "hashtags" | "mediaIds" | "targets" | "title" | "scheduledAt"> & Partial<Pick<Post, "publishMode">>,
+  media: MediaAsset[] = [],
+  /** Optional account labels by connection id; used to name the account in messages when a platform has several targets. */
+  accountLabels: Record<string, string | null | undefined> = {},
+): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
+  const perPlatform = new Map<Platform, number>();
+  for (const t of post.targets) perPlatform.set(t.platform, (perPlatform.get(t.platform) ?? 0) + 1);
   issues.push(...duplicateCaptionWarnings(post));
   if (post.targets.length === 0) {
     issues.push({ level: "error", message: "Select at least one platform to publish to." });
@@ -32,32 +39,34 @@ export function validatePost(post: Pick<Post, "caption" | "hashtags" | "mediaIds
   const byId = new Map(media.map((m) => [m.id, m]));
   for (const target of post.targets) {
     const spec = PLATFORM_SPECS[target.platform];
+    const label = accountLabels[target.connectionId];
+    const name = (perPlatform.get(target.platform) ?? 0) > 1 && label ? `${spec.name} (${label})` : spec.name;
     const caption = effectiveCaption(post, target);
     if (caption.length > spec.captionMaxLength) {
-      issues.push({ level: "error", platform: target.platform, message: `${spec.name} captions are limited to ${spec.captionMaxLength} characters (currently ${caption.length}).` });
+      issues.push({ level: "error", platform: target.platform, message: `${name} captions are limited to ${spec.captionMaxLength} characters (currently ${caption.length}).` });
     }
     const tags = target.hashtags ?? post.hashtags;
     if (tags.length > spec.hashtagLimit) {
-      issues.push({ level: "warning", platform: target.platform, message: `${spec.name} recommends at most ${spec.hashtagLimit} hashtags (currently ${tags.length}).` });
+      issues.push({ level: "warning", platform: target.platform, message: `${name} recommends at most ${spec.hashtagLimit} hashtags (currently ${tags.length}).` });
     }
     if (!spec.formats.includes(target.format)) {
-      issues.push({ level: "error", platform: target.platform, message: `${spec.name} does not support the ${target.format} format.` });
+      issues.push({ level: "error", platform: target.platform, message: `${name} does not support the ${target.format} format.` });
     }
     const mediaIds = target.mediaIds.length ? target.mediaIds : post.mediaIds;
     if (spec.requiresMedia && mediaIds.length === 0) {
-      issues.push({ level: "error", platform: target.platform, message: `${spec.name} posts need at least one media file.` });
+      issues.push({ level: "error", platform: target.platform, message: `${name} posts need at least one media file.` });
     }
     if (mediaIds.length > spec.maxMediaCount) {
-      issues.push({ level: "error", platform: target.platform, message: `${spec.name} allows at most ${spec.maxMediaCount} media items.` });
+      issues.push({ level: "error", platform: target.platform, message: `${name} allows at most ${spec.maxMediaCount} media items.` });
     }
     for (const id of mediaIds) {
       const asset = byId.get(id);
       if (!asset) continue;
       if (!spec.mediaKinds.includes(asset.kind)) {
-        issues.push({ level: "error", platform: target.platform, message: `${spec.name} does not accept ${asset.kind} files (${asset.filename}).` });
+        issues.push({ level: "error", platform: target.platform, message: `${name} does not accept ${asset.kind} files (${asset.filename}).` });
       }
       if (asset.kind === "video" && asset.durationSeconds && asset.durationSeconds > spec.maxVideoSeconds) {
-        issues.push({ level: "error", platform: target.platform, message: `${spec.name} videos must be under ${Math.round(spec.maxVideoSeconds / 60)} minutes.` });
+        issues.push({ level: "error", platform: target.platform, message: `${name} videos must be under ${Math.round(spec.maxVideoSeconds / 60)} minutes.` });
       }
     }
     if (target.platform === "youtube") {

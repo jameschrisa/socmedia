@@ -1,22 +1,18 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
+import { gotoApp } from "./helpers";
 
 const ORG_ID_KEY = "pulse-app";
 
-async function gotoApp(page: Page, path = "/") {
-  await page.goto(path);
-  await expect(page.getByTestId("org-switcher")).toBeVisible();
-}
-
 test.describe("suprstar smoke", () => {
-  test("API health and seeded organizations", async ({ request }) => {
-    const health = await request.get("http://localhost:4000/api/health");
+  test("API health and seeded organizations (authenticated)", async ({ request }) => {
+    const health = await request.get("/api/health");
     expect(health.ok()).toBeTruthy();
     const body = await health.json();
     expect(body.ok).toBe(true);
-    const orgs = await request.get("http://localhost:4000/api/orgs");
+    const orgs = await request.get("/api/orgs");
     const list = await orgs.json();
     expect(list.length).toBeGreaterThanOrEqual(2);
-    const conns = await request.get("http://localhost:4000/api/connections", { headers: { "X-Org-Id": list[0].id } });
+    const conns = await request.get("/api/connections", { headers: { "X-Org-Id": list[0].id } });
     const c = await conns.json();
     expect(c.map((x: any) => x.platform).sort()).toEqual(["instagram", "linkedin", "tiktok", "youtube"]);
   });
@@ -29,12 +25,19 @@ test.describe("suprstar smoke", () => {
     }
   });
 
-  test("switches organization and scopes data", async ({ page }) => {
+  test("switches organization and scopes data", async ({ page, request }) => {
+    const orgsRes = await request.get("/api/orgs");
+    const orgs: { id: string; name: string }[] = await orgsRes.json();
+    expect(orgs.length).toBeGreaterThanOrEqual(2);
+
     await gotoApp(page);
+    const currentText = (await page.getByTestId("org-switcher").innerText()) ?? "";
+    const target = orgs.find((o) => !currentText.includes(o.name));
+    expect(target, "expected at least one other organization to switch to").toBeTruthy();
+
     await page.getByTestId("org-switcher").click();
-    const option = page.getByRole("option", { name: /Northstar Advisors/ });
-    await option.click();
-    await expect(page.getByTestId("org-switcher")).toContainText("Northstar");
+    await page.getByRole("option", { name: target!.name }).click();
+    await expect(page.getByTestId("org-switcher")).toContainText(target!.name);
     const stored = await page.evaluate((k) => localStorage.getItem(k), ORG_ID_KEY);
     expect(stored).toContain("currentOrgId");
   });
@@ -87,7 +90,14 @@ test.describe("suprstar smoke", () => {
   });
 
   test("analytics page shows KPIs after sync", async ({ page }) => {
-    await gotoApp(page, "/analytics");
+    // Sync only produces data for *connected* accounts; the default org (F3i) is seeded with
+    // disconnected sandbox connections, so switch to the demo org that ships pre-connected.
+    await gotoApp(page);
+    await page.getByTestId("org-switcher").click();
+    await page.getByRole("option", { name: /Larkspur Health/ }).click();
+    await expect(page.getByTestId("org-switcher")).toContainText("Larkspur Health");
+
+    await page.goto("/analytics");
     await page.getByRole("button", { name: /sync/i }).first().click();
     await expect(page.getByText(/impressions/i).first()).toBeVisible();
   });

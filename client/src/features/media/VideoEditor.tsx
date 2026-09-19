@@ -34,9 +34,8 @@ const PLATFORM_SHORTCUTS: { key: string; label: string; platform: Platform; form
 const MAX_LENGTH = 300;
 const MIN_LENGTH = 0.5;
 
-const chipBase = "rounded-full border px-3 py-1 text-xs font-medium transition-colors";
-const chipActive = "border-brand-500 bg-brand-50 text-brand-700";
-const chipInactive = "border-ink-200 text-ink-600 hover:bg-ink-50";
+/** Preview height cap: keeps the trim track and timecodes on screen even for 9:16 output. */
+const PREVIEW_MAX_VH = 42;
 
 export function VideoEditor({ asset, onClose, onDone, initialFormat }: VideoEditorProps) {
   const { clip } = useMediaMutations();
@@ -152,6 +151,15 @@ export function VideoEditor({ asset, onClose, onDone, initialFormat }: VideoEdit
   };
   const handlePointerUp = () => setDragging(null);
 
+  /** Clicking the track (not a handle) moves the playhead so "Split" and "Set start/end" have a target. */
+  const seekOnTrack = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget || !trackRef.current) return;
+    const rect = trackRef.current.getBoundingClientRect();
+    const t = clamp(secondsFromPointer(e.clientX, rect, duration), range.start, range.end);
+    if (videoRef.current) videoRef.current.currentTime = t;
+    setCurrentTime(t);
+  };
+
   const handleKeyDown = (which: "start" | "end") => (e: React.KeyboardEvent<HTMLDivElement>) => {
     const step = e.shiftKey ? 5 : 0.5;
     let delta = 0;
@@ -167,7 +175,9 @@ export function VideoEditor({ asset, onClose, onDone, initialFormat }: VideoEdit
   const overLength = selectedLength > MAX_LENGTH;
   const outputSize = frameFor(format) ?? (naturalSize.width && naturalSize.height ? naturalSize : null);
   const cropStyle = previewCropStyle(naturalSize.width, naturalSize.height, format);
+  const previewRatio = outputSize && outputSize.height > 0 ? outputSize.width / outputSize.height : 16 / 9;
   const pct = (t: number) => (duration > 0 ? clamp((t / duration) * 100, 0, 100) : 0);
+  const canSplit = currentTime > range.start + MIN_LENGTH && currentTime < range.end - MIN_LENGTH;
 
   const handleSubmit = () => {
     setError(null);
@@ -218,7 +228,15 @@ export function VideoEditor({ asset, onClose, onDone, initialFormat }: VideoEdit
       description="Trim, crop and export a platform-ready clip."
       footer={
         <div className="flex w-full items-center justify-between">
-          <Button variant="ghost" size="sm" icon={<Scissors className="h-3.5 w-3.5" />} onClick={() => void handleSplit()} loading={splitting} disabled={clip.isPending}>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<Scissors className="h-3.5 w-3.5" />}
+            onClick={() => void handleSplit()}
+            loading={splitting}
+            disabled={clip.isPending || !canSplit}
+            title={canSplit ? `Split into two clips at ${formatTimecode(currentTime)}` : "Move the playhead inside the selected range to split"}
+          >
             Split at playhead
           </Button>
           <div className="flex items-center gap-2">
@@ -236,8 +254,8 @@ export function VideoEditor({ asset, onClose, onDone, initialFormat }: VideoEdit
           <div
             data-testid="video-frame"
             data-format={format ?? "original"}
-            className="relative mx-auto w-full max-w-md overflow-hidden bg-black ring-1 ring-ink-200"
-            style={{ aspectRatio: cropStyle.aspectRatio }}
+            className="relative mx-auto max-w-full overflow-hidden bg-black ring-1 ring-ink-200"
+            style={{ aspectRatio: cropStyle.aspectRatio, width: `min(100%, 28rem, calc(${PREVIEW_MAX_VH}vh * ${previewRatio.toFixed(4)}))` }}
           >
             <video
               ref={videoRef}
@@ -262,6 +280,7 @@ export function VideoEditor({ asset, onClose, onDone, initialFormat }: VideoEdit
               icon={playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
             />
             <span className="tabular-nums" data-testid="playhead-time">{formatTimecode(currentTime)} / {formatTimecode(duration)}</span>
+            <span className="text-xs text-ink-400">{format ? "Preview shows the centre crop." : "Playback loops the selected range."}</span>
             <Button
               type="button"
               variant="outline"
@@ -273,10 +292,21 @@ export function VideoEditor({ asset, onClose, onDone, initialFormat }: VideoEdit
           </div>
 
           <div className="space-y-2">
-            <div ref={trackRef} className="relative h-8 rounded-none bg-ink-100" data-testid="trim-track">
+            <div
+              ref={trackRef}
+              className="relative h-10 cursor-pointer select-none rounded-none bg-ink-100"
+              data-testid="trim-track"
+              onPointerDown={seekOnTrack}
+              title="Click to move the playhead"
+            >
               <div
-                className="absolute top-0 h-full bg-brand-200"
+                className="pointer-events-none absolute top-0 h-full bg-brand-200"
                 style={{ left: `${pct(range.start)}%`, width: `${Math.max(0, pct(range.end) - pct(range.start))}%` }}
+              />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute top-0 z-10 h-full w-0.5 bg-ink-900"
+                style={{ left: `calc(${pct(currentTime)}% - 1px)` }}
               />
               <div
                 role="slider"
@@ -286,13 +316,16 @@ export function VideoEditor({ asset, onClose, onDone, initialFormat }: VideoEdit
                 aria-valuemax={duration}
                 aria-valuenow={range.start}
                 data-testid="trim-handle-start"
-                className="absolute top-0 h-full w-2 cursor-ew-resize bg-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
-                style={{ left: `calc(${pct(range.start)}% - 4px)` }}
+                className="absolute top-0 z-20 flex h-full w-3.5 cursor-ew-resize items-center justify-center bg-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-1"
+                style={{ left: `calc(${pct(range.start)}% - 7px)` }}
+                title="Drag, or use arrow keys (Shift for 5s steps)"
                 onPointerDown={handlePointerDown("start")}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onKeyDown={handleKeyDown("start")}
-              />
+              >
+                <span aria-hidden className="h-4 w-0.5 bg-[color:var(--c-on-brand)] opacity-70" />
+              </div>
               <div
                 role="slider"
                 tabIndex={0}
@@ -301,44 +334,57 @@ export function VideoEditor({ asset, onClose, onDone, initialFormat }: VideoEdit
                 aria-valuemax={duration}
                 aria-valuenow={range.end}
                 data-testid="trim-handle-end"
-                className="absolute top-0 h-full w-2 cursor-ew-resize bg-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
-                style={{ left: `calc(${pct(range.end)}% - 4px)` }}
+                className="absolute top-0 z-20 flex h-full w-3.5 cursor-ew-resize items-center justify-center bg-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-1"
+                style={{ left: `calc(${pct(range.end)}% - 7px)` }}
+                title="Drag, or use arrow keys (Shift for 5s steps)"
                 onPointerDown={handlePointerDown("end")}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onKeyDown={handleKeyDown("end")}
-              />
+              >
+                <span aria-hidden className="h-4 w-0.5 bg-[color:var(--c-on-brand)] opacity-70" />
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <label className="flex items-center gap-1">
-                Start
-                <input
-                  className="input w-24"
-                  value={startText}
-                  onChange={(e) => setStartText(e.target.value)}
-                  onBlur={commitStart}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitStart(); } }}
-                  aria-label="Start time"
-                />
-              </label>
-              <Button type="button" variant="outline" size="xs" onClick={setStartToPlayhead}>Set start to playhead</Button>
-              <label className="flex items-center gap-1">
-                End
-                <input
-                  className="input w-24"
-                  value={endText}
-                  onChange={(e) => setEndText(e.target.value)}
-                  onBlur={commitEnd}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitEnd(); } }}
-                  aria-label="End time"
-                />
-              </label>
-              <Button type="button" variant="outline" size="xs" onClick={setEndToPlayhead}>Set end to playhead</Button>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label htmlFor="trim-start" className="block text-xs font-medium text-ink-700">Start</label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    id="trim-start"
+                    className="input w-24 tabular-nums"
+                    value={startText}
+                    onChange={(e) => setStartText(e.target.value)}
+                    onBlur={commitStart}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitStart(); } }}
+                    aria-label="Start time"
+                    inputMode="decimal"
+                  />
+                  <Button type="button" variant="outline" size="xs" onClick={setStartToPlayhead} title={`Start at ${formatTimecode(currentTime)}`}>Set start to playhead</Button>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="trim-end" className="block text-xs font-medium text-ink-700">End</label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    id="trim-end"
+                    className="input w-24 tabular-nums"
+                    value={endText}
+                    onChange={(e) => setEndText(e.target.value)}
+                    onBlur={commitEnd}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitEnd(); } }}
+                    aria-label="End time"
+                    inputMode="decimal"
+                  />
+                  <Button type="button" variant="outline" size="xs" onClick={setEndToPlayhead} title={`End at ${formatTimecode(currentTime)}`}>Set end to playhead</Button>
+                </div>
+              </div>
             </div>
-            <p className={cn("text-xs", overLength ? "text-red-600 font-semibold" : "text-ink-500")} data-testid="selection-length">
-              Selected: {formatTimecode(selectedLength)}{overLength ? " — too long" : ""}
-            </p>
-            <p className="text-xs text-ink-400">Clips are limited to 5:00 for now.</p>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className={cn("text-xs", overLength ? "font-semibold text-red-600" : "text-ink-500")} data-testid="selection-length">
+                Selected: {formatTimecode(selectedLength)}{overLength ? " (over the 5:00 limit)" : ""}
+              </p>
+              <p className="text-xs text-ink-400">Clips are limited to 5:00 for now.</p>
+            </div>
           </div>
         </div>
 
@@ -347,11 +393,11 @@ export function VideoEditor({ asset, onClose, onDone, initialFormat }: VideoEdit
           <div>
             <h3 className="mb-2 text-sm font-semibold text-ink-900">Format</h3>
             <div className="flex flex-wrap gap-1.5">
-              <button type="button" onClick={() => setFormat(null)} className={cn(chipBase, format === null ? chipActive : chipInactive)}>
+              <button type="button" onClick={() => setFormat(null)} aria-pressed={format === null} className={cn("chip", format === null ? "chip-active" : "chip-inactive")}>
                 Original
               </button>
               {PRESET_ORDER.map((f) => (
-                <button key={f} type="button" onClick={() => setFormat(f)} className={cn(chipBase, format === f ? chipActive : chipInactive)}>
+                <button key={f} type="button" onClick={() => setFormat(f)} aria-pressed={format === f} className={cn("chip", format === f ? "chip-active" : "chip-inactive")}>
                   {FORMAT_SPECS[f].label}
                 </button>
               ))}
@@ -366,7 +412,9 @@ export function VideoEditor({ asset, onClose, onDone, initialFormat }: VideoEdit
                   key={s.key}
                   type="button"
                   onClick={() => setFormat(s.format)}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 px-2.5 py-1 text-xs font-medium text-ink-600 hover:bg-ink-50"
+                  aria-pressed={format === s.format}
+                  title={`${s.label}: ${FORMAT_SPECS[s.format].label}`}
+                  className={cn("chip px-2.5", format === s.format ? "chip-active" : "chip-inactive")}
                 >
                   <PlatformIcon platform={s.platform} size={16} mono />
                   {s.label}
@@ -375,7 +423,7 @@ export function VideoEditor({ asset, onClose, onDone, initialFormat }: VideoEdit
             </div>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border border-ink-200 p-3">
+          <div className="flex items-center justify-between border border-ink-200 p-3">
             <div>
               <p className="text-sm font-medium text-ink-900">Strip audio</p>
               <p className="text-xs text-ink-500">Mute the exported clip</p>
@@ -383,10 +431,10 @@ export function VideoEditor({ asset, onClose, onDone, initialFormat }: VideoEdit
             <Toggle checked={stripAudio} onChange={setStripAudio} label="Strip audio" />
           </div>
 
-          <div className="rounded-lg border border-ink-200 p-3 space-y-1 text-xs text-ink-600" data-testid="clip-summary">
-            <p>Source duration: {formatTimecode(duration)}</p>
-            <p>Selected range: {formatTimecode(range.start)} – {formatTimecode(range.end)} ({formatTimecode(selectedLength)})</p>
-            <p>Output size: {outputSize ? `${outputSize.width}×${outputSize.height}` : "Source size"}</p>
+          <div className="space-y-1 border border-ink-200 p-3 text-xs" data-testid="clip-summary">
+            <p><span className="text-ink-500">Source duration: </span><span className="tabular-nums text-ink-800">{formatTimecode(duration)}</span></p>
+            <p><span className="text-ink-500">Selected range: </span><span className="tabular-nums text-ink-800">{formatTimecode(range.start)} to {formatTimecode(range.end)} ({formatTimecode(selectedLength)})</span></p>
+            <p><span className="text-ink-500">Output size: </span><span className="tabular-nums text-ink-800">{outputSize ? `${outputSize.width}×${outputSize.height}` : "Source size"}{stripAudio ? ", no audio" : ""}</span></p>
           </div>
 
           <div>
@@ -396,9 +444,14 @@ export function VideoEditor({ asset, onClose, onDone, initialFormat }: VideoEdit
               onChange={setMode}
               items={[{ id: "new", label: "Create new clip" }, { id: "replace", label: "Replace original" }]}
             />
+            <p className={cn("mt-2", mode === "replace" ? "notice-warning" : "text-xs text-ink-500")}>
+              {mode === "replace"
+                ? "Overwrites the original file in your library. The untrimmed source can't be recovered."
+                : "Saves a new asset in the library and keeps the original untouched."}
+            </p>
           </div>
 
-          {error && <p className="text-xs text-red-600" role="alert">{error}</p>}
+          {error && <p className="notice-danger" role="alert">{error}</p>}
         </div>
       </div>
     </Modal>

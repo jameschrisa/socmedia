@@ -11,9 +11,15 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": "http://localhost:4000",
-      "/uploads": "http://localhost:4000",
+      "/api": process.env.VITE_API_PROXY || "http://localhost:4000",
+      "/uploads": process.env.VITE_API_PROXY || "http://localhost:4000",
     },
+    // The e2e run (identified by VITE_API_PROXY, only set by playwright.config.ts) uses its own
+    // dev server instance on a dedicated port, but watches the same source tree as any other dev
+    // server that happens to be running concurrently. Hot-module-reload pushes from unrelated
+    // saves would otherwise abort in-flight requests / remount the app mid-test, so HMR is turned
+    // off for that instance; each test navigation still picks up whatever is currently on disk.
+    hmr: process.env.VITE_API_PROXY ? false : undefined,
   },
   build: { outDir: "dist", sourcemap: false, chunkSizeWarningLimit: 1500 },
   test: {

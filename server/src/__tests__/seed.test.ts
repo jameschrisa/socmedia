@@ -32,7 +32,10 @@ describe("seedIfEmpty", () => {
 
     const orgsRepo = new OrganizationsRepo(db);
     const orgs = orgsRepo.list();
-    expect(orgs).toHaveLength(2);
+    expect(orgs).toHaveLength(3);
+    const enel = orgs.find((o) => o.slug === "enel-health")!;
+    expect(enel.name).toBe("Enel Health");
+    expect(enel.logoUrl).toMatch(/^\/uploads\/logos\//);
     expect(orgs.map((o) => o.slug)).toEqual(expect.arrayContaining(["f3i", "larkspur-health"]));
 
     const org2 = orgs.find((o) => o.slug === "f3i")!;
@@ -59,7 +62,7 @@ describe("seedIfEmpty", () => {
     const media = mediaRepo.listByOrg(org1.id);
     expect(media).toHaveLength(4);
     for (const asset of media) {
-      expect(fs.existsSync(path.join(dataDir, "uploads", org1.id, asset.filename))).toBe(true);
+      expect(fs.existsSync(path.join(dataDir, "uploads", org1.id, path.basename(asset.url)))).toBe(true);
     }
 
     const metricsRepo = new MetricsRepo(db);

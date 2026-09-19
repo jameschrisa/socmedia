@@ -91,8 +91,10 @@ export function orgsRouter(db: Db): Router {
   const router = Router();
   const repo = new OrganizationsRepo(db);
 
-  // Reading the org list/detail is available to any signed-in user; every mutation is admin+.
-  router.use((req, res, next) => {
+  // Reading the org list/detail is available to any signed-in user; every org mutation is admin+.
+  // Scoped to /orgs: this router is mounted at /api, so an unscoped guard would also intercept
+  // editor writes to /api/posts, /api/media and friends before their own role checks run.
+  router.use("/orgs", (req, res, next) => {
     if (req.method === "GET") {
       next();
       return;

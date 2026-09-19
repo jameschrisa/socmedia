@@ -183,6 +183,26 @@
   .drift-in > *:nth-child(3) { animation-delay: 120ms; }
   .drift-in > *:nth-child(4) { animation-delay: 180ms; }
   .drift-in > *:nth-child(n+5) { animation-delay: 240ms; }
+
+  /* ---- Additive utilities (UX polish pass) ---- */
+  /* Visible keyboard focus for controls that aren't <Button>: text links, icon buttons, menu items, chips. */
+  .focus-ring { @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300; }
+  .link:focus-visible { @apply outline-none ring-2 ring-brand-300 rounded-none; }
+  /* Native radios and checkboxes pick up the brand accent instead of the browser blue. */
+  .control-accent { accent-color: var(--c-brand-500); }
+  /* Popover menu rows: full-width, 36px tall, keyboard-focusable. */
+  .menu-item {
+    @apply flex w-full items-center gap-2 px-2.5 py-2 text-left text-sm text-ink-700 hover:bg-ink-50 focus:outline-none focus-visible:bg-ink-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-300;
+  }
+  /* Inline notices: a tinted box with a readable foreground, used for warnings that must not be missed. */
+  .notice { @apply border px-3 py-2 text-xs leading-relaxed; }
+  .notice-warning { @apply notice border-amber-200 bg-amber-50 text-amber-700; }
+  .notice-danger { @apply notice border-red-200 bg-red-50 text-red-700; }
+  .notice-info { @apply notice border-ink-200 bg-ink-50 text-ink-600; }
+  /* Selectable pill chips (format presets, platform shortcuts). */
+  .chip { @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300; }
+  .chip-active { @apply border-brand-500 bg-brand-50 text-brand-700; }
+  .chip-inactive { @apply border-ink-200 text-ink-600 hover:bg-ink-50; }
 }
 
 /* Mandatory fallbacks */

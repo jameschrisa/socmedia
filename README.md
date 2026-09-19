@@ -10,7 +10,10 @@ Plan, publish and monitor TikTok, YouTube, LinkedIn and Instagram from one place
 - **Composer** — per-platform targets with their own aspect format, caption/title overrides, live previews framed like each network, shared validation rules (caption limits, hashtag limits, media kinds, video length, YouTube titles), schedule with date + time wheel, approvals, publish now.
 - **AI Assistant (Claude)** — captions per platform with hooks and hashtags, content ideas, hashtag suggestions, caption improvement and best posting times. Runs against the Anthropic API when `ANTHROPIC_API_KEY` is set and falls back to an offline mock otherwise.
 - **Analytics & monitoring** — KPIs, impressions, engagement and follower charts per platform, top posts, live publish log with retry.
-- **Organizations** — switch between organizations from the header; each has its own connections, media, posts and metrics.
+- **Video clips** — upload videos up to 5 minutes; the server probes them with ffprobe and stores a poster frame. The Studio clip editor trims a range with dual handles or timecodes, crops to a platform format, mutes audio and saves the result as a new clip or replaces the original.
+- **Multiple accounts per platform** — connect several TikTok, Instagram, YouTube or LinkedIn accounts per organization, pick which accounts a post goes to, and publish to all of them at once or in a spaced queue.
+- **Organizations** — switch between organizations from the header; each has its own connections, media, posts and metrics. Demo organizations (Larkspur Health, Enel Health) can be created from Settings with realistic placeholder content.
+- **Users & access** — sign-in required. Roles are owner, admin, editor and viewer; owners and admins invite users from Settings → Users & access, scope them to organizations, deactivate or remove them. Viewers are read-only.
 - **Scheduler** — server-side loop publishes due posts through platform adapters. Every connection runs in *sandbox* mode (simulated publishing) until you switch it to *live* with real credentials.
 
 ## Stack
@@ -27,7 +30,9 @@ cp .env.example .env      # optionally add ANTHROPIC_API_KEY
 npm run dev               # API on :4000, web on :5173
 ```
 
-The database is seeded on first start with two demo organizations, sandbox connections, sample media, posts and 30 days of metrics.
+The database is seeded on first start with F3i plus two demo organizations (Larkspur Health and Enel Health, each with its logo), sandbox connections, sample media, posts and 30 days of metrics.
+
+Sign-in: set `ADMIN_EMAIL`, `ADMIN_PASSWORD` (and optionally `ADMIN_NAME`) before the first start to create the owner account. Without them, the sign-in page offers a one-time "create the first owner" form until an owner exists. Owners invite everyone else from Settings → Users & access; invited users get a temporary password and must change it on first sign-in.
 
 ## Test
 
@@ -61,7 +66,7 @@ Auto-deploy: Render only receives GitHub webhooks when the repository is connect
 
 One-click hosts: `render.yaml` (Render Blueprint with a 5 GB disk at `/data`), `fly.toml` (Fly.io with a volume) and `railway.json` (Railway; add a volume mounted at `/data` in the dashboard) are included. After the first deploy, set `PUBLIC_BASE_URL` to the service URL and put that same host into the `vercel.json` rewrites.
 
-Environment: `PORT`, `DATA_DIR`, `SECRET_KEY` (encrypts stored credentials), `CLIENT_URL` (CORS and OAuth redirects), `PUBLIC_BASE_URL` (Instagram and TikTok fetch media from this URL in live mode), optional `ANTHROPIC_API_KEY`. Register each platform's OAuth redirect URI as `<PUBLIC_BASE_URL>/api/connections/oauth/callback`.
+Environment: `PORT`, `DATA_DIR`, `SECRET_KEY` (encrypts stored credentials and signs session cookies), `CLIENT_URL` (CORS and OAuth redirects), `PUBLIC_BASE_URL` (Instagram and TikTok fetch media from this URL in live mode), `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` (bootstrap owner), optional `ANTHROPIC_API_KEY`. Video processing uses the bundled `ffmpeg-static` and `ffprobe-static` binaries, so no system ffmpeg is needed. Register each platform's OAuth redirect URI as `<PUBLIC_BASE_URL>/api/connections/oauth/callback`.
 
 ### Client (Vercel)
 

@@ -70,10 +70,12 @@ export function useAuthMutations() {
   const logout = useMutation({
     mutationFn: () => api.auth.logout(),
     onSuccess: () => {
-      // Drop every cached org-scoped query (media, posts, connections, ...) before
-      // resetting auth state, so nothing from the previous session lingers.
-      qc.clear();
+      // Flip auth state first so the mounted observer re-renders to the sign-in page, then
+      // drop every other cached query (media, posts, connections, ...) so nothing from the
+      // previous session lingers. qc.clear() would detach the auth observer and leave the
+      // dashboard on screen until a reload.
       qc.setQueryData<AuthState>(qk.auth, SIGNED_OUT);
+      qc.removeQueries({ predicate: (q) => q.queryKey[0] !== qk.auth[0] });
     },
   });
 

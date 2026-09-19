@@ -1,27 +1,44 @@
 import { defineConfig, devices } from "@playwright/test";
+import { API_BASE_URL, API_PORT, OWNER_EMAIL, OWNER_NAME, OWNER_PASSWORD, OWNER_STORAGE_STATE, WEB_BASE_URL, WEB_PORT } from "./e2e/constants";
 
 export default defineConfig({
   testDir: "./e2e",
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
+  // The whole suite drives one shared dev-mode API + SQLite database, so tests must not
+  // interleave across files/workers: run everything on a single worker for determinism.
+  workers: 1,
   retries: 0,
   reporter: [["list"]],
+  globalSetup: "./e2e/global-setup.ts",
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: WEB_BASE_URL,
     trace: "retain-on-failure",
     ...devices["Desktop Chrome"],
   },
+  projects: [
+    {
+      name: "setup",
+      testMatch: /auth\.setup\.ts/,
+    },
+    {
+      name: "chromium",
+      testMatch: /.*\.spec\.ts/,
+      dependencies: ["setup"],
+      use: { storageState: OWNER_STORAGE_STATE },
+    },
+  ],
   webServer: [
     {
-      command: "PORT=4000 DATA_DIR=./data/e2e npx tsx server/src/index.ts",
-      url: "http://localhost:4000/api/health",
+      command: `PORT=${API_PORT} DATA_DIR=./data/e2e ADMIN_EMAIL=${OWNER_EMAIL} ADMIN_PASSWORD=${OWNER_PASSWORD} ADMIN_NAME=${OWNER_NAME} npx tsx server/src/index.ts`,
+      url: `${API_BASE_URL}/api/health`,
       reuseExistingServer: false,
       timeout: 60_000,
     },
     {
-      command: "npm run dev -w client -- --port 5173 --strictPort",
-      url: "http://localhost:5173",
+      command: `VITE_API_PROXY=${API_BASE_URL} npm run dev -w client -- --port ${WEB_PORT} --strictPort`,
+      url: WEB_BASE_URL,
       reuseExistingServer: false,
       timeout: 60_000,
     },

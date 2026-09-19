@@ -199,9 +199,10 @@ export function ComposerDrawer() {
   const selectedMedia = resolveMedia(form.mediaIds);
 
   const scheduledIso = computeScheduledIso(form.scheduledDate, form.scheduledMinutes);
+  const accountLabels = useMemo(() => Object.fromEntries((connections ?? []).map((c) => [c.id, c.label])), [connections]);
   const issues = useMemo(
-    () => validatePost({ title: form.title, caption: form.caption, hashtags: form.hashtags, mediaIds: form.mediaIds, targets: form.targets, scheduledAt: form.mode === "schedule" ? scheduledIso : null, publishMode: form.publishMode }, media ?? []),
-    [form, media, scheduledIso],
+    () => validatePost({ title: form.title, caption: form.caption, hashtags: form.hashtags, mediaIds: form.mediaIds, targets: form.targets, scheduledAt: form.mode === "schedule" ? scheduledIso : null, publishMode: form.publishMode }, media ?? [], accountLabels),
+    [form, media, scheduledIso, accountLabels],
   );
   const blocking = hasErrors(issues);
 
@@ -449,11 +450,30 @@ export function ComposerDrawer() {
                 return (
                   <div key={platform} className="space-y-2" data-testid={`target-group-${platform}`}>
                     {accounts.length > 1 && (
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-medium text-ink-700">{spec.name}: {selectedCount}/{accounts.length} accounts</span>
-                        <span className="flex gap-2">
-                          <button type="button" className="link" onClick={() => setPlatformTargets(platform, true)} aria-label={`Select all ${spec.name} accounts`}>All</button>
-                          <button type="button" className="text-ink-500 hover:text-ink-800" onClick={() => setPlatformTargets(platform, false)} aria-label={`Clear ${spec.name} accounts`}>None</button>
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <span className="flex items-center gap-2 font-medium text-ink-700">
+                          <PlatformIcon platform={platform} size={16} mono />
+                          <span>{spec.name}: {selectedCount}/{accounts.length} accounts</span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            className="focus-ring h-6 px-2 text-xs font-medium text-brand-300 hover:bg-ink-50 disabled:opacity-50"
+                            onClick={() => setPlatformTargets(platform, true)}
+                            disabled={selectedCount === accounts.length}
+                            aria-label={`Select all ${spec.name} accounts`}
+                          >
+                            All
+                          </button>
+                          <button
+                            type="button"
+                            className="focus-ring h-6 px-2 text-xs font-medium text-ink-500 hover:bg-ink-50 hover:text-ink-800 disabled:opacity-50"
+                            onClick={() => setPlatformTargets(platform, false)}
+                            disabled={selectedCount === 0}
+                            aria-label={`Clear ${spec.name} accounts`}
+                          >
+                            None
+                          </button>
                         </span>
                       </div>
                     )}
@@ -463,10 +483,11 @@ export function ComposerDrawer() {
                       const expanded = expandedCustomize.has(connection.id);
                       const name = connection.label ? `${connection.label}` : connection.displayName || spec.name;
                       return (
-                        <div key={connection.id} className="rounded-lg border border-ink-200 p-3">
+                        <div key={connection.id} className={cn("border p-3 transition-colors", included ? "border-brand-200 bg-brand-50/40" : "border-ink-200")}>
                           <div className="flex items-center gap-3">
                             <input
                               type="checkbox"
+                              className="control-accent focus-ring h-4 w-4 shrink-0"
                               checked={included}
                               onChange={() => (included ? removeTarget(connection.id) : addTarget(connection))}
                               aria-label={`Include ${spec.name}${connection.label ? ` ${connection.label}` : ""}`}
@@ -510,9 +531,12 @@ export function ComposerDrawer() {
               })}
             </div>
             {form.targets.length > 1 && (
-              <div className="mt-3 rounded-lg border border-ink-200 p-3 space-y-2" data-testid="publish-mode">
+              <div className="mt-3 space-y-3 border border-ink-200 p-3" data-testid="publish-mode">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-ink-700">Publish to {form.targets.length} accounts</span>
+                  <div>
+                    <p className="text-sm font-medium text-ink-900">Publish to {form.targets.length} accounts</p>
+                    <p className="text-xs text-ink-500">How the accounts above go out.</p>
+                  </div>
                   <SegmentedTabs<PublishMode>
                     value={form.publishMode}
                     onChange={(publishMode) => setForm((f) => ({ ...f, publishMode }))}
@@ -520,13 +544,25 @@ export function ComposerDrawer() {
                   />
                 </div>
                 {form.publishMode === "queue" ? (
-                  <label className="flex items-center gap-2 text-xs text-ink-600">
-                    <span>Space accounts</span>
-                    <Input type="number" min={1} max={1440} className="w-20" aria-label="Queue spacing minutes" value={form.queueSpacingMinutes} onChange={(e) => setForm((f) => ({ ...f, queueSpacingMinutes: Math.max(1, Number(e.target.value) || 1) }))} />
-                    <span>minutes apart. The first account publishes immediately; the rest follow in order.</span>
-                  </label>
+                  <div className="space-y-1.5">
+                    <label htmlFor="composer-queue-spacing" className="block text-xs font-medium text-ink-700">Spacing between accounts</label>
+                    <div className="flex items-center gap-2 text-xs text-ink-600">
+                      <Input
+                        id="composer-queue-spacing"
+                        type="number"
+                        min={1}
+                        max={1440}
+                        className="w-20"
+                        aria-label="Queue spacing minutes"
+                        value={form.queueSpacingMinutes}
+                        onChange={(e) => setForm((f) => ({ ...f, queueSpacingMinutes: Math.max(1, Number(e.target.value) || 1) }))}
+                      />
+                      <span className="whitespace-nowrap">minutes</span>
+                    </div>
+                    <p className="text-xs text-ink-500">The first account publishes at the scheduled time. Each account after it waits {form.queueSpacingMinutes} more {form.queueSpacingMinutes === 1 ? "minute" : "minutes"}.</p>
+                  </div>
                 ) : (
-                  <p className="text-xs text-ink-500">Every account publishes at the same moment as an independent job; one failure never blocks the others.</p>
+                  <p className="text-xs text-ink-500">Every account publishes at the same moment as its own job. One failure never blocks the others.</p>
                 )}
               </div>
             )}

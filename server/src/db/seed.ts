@@ -429,4 +429,13 @@ export async function seedIfEmpty(db: Db): Promise<void> {
   seedBundledLogo(db, org.id, "f3i-mark.svg");
 
   await createDemoOrg(db, DEMO_PROFILES.larkspur!);
+
+  const enel = await createDemoOrg(db, DEMO_PROFILES.larkspur!, {
+    name: "Enel Health",
+    slug: "enel-health",
+    handle: "@enelhealth",
+    brandColor: "#1A2430",
+    timezone: "America/New_York",
+  });
+  seedBundledLogo(db, enel.id, "enel-mark.svg");
 }

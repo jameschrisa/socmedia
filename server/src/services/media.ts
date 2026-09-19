@@ -132,8 +132,10 @@ export async function saveUploadBuffer(orgId: string, buffer: Buffer, mimeType: 
     }
   }
 
+  // The file on disk gets a random name; the asset keeps the original name for display.
+  const displayName = originalName ? path.basename(originalName).replace(/[\r\n]/g, "").trim() : "";
   return {
-    filename,
+    filename: displayName || filename,
     absolutePath,
     url: `/uploads/${orgId}/${filename}`,
     mimeType,

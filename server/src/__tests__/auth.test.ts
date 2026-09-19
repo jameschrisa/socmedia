@@ -142,6 +142,20 @@ describe("auth", () => {
     expect(res.status).toBe(403);
   });
 
+  it("editors can create posts but not manage organizations", async () => {
+    ctx.disableAuthBypass();
+    const ownerAgent = request.agent(ctx.app);
+    await ownerAgent.post("/api/auth/login").send({ email: ctx.owner!.email, password: TEST_OWNER_PASSWORD });
+    await ownerAgent.post("/api/users").send({ email: "writer@test.local", name: "Writer", role: "editor", orgIds: "*", password: "password123" });
+
+    const editorAgent = request.agent(ctx.app);
+    await editorAgent.post("/api/auth/login").send({ email: "writer@test.local", password: "password123" });
+    const created = await editorAgent.post("/api/posts").set("X-Org-Id", ctx.orgId).send({ title: "Editor draft", caption: "hello" });
+    expect(created.status).toBe(201);
+    const org = await editorAgent.post("/api/orgs").send({ name: "Nope", slug: "nope", brandColor: "#000000", timezone: "UTC" });
+    expect(org.status).toBe(403);
+  });
+
   it("duplicate emails are rejected with 409", async () => {
     ctx.disableAuthBypass();
     const ownerAgent = request.agent(ctx.app);
