@@ -1,0 +1,33 @@
+# Render Blueprint: creates the Pulse API as a Docker web service with a persistent disk.
+# In Render: New → Blueprint → pick this repo. Set the secret env vars when prompted.
+services:
+  - type: web
+    name: pulse-api
+    runtime: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: pulse-data
+      mountPath: /data
+      sizeGB: 5
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4000"
+      - key: DATA_DIR
+        value: /data
+      - key: SCHEDULER_INTERVAL_MS
+        value: "30000"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CLIENT_URL
+        value: https://socmedia-eight.vercel.app
+      - key: PUBLIC_BASE_URL
+        sync: false   # set to this service's public URL after the first deploy, e.g. https://pulse-api.onrender.com
+      - key: ANTHROPIC_API_KEY
+        sync: false

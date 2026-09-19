@@ -57,6 +57,8 @@ docker run -d -p 4000:4000 -v pulse-data:/data \
 
 Or `docker compose up -d` for a local production run. The image also serves the built client from `client/dist`, so one container can run the whole app. Mount `/data` on a persistent volume: it holds the database, media and logos. Railway, Render and Fly.io all build this Dockerfile directly; set the build context to the repository root.
 
+One-click hosts: `render.yaml` (Render Blueprint with a 5 GB disk at `/data`), `fly.toml` (Fly.io with a volume) and `railway.json` (Railway; add a volume mounted at `/data` in the dashboard) are included. After the first deploy, set `PUBLIC_BASE_URL` to the service URL and put that same host into the `vercel.json` rewrites.
+
 Environment: `PORT`, `DATA_DIR`, `SECRET_KEY` (encrypts stored credentials), `CLIENT_URL` (CORS and OAuth redirects), `PUBLIC_BASE_URL` (Instagram and TikTok fetch media from this URL in live mode), optional `ANTHROPIC_API_KEY`. Register each platform's OAuth redirect URI as `<PUBLIC_BASE_URL>/api/connections/oauth/callback`.
 
 ### Client (Vercel)

@@ -43,7 +43,8 @@ export default {
         pop: "inset 0 1px 0 rgba(255,255,255,0.12), 0 24px 64px rgba(5,6,12,0.65)",
         glow: "0 0 24px rgba(224,82,78,0.35)",
       },
-      borderRadius: { xl2: "1rem", card: "20px", row: "12px" },
+      // Square corners everywhere except `rounded-full`, which is reserved for badges, tags, dots and toggles.
+      borderRadius: { none: "0", sm: "0", DEFAULT: "0", md: "0", lg: "0", xl: "0", "2xl": "0", "3xl": "0", xl2: "0", card: "0", row: "0", full: "9999px" },
       fontFamily: {
         sans: ["Outfit", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
         display: ["Playfair Display", "Georgia", "serif"],

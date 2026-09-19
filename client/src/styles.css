@@ -51,7 +51,7 @@
   .card {
     background: rgba(255,255,255,0.07);
     border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 20px;
+    border-radius: 0;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 18px 48px rgba(5,6,12,0.50);
     -webkit-backdrop-filter: blur(22px) saturate(160%);
     backdrop-filter: blur(22px) saturate(160%);
@@ -83,7 +83,7 @@
   }
   /* Controls that float over imagery: solid near-black circles with a light edge, always legible. */
   .media-action {
-    @apply inline-flex h-9 w-9 items-center justify-center rounded-full text-white transition;
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-none text-white transition;
     background: rgba(13, 15, 22, 0.88);
     border: 1px solid rgba(255, 255, 255, 0.28);
     box-shadow: 0 6px 18px rgba(5, 6, 12, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.15);
@@ -102,7 +102,7 @@
   .media-action-danger:hover { background: #e0524e; color: #fff; border-color: #f08a86; }
   .label { @apply text-[11px] font-semibold text-ink-400 uppercase tracking-[0.18em]; }
   .input {
-    @apply w-full rounded-[12px] border border-ink-200 bg-glass-veil px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand-500/35 focus:border-brand-400 disabled:opacity-50;
+    @apply w-full rounded-none border border-ink-200 bg-glass-veil px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand-500/35 focus:border-brand-400 disabled:opacity-50;
   }
   .link { @apply text-brand-300 hover:text-brand-700 font-medium underline-offset-2 hover:underline; }
   .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }

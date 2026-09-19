@@ -1,0 +1,31 @@
+# Fly.io config for the Pulse API. Deploy from the repo root with: fly launch --copy-config --no-deploy && fly volumes create pulse_data --size 3 && fly deploy
+app = "pulse-api"
+primary_region = "ord"
+
+[build]
+  dockerfile = "server/Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "4000"
+  DATA_DIR = "/data"
+  SCHEDULER_INTERVAL_MS = "30000"
+  CLIENT_URL = "https://socmedia-eight.vercel.app"
+
+[[mounts]]
+  source = "pulse_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "15s"
+    method = "GET"
+    path = "/api/health"

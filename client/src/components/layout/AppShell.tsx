@@ -18,7 +18,12 @@ export function AppShell() {
         {isError ? (
           <div className="card p-8 text-center">
             <h2 className="text-lg font-semibold">Can't reach the Pulse API</h2>
-            <p className="mt-1 text-sm text-ink-500">{(error as Error)?.message}. Start the server with <code className="rounded bg-ink-100 px-1">npm run dev</code>.</p>
+            <p className="mt-1 text-sm text-ink-500">
+              {(error as Error)?.message}.{" "}
+              {import.meta.env.PROD
+                ? "The API is not reachable from this deployment. Deploy the server (see README → Deploy) and point the /api rewrite at its host."
+                : <>Start the server with <code className="bg-ink-100 px-1">npm run dev</code>.</>}
+            </p>
             <button className="link mt-3 text-sm" onClick={() => refetch()}>Retry</button>
           </div>
         ) : (
