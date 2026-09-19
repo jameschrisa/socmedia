@@ -2,15 +2,40 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm install --no-audit --no-fund",
-  "buildCommand": "npm run build -w client",
+  "buildCommand": "if [ -d client ]; then npm run build -w client; else npm run build; fi",
   "outputDirectory": "client/dist",
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://YOUR-API-HOST/api/:path*" },
-    { "source": "/uploads/:path*", "destination": "https://YOUR-API-HOST/uploads/:path*" },
-    { "source": "/((?!assets/|fonts/).*)", "destination": "/index.html" }
+    {
+      "source": "/api/:path*",
+      "destination": "https://YOUR-API-HOST/api/:path*"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "https://YOUR-API-HOST/uploads/:path*"
+    },
+    {
+      "source": "/((?!assets/|fonts/).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
-    { "source": "/fonts/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
-    { "source": "/assets/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] }
+    {
+      "source": "/fonts/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
   ]
 }
