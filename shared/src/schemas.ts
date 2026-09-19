@@ -179,3 +179,27 @@ export const clipRequestSchema = z
   .refine((c) => c.end - c.start <= 300, { message: "Clips must be 5 minutes or shorter" })
   .refine((c) => c.end - c.start >= 0.5, { message: "Clips must be at least half a second" });
 export type ClipRequestInput = z.infer<typeof clipRequestSchema>;
+
+/* ---------- Console, agent and quick post ---------- */
+export const logLevelSchema = z.enum(["debug", "info", "warn", "error"]);
+export const logSourceSchema = z.enum(["http", "auth", "scheduler", "publisher", "media", "agent", "quick", "system"]);
+export const logQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(2000).default(200),
+  level: logLevelSchema.optional(),
+  source: logSourceSchema.optional(),
+  since: z.string().datetime().optional(),
+  q: z.string().max(200).optional(),
+});
+export const agentCommandSchema = z.object({ input: z.string().min(1).max(4000) });
+export const quickPostTokenCreateSchema = z.object({
+  label: z.string().min(1).max(60),
+  connectionIds: z.array(z.string()).default([]),
+  publishMode: z.enum(["all", "queue"]).default("all"),
+});
+export const quickPostTokenUpdateSchema = quickPostTokenCreateSchema.partial().extend({ active: z.boolean().optional() });
+/** Multipart text fields that accompany the image on POST /quick/:token. */
+export const quickPostFieldsSchema = z.object({
+  caption: z.string().max(2200).optional(),
+  transcript: z.string().max(4000).optional(),
+  polish: z.coerce.boolean().default(true),
+});

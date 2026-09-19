@@ -325,3 +325,91 @@ export interface ClipRequest {
   mode: "new" | "replace";
   muted?: boolean;
 }
+
+/* ---------- Activity log / console ---------- */
+export type LogLevel = "debug" | "info" | "warn" | "error";
+export type LogSource = "http" | "auth" | "scheduler" | "publisher" | "media" | "agent" | "quick" | "system";
+
+export interface LogEntry {
+  id: string;
+  at: string;
+  level: LogLevel;
+  source: LogSource;
+  message: string;
+  orgId?: string | null;
+  userId?: string | null;
+  data?: Record<string, unknown> | null;
+}
+
+export interface LogFileInfo {
+  name: string;       // e.g. app-2026-09-19.log
+  size: number;       // bytes
+  modifiedAt: string;
+}
+
+/* ---------- Agent console ---------- */
+/** One tool call the agent made while handling a console command. */
+export interface AgentAction {
+  tool: string;
+  input: Record<string, unknown>;
+  ok: boolean;
+  summary: string;
+}
+
+export interface AgentCommandResult {
+  id: string;
+  input: string;
+  reply: string;
+  actions: AgentAction[];
+  model: string;
+  mock: boolean;
+  at: string;
+}
+
+/* ---------- Quick post from a phone ---------- */
+/** A long-lived link a person can open on their phone to post a photo with a caption or voice memo. */
+export interface QuickPostToken {
+  id: string;
+  orgId: string;
+  userId: string;
+  label: string;
+  /** The full secret; only returned once, when the token is created. */
+  token?: string;
+  tokenPreview: string;          // last 4 characters
+  connectionIds: string[];       // accounts to publish to; empty means every enabled account
+  publishMode: PublishMode;
+  active: boolean;
+  usesCount: number;
+  createdAt: string;
+  lastUsedAt?: string | null;
+}
+
+/** What the phone page shows before posting (no session needed, only the token). */
+export interface QuickPostPublicInfo {
+  label: string;
+  orgName: string;
+  orgLogoUrl: string | null;
+  brandColor: string;
+  targets: { connectionId: string; platform: Platform; label: string | null; handle: string }[];
+  /** True when an AI provider is configured, so a memo transcript can be turned into a caption. */
+  aiAvailable: boolean;
+}
+
+export interface QuickPostLink {
+  connectionId: string;
+  platform: Platform;
+  label: string | null;
+  status: JobStatus;
+  url: string | null;
+  error: string | null;
+}
+
+export interface QuickPostResult {
+  post: Post;
+  media: MediaAsset;
+  status: PostStatus | "needs_caption";
+  caption: string;
+  /** Where the caption came from: typed, the memo transcript, AI-written from the transcript, or nothing yet. */
+  captionSource: "caption" | "transcript" | "ai" | "none";
+  links: QuickPostLink[];
+}
