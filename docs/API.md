@@ -18,8 +18,10 @@ Types come from `@socmedia/shared` (`shared/src/types.ts`, zod schemas in `share
 - `PATCH /orgs/:id` body partial `organizationInputSchema` → `Organization`
 - `DELETE /orgs/:id` → 204 (refuses to delete the last org: 409)
 
-## Connections (org-scoped) — exactly one connection per platform per org
-- `GET /connections` → `PlatformConnection[]` (secrets masked: clientSecret/accessToken/refreshToken returned as `"••••" + last4` or `""`)
+## Connections (org-scoped) — one or more accounts per platform
+- `POST /connections` body `connectionCreateSchema` `{ platform, label?, mode?, copyCredentialsFrom? }` → `PlatformConnection` (201). Adds another account on a platform; `copyCredentialsFrom` copies app credentials (client id/secret, redirect URI, scopes) from a sibling account, never its tokens.
+- `DELETE /connections/:id` → 204. The last account on a platform cannot be deleted (409).
+- `GET /connections` → `PlatformConnection[]` (each has a `label` to tell accounts apart) (secrets masked: clientSecret/accessToken/refreshToken returned as `"••••" + last4` or `""`)
 - `GET /connections/:id` → `PlatformConnection`
 - `PATCH /connections/:id` body `connectionUpdateSchema` → `PlatformConnection`. Masked secret values (starting with `••••`) are ignored so the UI can round-trip.
 - `POST /connections/:id/test` → `ConnectionTestResult` and persists it in `lastTest`, updates `status`.
@@ -50,6 +52,13 @@ Types come from `@socmedia/shared` (`shared/src/types.ts`, zod schemas in `share
 - `POST /posts/:id/publish` → `{ post: Post, jobs: PublishJob[] }` publishes immediately through adapters (sandbox: fake externalId/url; live: real API). Post status becomes published / partially_published / failed.
 - `POST /posts/:id/duplicate` → `Post` (201, status draft, no scheduledAt)
 - `POST /posts/:id/approve` → `Post` (needs_approval → approved, or scheduled if scheduledAt set)
+
+### Multi-account publishing
+Posts carry `publishMode` (`all` | `queue`) and `queueSpacingMinutes`. In `all` mode every target account is published immediately, each as an isolated job. In `queue` mode the first account publishes immediately and the rest get deferred jobs with `runAt` spaced by `queueSpacingMinutes`; the scheduler runs them when due. Publishing is idempotent per (post, account): accounts with a succeeded job are skipped on re-runs. `validatePost` warns when several accounts on one platform would post an identical caption at once.
+
+## Settings: publishing defaults (workspace-wide)
+- `GET /settings/publishing` → `{ defaultPublishMode, queueSpacingMinutes, warnOnDuplicateCaptions }`
+- `PUT /settings/publishing` partial body → same shape
 
 ## Jobs (org-scoped)
 - `GET /jobs?postId=&status=&limit=` → `PublishJob[]` newest first

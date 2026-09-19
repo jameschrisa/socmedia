@@ -70,7 +70,7 @@ function makeJobs(): PublishJob[] {
 function makePosts(): Post[] {
   const now = new Date().toISOString();
   return [
-    { id: "post-1", orgId: "org1", title: "Great Reel", caption: "", hashtags: [], mediaIds: [], targets: [], status: "published", scheduledAt: null, timezone: "UTC", labels: [], notes: "", createdAt: now, updatedAt: now, publishedAt: now },
+    { id: "post-1", orgId: "org1", title: "Great Reel", caption: "", hashtags: [], mediaIds: [], targets: [], status: "published", scheduledAt: null, timezone: "UTC", publishMode: "all", queueSpacingMinutes: 10, labels: [], notes: "", createdAt: now, updatedAt: now, publishedAt: now },
   ];
 }
 

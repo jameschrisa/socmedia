@@ -15,7 +15,7 @@ function makeOrg(): Organization {
 function makeConnection(platform: (typeof PLATFORMS)[number], overrides: Partial<PlatformConnection> = {}): PlatformConnection {
   const now = new Date().toISOString();
   return {
-    id: `${platform}-1`, orgId: "org1", platform, enabled: true, mode: "sandbox", status: "disconnected",
+    id: `${platform}-1`, orgId: "org1", platform, label: "", enabled: true, mode: "sandbox", status: "disconnected",
     displayName: "", handle: "", avatarUrl: null, followers: 0,
     credentials: { clientId: "", clientSecret: "", redirectUri: "", accessToken: null, refreshToken: null, tokenExpiresAt: null, scopes: [], extra: {} },
     settings: { defaultFormat: PLATFORM_SPECS[platform].defaultFormat, privacy: "public", autoHashtags: true, firstCommentHashtags: false, allowComments: true, allowDuet: true, allowStitch: true, madeForKids: false, category: "22", postAsOrganization: false, shareToFeed: true },
@@ -28,7 +28,7 @@ function makePost(overrides: Partial<Post> = {}): Post {
   const now = new Date().toISOString();
   return {
     id: "post-x", orgId: "org1", title: "Untitled", caption: "", hashtags: [], mediaIds: [], targets: [],
-    status: "draft", scheduledAt: null, timezone: "UTC", labels: [], notes: "", createdAt: now, updatedAt: now, publishedAt: null,
+    status: "draft", scheduledAt: null, timezone: "UTC", publishMode: "all", queueSpacingMinutes: 10, labels: [], notes: "", createdAt: now, updatedAt: now, publishedAt: null,
     ...overrides,
   };
 }

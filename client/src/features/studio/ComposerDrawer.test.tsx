@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { Platform, PlatformConnection, Post } from "@socmedia/shared";
 import { mockFetch, renderWithProviders } from "@/test-utils";
 import { useAppStore } from "@/store/appStore";
@@ -24,6 +25,7 @@ function connection(platform: Platform, overrides: Partial<PlatformConnection> =
     id: `conn-${platform}`,
     orgId: "org1",
     platform,
+    label: "",
     enabled: true,
     mode: "sandbox",
     status: "connected",
@@ -128,7 +130,7 @@ describe("ComposerDrawer", () => {
   it("saves a draft via POST /api/posts with title/caption/targets", async () => {
     const { calls } = mockFetch({
       ...baseRoutes(),
-      "POST /api/posts": () => ({ id: "post-new", orgId: "org1", title: "My title", caption: "Hello", hashtags: [], mediaIds: [], targets: [{ platform: "instagram", connectionId: "conn-instagram", format: "square", mediaIds: [] }], status: "draft", scheduledAt: null, timezone: "UTC", labels: [], notes: "", createdAt: "", updatedAt: "", publishedAt: null }),
+      "POST /api/posts": () => ({ id: "post-new", orgId: "org1", title: "My title", caption: "Hello", hashtags: [], mediaIds: [], targets: [{ platform: "instagram", connectionId: "conn-instagram", format: "square", mediaIds: [] }], status: "draft", scheduledAt: null, timezone: "UTC", publishMode: "all", queueSpacingMinutes: 10, labels: [], notes: "", createdAt: "", updatedAt: "", publishedAt: null }),
     });
     useAppStore.setState({ composerOpen: true });
     renderWithProviders(<ComposerDrawer />);
@@ -159,7 +161,7 @@ describe("ComposerDrawer", () => {
       targets: [{ platform: "instagram", connectionId: "conn-instagram", format: "square", mediaIds: ["media-1"] }],
       status: "scheduled",
       scheduledAt: null,
-      timezone: "UTC",
+      timezone: "UTC", publishMode: "all", queueSpacingMinutes: 10,
       labels: [],
       notes: "",
       createdAt: "",
@@ -197,5 +199,44 @@ describe("ComposerDrawer", () => {
 
     await waitFor(() => expect(screen.getByPlaceholderText("Write your caption…")).toHaveValue("Hello from AI"));
     expect(useAiBridge.getState().pending).toBeNull();
+  });
+
+  it("lets one platform target several accounts with select-all and a publish mode", async () => {
+    const routes = baseRoutes();
+    const multi: PlatformConnection[] = [
+      connection("instagram", { id: "conn-instagram", label: "Main" }),
+      connection("instagram", { id: "conn-instagram-2", label: "Clinic", handle: "@clinic" }),
+      connection("tiktok"),
+    ];
+    let body: any = null;
+    mockFetch({
+      ...routes,
+      "GET /api/connections": () => multi,
+      "GET /api/settings/publishing": () => ({ defaultPublishMode: "queue", queueSpacingMinutes: 25, warnOnDuplicateCaptions: true }),
+      "POST /api/posts": (init) => { body = JSON.parse(init!.body as string); return { id: "post-multi", ...body, status: "draft" }; },
+    });
+    useAppStore.setState({ composerOpen: true });
+    const user = userEvent.setup();
+    renderWithProviders(<ComposerDrawer />);
+
+    const group = await screen.findByTestId("target-group-instagram");
+    expect(within(group).getByText("Instagram: 0/2 accounts")).toBeInTheDocument();
+    await user.click(within(group).getByLabelText("Select all Instagram accounts"));
+    expect(within(group).getByText("Instagram: 2/2 accounts")).toBeInTheDocument();
+    expect(screen.getByLabelText("Include Instagram Main")).toBeChecked();
+    expect(screen.getByLabelText("Include Instagram Clinic")).toBeChecked();
+
+    // workspace defaults were applied to the new post
+    const modeBox = screen.getByTestId("publish-mode");
+    expect(within(modeBox).getByRole("tab", { name: "Queue" })).toHaveAttribute("aria-selected", "true");
+    expect((screen.getByLabelText("Queue spacing minutes") as HTMLInputElement).value).toBe("25");
+    expect(screen.getByText(/identical caption|same caption/)).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText("Write your caption…"), "Hello");
+    await user.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body.targets.map((t: any) => t.connectionId).sort()).toEqual(["conn-instagram", "conn-instagram-2"]);
+    expect(body.publishMode).toBe("queue");
+    expect(body.queueSpacingMinutes).toBe(25);
   });
 });

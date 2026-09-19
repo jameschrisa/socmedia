@@ -38,7 +38,16 @@ export const settingsInputSchema = z.object({
   shareToFeed: z.boolean(),
 }).partial();
 
+export const connectionCreateSchema = z.object({
+  platform: platformSchema,
+  label: z.string().max(60).default(""),
+  mode: z.enum(["sandbox", "live"]).default("sandbox"),
+  /** Copy app credentials (client id/secret, redirect URI, scopes) from another connection on the same platform. */
+  copyCredentialsFrom: z.string().optional(),
+});
+
 export const connectionUpdateSchema = z.object({
+  label: z.string().max(60).optional(),
   enabled: z.boolean().optional(),
   mode: z.enum(["sandbox", "live"]).optional(),
   displayName: z.string().max(120).optional(),
@@ -67,6 +76,8 @@ export const postInputSchema = z.object({
   status: z.enum(["draft", "needs_approval", "approved", "scheduled"]).optional(),
   scheduledAt: z.string().datetime({ offset: true }).nullable().optional(),
   timezone: z.string().default("UTC"),
+  publishMode: z.enum(["all", "queue"]).default("all"),
+  queueSpacingMinutes: z.number().int().min(1).max(1440).default(10),
   labels: z.array(z.string()).default([]),
   notes: z.string().max(5000).default(""),
 });
@@ -119,3 +130,11 @@ export const aiSettingsUpdateSchema = z.object({
   moonshot: aiProviderConfigInputSchema.optional(),
 });
 export type AiSettingsUpdateInput = z.infer<typeof aiSettingsUpdateSchema>;
+
+export const publishingSettingsSchema = z.object({
+  defaultPublishMode: z.enum(["all", "queue"]).optional(),
+  queueSpacingMinutes: z.number().int().min(1).max(1440).optional(),
+  warnOnDuplicateCaptions: z.boolean().optional(),
+});
+export type ConnectionCreateInput = z.infer<typeof connectionCreateSchema>;
+export type PublishingSettingsInput = z.infer<typeof publishingSettingsSchema>;

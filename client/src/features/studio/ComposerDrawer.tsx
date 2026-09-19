@@ -16,8 +16,10 @@ import {
   type PostFormat,
   type PostInput,
   type PostTarget,
+  type PublishMode,
   type PlatformConnection,
 } from "@socmedia/shared";
+import { PLATFORMS } from "@socmedia/shared";
 import { Drawer } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
@@ -27,6 +29,9 @@ import { TimeScroller, formatMinutes, minutesOfDay, withMinutesOfDay } from "@/c
 import { useConnections } from "@/hooks/useConnections";
 import { useMedia, useMediaMutations } from "@/hooks/useMedia";
 import { usePost, usePostMutations } from "@/hooks/usePosts";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import { qk } from "@/lib/queryClient";
 import { useAppStore, type ComposerDefaults } from "@/store/appStore";
 import { useAiBridge } from "@/features/ai/aiBridge";
 import { cn } from "@/lib/utils";
@@ -43,6 +48,8 @@ interface FormState {
   labels: string[];
   notes: string;
   mode: "draft" | "schedule";
+  publishMode: PublishMode;
+  queueSpacingMinutes: number;
   requiresApproval: boolean;
   scheduledDate: string; // yyyy-MM-dd
   scheduledMinutes: number; // minutes since midnight
@@ -62,6 +69,8 @@ function blankForm(): FormState {
     labels: [],
     notes: "",
     mode: "draft",
+    publishMode: "all",
+    queueSpacingMinutes: 10,
     requiresApproval: false,
     scheduledDate: toDateInputValue(now),
     scheduledMinutes: minutesOfDay(now),
@@ -91,6 +100,8 @@ function formFromPost(post: Post): FormState {
     labels: post.labels,
     notes: post.notes,
     mode: hasSchedule ? "schedule" : "draft",
+    publishMode: post.publishMode ?? "all",
+    queueSpacingMinutes: post.queueSpacingMinutes ?? 10,
     requiresApproval: post.status === "needs_approval",
     scheduledDate: toDateInputValue(d),
     scheduledMinutes: minutesOfDay(d),
@@ -122,7 +133,13 @@ export function ComposerDrawer() {
   const [form, setForm] = useState<FormState>(blankForm);
   const [savedId, setSavedId] = useState<string | null>(composerPostId);
   const [activePlatform, setActivePlatform] = useState<Platform | null>(null);
-  const [expandedCustomize, setExpandedCustomize] = useState<Set<Platform>>(new Set());
+  const [expandedCustomize, setExpandedCustomize] = useState<Set<string>>(new Set());
+  const publishing = useQuery({ queryKey: qk.publishing, queryFn: api.settings.getPublishing, staleTime: 60_000 });
+  useEffect(() => {
+    if (!composerOpen || composerPostId || !publishing.data) return;
+    setForm((f) => (f.targets.length === 0 ? { ...f, publishMode: publishing.data!.defaultPublishMode, queueSpacingMinutes: publishing.data!.queueSpacingMinutes } : f));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [composerOpen, composerPostId, publishing.data]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<MediaAsset | null>(null);
   const [hashtagDraft, setHashtagDraft] = useState("");
@@ -181,7 +198,7 @@ export function ComposerDrawer() {
 
   const scheduledIso = computeScheduledIso(form.scheduledDate, form.scheduledMinutes);
   const issues = useMemo(
-    () => validatePost({ title: form.title, caption: form.caption, hashtags: form.hashtags, mediaIds: form.mediaIds, targets: form.targets, scheduledAt: form.mode === "schedule" ? scheduledIso : null }, media ?? []),
+    () => validatePost({ title: form.title, caption: form.caption, hashtags: form.hashtags, mediaIds: form.mediaIds, targets: form.targets, scheduledAt: form.mode === "schedule" ? scheduledIso : null, publishMode: form.publishMode }, media ?? []),
     [form, media, scheduledIso],
   );
   const blocking = hasErrors(issues);
@@ -196,16 +213,29 @@ export function ComposerDrawer() {
     const newTarget: PostTarget = { platform: connection.platform, connectionId: connection.id, format: spec.defaultFormat, mediaIds: [], caption: null, title: null, hashtags: null };
     setForm((f) => ({ ...f, targets: [...f.targets, newTarget] }));
   }
-  function removeTarget(platform: Platform) {
-    setForm((f) => ({ ...f, targets: f.targets.filter((t) => t.platform !== platform) }));
+  function removeTarget(connectionId: string) {
+    setForm((f) => ({ ...f, targets: f.targets.filter((t) => t.connectionId !== connectionId) }));
   }
-  function updateTarget(platform: Platform, patch: Partial<PostTarget>) {
-    setForm((f) => ({ ...f, targets: f.targets.map((t) => (t.platform === platform ? { ...t, ...patch } : t)) }));
+  function updateTarget(connectionId: string, patch: Partial<PostTarget>) {
+    setForm((f) => ({ ...f, targets: f.targets.map((t) => (t.connectionId === connectionId ? { ...t, ...patch } : t)) }));
   }
-  function toggleCustomize(platform: Platform) {
+  /** Select or clear every enabled account on a platform. */
+  function setPlatformTargets(platform: Platform, on: boolean) {
+    setForm((f) => {
+      const others = f.targets.filter((t) => t.platform !== platform);
+      if (!on) return { ...f, targets: others };
+      const spec = PLATFORM_SPECS[platform];
+      const existing = new Map(f.targets.filter((t) => t.platform === platform).map((t) => [t.connectionId, t]));
+      const all = enabledConnections
+        .filter((c) => c.platform === platform)
+        .map((c) => existing.get(c.id) ?? ({ platform, connectionId: c.id, format: spec.defaultFormat, mediaIds: [], caption: null, title: null, hashtags: null } as PostTarget));
+      return { ...f, targets: [...others, ...all] };
+    });
+  }
+  function toggleCustomize(connectionId: string) {
     setExpandedCustomize((prev) => {
       const next = new Set(prev);
-      if (next.has(platform)) next.delete(platform); else next.add(platform);
+      if (next.has(connectionId)) next.delete(connectionId); else next.add(connectionId);
       return next;
     });
   }
@@ -261,6 +291,8 @@ export function ComposerDrawer() {
       status: form.requiresApproval ? "needs_approval" : undefined,
       scheduledAt: form.mode === "schedule" ? scheduledIso : null,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      publishMode: form.publishMode,
+      queueSpacingMinutes: form.queueSpacingMinutes,
       labels: form.labels,
       notes: form.notes,
       ...overrides,
@@ -394,57 +426,96 @@ export function ComposerDrawer() {
 
           <div>
             <h3 className="mb-2 text-sm font-semibold text-ink-900">Targets</h3>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {enabledConnections.length === 0 && <p className="text-xs text-ink-500">No enabled connections yet. Check Social Profiles.</p>}
-              {enabledConnections.map((connection) => {
-                const target = form.targets.find((t) => t.platform === connection.platform);
-                const included = !!target;
-                const spec = PLATFORM_SPECS[connection.platform];
-                const expanded = expandedCustomize.has(connection.platform);
+              {PLATFORMS.filter((p) => enabledConnections.some((c) => c.platform === p)).map((platform) => {
+                const spec = PLATFORM_SPECS[platform];
+                const accounts = enabledConnections.filter((c) => c.platform === platform);
+                const selectedCount = form.targets.filter((t) => t.platform === platform).length;
                 return (
-                  <div key={connection.id} className="rounded-lg border border-ink-200 p-3">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={included}
-                        onChange={() => (included ? removeTarget(connection.platform) : addTarget(connection))}
-                        aria-label={`Include ${spec.name}`}
-                      />
-                      <PlatformIcon platform={connection.platform} size={32} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-ink-900">{connection.displayName || spec.name}</p>
-                        <p className="truncate text-xs text-ink-500">{connection.status === "connected" ? connection.handle : "Not connected"}</p>
-                      </div>
-                      {included && (
-                        <Select
-                          aria-label={`${spec.name} format`}
-                          value={target!.format}
-                          onChange={(e) => updateTarget(connection.platform, { format: e.target.value as PostFormat })}
-                          className="w-40"
-                        >
-                          {spec.formats.map((f) => <option key={f} value={f}>{FORMAT_SPECS[f].label}</option>)}
-                        </Select>
-                      )}
-                    </div>
-                    {included && (
-                      <div className="mt-2 pl-11">
-                        <button type="button" className="link text-xs" onClick={() => toggleCustomize(connection.platform)}>
-                          {expanded ? "Hide customization" : "Customize caption"}
-                        </button>
-                        {expanded && (
-                          <div className="mt-2 space-y-2">
-                            {connection.platform === "youtube" && (
-                              <Input placeholder="Override title" value={target!.title ?? ""} onChange={(e) => updateTarget(connection.platform, { title: e.target.value || null })} />
-                            )}
-                            <Textarea placeholder="Override caption" value={target!.caption ?? ""} onChange={(e) => updateTarget(connection.platform, { caption: e.target.value || null })} rows={3} />
-                          </div>
-                        )}
+                  <div key={platform} className="space-y-2" data-testid={`target-group-${platform}`}>
+                    {accounts.length > 1 && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium text-ink-700">{spec.name}: {selectedCount}/{accounts.length} accounts</span>
+                        <span className="flex gap-2">
+                          <button type="button" className="link" onClick={() => setPlatformTargets(platform, true)} aria-label={`Select all ${spec.name} accounts`}>All</button>
+                          <button type="button" className="text-ink-500 hover:text-ink-800" onClick={() => setPlatformTargets(platform, false)} aria-label={`Clear ${spec.name} accounts`}>None</button>
+                        </span>
                       </div>
                     )}
+                    {accounts.map((connection) => {
+                      const target = form.targets.find((t) => t.connectionId === connection.id);
+                      const included = !!target;
+                      const expanded = expandedCustomize.has(connection.id);
+                      const name = connection.label ? `${connection.label}` : connection.displayName || spec.name;
+                      return (
+                        <div key={connection.id} className="rounded-lg border border-ink-200 p-3">
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={included}
+                              onChange={() => (included ? removeTarget(connection.id) : addTarget(connection))}
+                              aria-label={`Include ${spec.name}${connection.label ? ` ${connection.label}` : ""}`}
+                            />
+                            <PlatformIcon platform={connection.platform} size={32} />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-ink-900">{name}</p>
+                              <p className="truncate text-xs text-ink-500">{connection.status === "connected" ? connection.handle : "Not connected"}</p>
+                            </div>
+                            {included && (
+                              <Select
+                                aria-label={`${spec.name}${connection.label ? ` ${connection.label}` : ""} format`}
+                                value={target!.format}
+                                onChange={(e) => updateTarget(connection.id, { format: e.target.value as PostFormat })}
+                                className="w-40"
+                              >
+                                {spec.formats.map((f) => <option key={f} value={f}>{FORMAT_SPECS[f].label}</option>)}
+                              </Select>
+                            )}
+                          </div>
+                          {included && (
+                            <div className="mt-2 pl-11">
+                              <button type="button" className="link text-xs" onClick={() => toggleCustomize(connection.id)}>
+                                {expanded ? "Hide customization" : "Customize caption"}
+                              </button>
+                              {expanded && (
+                                <div className="mt-2 space-y-2">
+                                  {connection.platform === "youtube" && (
+                                    <Input placeholder="Override title" value={target!.title ?? ""} onChange={(e) => updateTarget(connection.id, { title: e.target.value || null })} />
+                                  )}
+                                  <Textarea placeholder="Override caption" value={target!.caption ?? ""} onChange={(e) => updateTarget(connection.id, { caption: e.target.value || null })} rows={3} />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
             </div>
+            {form.targets.length > 1 && (
+              <div className="mt-3 rounded-lg border border-ink-200 p-3 space-y-2" data-testid="publish-mode">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-ink-700">Publish to {form.targets.length} accounts</span>
+                  <SegmentedTabs<PublishMode>
+                    value={form.publishMode}
+                    onChange={(publishMode) => setForm((f) => ({ ...f, publishMode }))}
+                    items={[{ id: "all", label: "All at once" }, { id: "queue", label: "Queue" }]}
+                  />
+                </div>
+                {form.publishMode === "queue" ? (
+                  <label className="flex items-center gap-2 text-xs text-ink-600">
+                    <span>Space accounts</span>
+                    <Input type="number" min={1} max={1440} className="w-20" aria-label="Queue spacing minutes" value={form.queueSpacingMinutes} onChange={(e) => setForm((f) => ({ ...f, queueSpacingMinutes: Math.max(1, Number(e.target.value) || 1) }))} />
+                    <span>minutes apart. The first account publishes immediately; the rest follow in order.</span>
+                  </label>
+                ) : (
+                  <p className="text-xs text-ink-500">Every account publishes at the same moment as an independent job; one failure never blocks the others.</p>
+                )}
+              </div>
+            )}
           </div>
 
           <div>

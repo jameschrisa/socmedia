@@ -13,7 +13,7 @@ function makePost(overrides: Partial<Post> = {}): Post {
     targets: [],
     status: "scheduled",
     scheduledAt: null,
-    timezone: "UTC",
+    timezone: "UTC", publishMode: "all", queueSpacingMinutes: 10,
     labels: [],
     notes: "",
     createdAt: "2026-01-01T00:00:00.000Z",

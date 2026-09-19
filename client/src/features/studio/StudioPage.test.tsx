@@ -48,7 +48,7 @@ const posts: Post[] = [
     targets: [],
     status: "draft",
     scheduledAt: null,
-    timezone: "UTC",
+    timezone: "UTC", publishMode: "all", queueSpacingMinutes: 10,
     labels: [],
     notes: "",
     createdAt: new Date().toISOString(),

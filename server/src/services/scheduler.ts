@@ -1,6 +1,6 @@
 import type { Db } from "../db/database";
 import { PostsRepo } from "../db/repositories/posts";
-import { publishPost } from "./publisher";
+import { publishPost, runDueJobs } from "./publisher";
 
 /** Publishes every scheduled post whose scheduledAt has passed. Returns the number published. */
 export async function runSchedulerTick(db: Db, now: Date = new Date()): Promise<number> {
@@ -11,9 +11,11 @@ export async function runSchedulerTick(db: Db, now: Date = new Date()): Promise<
   for (const post of due) {
     // Mark as publishing immediately so an overlapping tick won't pick the same post up twice.
     const marked = postsRepo.save({ ...post, status: "publishing", updatedAt: new Date().toISOString() });
-    await publishPost(db, marked);
+    await publishPost(db, marked, now);
     count += 1;
   }
+  // Queue-mode fan-out: run any deferred per-account jobs that are now due.
+  count += await runDueJobs(db, now);
   return count;
 }
 

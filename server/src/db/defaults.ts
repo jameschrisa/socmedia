@@ -37,6 +37,7 @@ export function buildDefaultConnection(orgId: string, platform: Platform, now: s
     id: nanoid(),
     orgId,
     platform,
+    label: "",
     enabled: true,
     mode: "sandbox",
     status: "disconnected",

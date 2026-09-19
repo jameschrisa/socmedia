@@ -60,3 +60,18 @@ describe("hashtags helpers", () => {
     expect(composeCaption("Hi ", [])).toBe("Hi");
   });
 });
+
+describe("multi-account duplicate caption warnings", () => {
+  const base = { title: "t", caption: "Same words", hashtags: ["x"], mediaIds: ["m1"], scheduledAt: null };
+  const t = (id: string, caption: string | null = null) => ({ platform: "tiktok" as const, connectionId: id, format: "portrait_9_16" as const, mediaIds: [], caption });
+  it("warns when several accounts on one platform get an identical caption at once", () => {
+    const issues = validatePost({ ...base, targets: [t("a"), t("b")], publishMode: "all" }, [img]);
+    expect(issues.some((i) => i.level === "warning" && /identical caption/.test(i.message))).toBe(true);
+  });
+  it("softens the warning in queue mode and drops it when captions differ", () => {
+    const queued = validatePost({ ...base, targets: [t("a"), t("b")], publishMode: "queue" }, [img]);
+    expect(queued.some((i) => /one after another/.test(i.message))).toBe(true);
+    const varied = validatePost({ ...base, targets: [t("a"), t("b", "A different take")] }, [img]);
+    expect(varied.some((i) => /caption/.test(i.message) && i.level === "warning")).toBe(false);
+  });
+});

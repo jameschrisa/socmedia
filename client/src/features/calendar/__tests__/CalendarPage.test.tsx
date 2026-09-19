@@ -23,7 +23,7 @@ function makePost(overrides: Partial<Post> = {}): Post {
     targets: [{ platform: "instagram", connectionId: "c1", format: "square", mediaIds: [], caption: null, title: null, hashtags: null }],
     status: "scheduled",
     scheduledAt: todayAt(15),
-    timezone: "UTC",
+    timezone: "UTC", publishMode: "all", queueSpacingMinutes: 10,
     labels: [],
     notes: "",
     createdAt: "2026-01-01T00:00:00.000Z",

@@ -17,7 +17,7 @@ describe("api client", () => {
 
   it("serialises JSON bodies and query params", async () => {
     const { calls } = mockFetch({ "POST /api/posts": () => ({ id: "p1" }), "GET /api/posts": () => [] });
-    await api.posts.create({ title: "t", caption: "c", hashtags: [], mediaIds: [], targets: [], timezone: "UTC", labels: [], notes: "" });
+    await api.posts.create({ title: "t", caption: "c", hashtags: [], mediaIds: [], targets: [], timezone: "UTC", publishMode: "all", queueSpacingMinutes: 10, labels: [], notes: "" });
     await api.posts.list({ from: "2026-09-01", to: "2026-09-30", status: ["draft", "scheduled"] });
     expect((calls[0]!.body as any).title).toBe("t");
     expect(calls[1]!.url).toContain("from=2026-09-01");

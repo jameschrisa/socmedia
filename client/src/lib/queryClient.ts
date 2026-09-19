@@ -10,6 +10,7 @@ export const queryClient = new QueryClient({
 export const qk = {
   health: ["health"] as const,
   aiSettings: ["settings", "ai"] as const,
+  publishing: ["settings", "publishing"] as const,
   orgs: ["orgs"] as const,
   connections: (orgId: string | null) => ["connections", orgId] as const,
   media: (orgId: string | null) => ["media", orgId] as const,

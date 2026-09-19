@@ -57,7 +57,10 @@ export function ConnectionCardFront({ connection, mutations, onConfigure }: Prop
         <div className="flex items-center gap-3 min-w-0">
           <PlatformIcon platform={connection.platform} size={40} />
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-ink-900">{spec.name}</h3>
+            <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900">
+              {spec.name}
+              {connection.label && <Badge tone="brand">{connection.label}</Badge>}
+            </h3>
             <p className="text-xs text-ink-500 line-clamp-2">{spec.description}</p>
           </div>
         </div>

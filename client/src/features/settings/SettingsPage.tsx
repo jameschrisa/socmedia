@@ -9,6 +9,7 @@ import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { OrgFormModal } from "./OrgFormModal";
 import { AiProviderSettings } from "./AiProviderSettings";
+import { PublishingSettingsCard } from "./PublishingSettingsCard";
 
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : "Something went wrong";
@@ -145,6 +146,11 @@ export function SettingsPage() {
       <section className="space-y-3">
         <SectionTitle>AI providers</SectionTitle>
         <AiProviderSettings />
+      </section>
+
+      <section className="space-y-3">
+        <SectionTitle>Publishing accounts</SectionTitle>
+        <PublishingSettingsCard />
       </section>
 
       <section className="space-y-3">

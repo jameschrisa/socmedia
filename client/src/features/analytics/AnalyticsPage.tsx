@@ -368,7 +368,7 @@ export function AnalyticsPage() {
                     <td className="px-5 py-3"><span className="inline-flex items-center gap-1.5"><PlatformDot platform={job.platform} />{PLATFORM_SPECS[job.platform].name}</span></td>
                     <td className="px-5 py-3 text-ink-600">{postTitleById.get(job.postId) ?? <span className="font-mono text-xs text-ink-400">{job.postId.slice(0, 8)}</span>}</td>
                     <td className="px-5 py-3 tabular-nums text-ink-600">{job.attempts}</td>
-                    <td className="px-5 py-3 text-ink-500">{relativeTime(job.finishedAt)}</td>
+                    <td className="px-5 py-3 text-ink-500">{job.status === "queued" && job.runAt ? `runs ${relativeTime(job.runAt)}` : relativeTime(job.finishedAt)}</td>
                     <td className="px-5 py-3 max-w-[220px] truncate text-ink-500" title={job.error ?? undefined}>{job.error ?? "None"}</td>
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-end gap-2">

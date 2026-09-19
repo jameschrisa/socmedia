@@ -309,6 +309,8 @@ export async function seedDemoContent(db: Db, orgId: string, profile: DemoProfil
       status: spec.status,
       scheduledAt,
       timezone: profile.timezone,
+      publishMode: "all",
+      queueSpacingMinutes: 10,
       labels: [],
       notes: "",
       createdAt,

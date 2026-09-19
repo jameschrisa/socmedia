@@ -2,7 +2,7 @@ import type {
   AnalyticsSummary, CaptionRequest, CaptionResponse, ConnectionTestResult, IdeaRequest, IdeaResponse,
   MediaAsset, MetricSnapshot, Organization, Platform, PlatformConnection, Post, PublishJob, ValidationIssue,
   ConnectionUpdateInput, PostInput, PostUpdateInput, OrganizationInput, ImproveRequestInput,
-  AiSettings, AiSettingsUpdateInput, AiProviderTestResult,
+  AiSettings, AiSettingsUpdateInput, AiProviderTestResult, ConnectionCreateInput, PublishingSettings, PublishingSettingsInput,
 } from "@socmedia/shared";
 import { useAppStore } from "@/store/appStore";
 
@@ -51,6 +51,8 @@ export const api = {
     getAi: () => request<AiSettings>("/settings/ai", {}, { org: false }),
     updateAi: (input: AiSettingsUpdateInput) => request<AiSettings>("/settings/ai", { method: "PUT", body: json(input) }, { org: false }),
     testAi: (provider: "anthropic" | "moonshot") => request<AiProviderTestResult>("/settings/ai/test", { method: "POST", body: json({ provider }) }, { org: false }),
+    getPublishing: () => request<PublishingSettings>("/settings/publishing", {}, { org: false }),
+    updatePublishing: (input: PublishingSettingsInput) => request<PublishingSettings>("/settings/publishing", { method: "PUT", body: json(input) }, { org: false }),
     aiModels: (provider: "anthropic" | "moonshot") => request<{ provider: string; models: string[] }>(`/settings/ai/models?provider=${provider}`, {}, { org: false }),
   },
 
@@ -71,6 +73,8 @@ export const api = {
   connections: {
     list: () => request<PlatformConnection[]>("/connections"),
     get: (id: string) => request<PlatformConnection>(`/connections/${id}`),
+    create: (input: ConnectionCreateInput) => request<PlatformConnection>("/connections", { method: "POST", body: json(input) }),
+    remove: (id: string) => request<void>(`/connections/${id}`, { method: "DELETE" }),
     update: (id: string, input: ConnectionUpdateInput) => request<PlatformConnection>(`/connections/${id}`, { method: "PATCH", body: json(input) }),
     test: (id: string) => request<ConnectionTestResult>(`/connections/${id}/test`, { method: "POST" }),
     connect: (id: string) => request<{ authorizeUrl: string; state: string; sandbox?: boolean; connection?: PlatformConnection }>(`/connections/${id}/connect`, { method: "POST" }),

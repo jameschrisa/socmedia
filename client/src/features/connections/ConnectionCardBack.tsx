@@ -17,9 +17,11 @@ interface Props {
   connection: PlatformConnection;
   mutations: ReturnType<typeof useConnectionMutations>;
   onBack: () => void;
+  siblingCount?: number;
 }
 
 interface FormState {
+  label: string;
   clientId: string;
   clientSecret: string;
   redirectUri: string;
@@ -31,6 +33,7 @@ interface FormState {
 
 function deriveForm(connection: PlatformConnection): FormState {
   return {
+    label: connection.label ?? "",
     clientId: connection.credentials.clientId ?? "",
     clientSecret: connection.credentials.clientSecret ?? "",
     redirectUri: connection.credentials.redirectUri ?? "",
@@ -54,9 +57,9 @@ function CheckboxRow({ label, checked, onChange, id }: { label: string; checked:
   );
 }
 
-export function ConnectionCardBack({ connection, mutations, onBack }: Props) {
+export function ConnectionCardBack({ connection, mutations, onBack, siblingCount = 1 }: Props) {
   const spec = PLATFORM_SPECS[connection.platform];
-  const { update, refresh } = mutations;
+  const { update, refresh, remove } = mutations;
   const [form, setForm] = useState<FormState>(() => deriveForm(connection));
   const [showSecret, setShowSecret] = useState(false);
 
@@ -96,6 +99,7 @@ export function ConnectionCardBack({ connection, mutations, onBack }: Props) {
       {
         id: connection.id,
         input: {
+          label: form.label,
           mode: form.mode,
           credentials: {
             clientId: form.clientId,
@@ -133,6 +137,12 @@ export function ConnectionCardBack({ connection, mutations, onBack }: Props) {
       </div>
 
       <div className="flex-1 space-y-5 overflow-y-auto scrollbar-thin px-5 py-4 text-sm">
+        <section className="space-y-3">
+          <h4 className="label">Account</h4>
+          <Field label="Label" htmlFor={fid("label")} hint="Shown next to the platform name so you can tell accounts apart.">
+            <Input id={fid("label")} value={form.label} onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))} placeholder="Main, Founder, EU…" />
+          </Field>
+        </section>
         <section className="space-y-3">
           <h4 className="label">API credentials</h4>
           <Field label="Client ID" htmlFor={fid("client-id")}>
@@ -278,7 +288,19 @@ export function ConnectionCardBack({ connection, mutations, onBack }: Props) {
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-ink-100 bg-ink-50 px-5 py-3">
-        <Button variant="ghost" size="sm" onClick={onBack}>Back</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={onBack}>Back</Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-red-600 hover:text-red-700"
+            disabled={siblingCount <= 1 || remove.isPending}
+            title={siblingCount <= 1 ? "Keep at least one account per platform" : "Remove this account"}
+            onClick={() => { if (window.confirm(`Remove this ${spec.name} account? Posts targeting it will lose that target.`)) remove.mutate(connection.id, { onSuccess: () => toast.message("Account removed"), onError: (e) => toast.error(errorMessage(e)) }); }}
+          >
+            Remove account
+          </Button>
+        </div>
         <Button size="sm" onClick={handleSave} loading={update.isPending} disabled={!dirty || update.isPending}>Save changes</Button>
       </div>
     </Card>

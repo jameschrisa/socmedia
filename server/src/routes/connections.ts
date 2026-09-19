@@ -1,6 +1,9 @@
 import type { Request } from "express";
 import { Router } from "express";
-import { connectionUpdateSchema } from "@socmedia/shared";
+import { connectionCreateSchema, connectionUpdateSchema } from "@socmedia/shared";
+import { nanoid } from "nanoid";
+import { buildDefaultConnection } from "../db/defaults";
+import { ConflictError } from "../middleware/errors";
 import type { PlatformConnection } from "@socmedia/shared";
 import { config } from "../config";
 import type { Db } from "../db/database";
@@ -56,6 +59,51 @@ export function connectionsRouter(db: Db): Router {
     })
   );
 
+  /** Add another account on a platform. App credentials can be copied from a sibling connection. */
+  router.post(
+    "/",
+    asyncHandler(async (req, res) => {
+      const input = connectionCreateSchema.parse(req.body);
+      const now = new Date().toISOString();
+      const base = buildDefaultConnection(req.org!.id, input.platform, now);
+      let credentials = base.credentials;
+      if (input.copyCredentialsFrom) {
+        const source = repo.get(input.copyCredentialsFrom);
+        if (!source || source.orgId !== req.org!.id) throw new NotFoundError(`Connection ${input.copyCredentialsFrom} not found`);
+        if (source.platform !== input.platform) throw new ConflictError("Credentials can only be copied between accounts on the same platform");
+        credentials = {
+          ...base.credentials,
+          clientId: source.credentials.clientId,
+          clientSecret: source.credentials.clientSecret,
+          redirectUri: source.credentials.redirectUri,
+          scopes: source.credentials.scopes,
+          // tokens are per account and are never copied
+        };
+      }
+      const siblings = repo.listByOrgAndPlatform(req.org!.id, input.platform).length;
+      const created = repo.create({
+        ...base,
+        id: nanoid(),
+        label: input.label || `Account ${siblings + 1}`,
+        mode: input.mode,
+        credentials,
+      });
+      res.status(201).json(maskConnection(created));
+    })
+  );
+
+  /** Remove an account. The last account on a platform is kept so the platform stays configurable. */
+  router.delete(
+    "/:id",
+    asyncHandler(async (req, res) => {
+      const existing = getOwned(req, repo);
+      const siblings = repo.listByOrgAndPlatform(existing.orgId, existing.platform);
+      if (siblings.length <= 1) throw new ConflictError(`Keep at least one ${existing.platform} account; disconnect it instead of deleting it.`);
+      repo.delete(existing.id);
+      res.status(204).end();
+    })
+  );
+
   router.patch(
     "/:id",
     asyncHandler(async (req, res) => {
@@ -74,6 +122,7 @@ export function connectionsRouter(db: Db): Router {
 
       const updated: PlatformConnection = {
         ...existing,
+        label: input.label ?? existing.label,
         enabled: input.enabled ?? existing.enabled,
         mode: input.mode ?? existing.mode,
         displayName: input.displayName ?? existing.displayName,

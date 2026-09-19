@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
-import { aiSettingsUpdateSchema } from "@socmedia/shared";
+import { aiSettingsUpdateSchema, publishingSettingsSchema, type PublishingSettings } from "@socmedia/shared";
+import { SettingsRepo } from "../db/repositories/settings";
 import type { Db } from "../db/database";
 import { listModels, testProvider } from "../services/aiProviders";
 import { getPublicAiSettings, saveAiSettings } from "../services/aiSettings";
@@ -11,6 +12,24 @@ const providerParam = z.object({ provider: z.enum(["anthropic", "moonshot"]) });
 /** Workspace-wide settings (not org scoped). */
 export function settingsRouter(db: Db): Router {
   const router = Router();
+
+  const PUBLISHING_DEFAULTS: PublishingSettings = { defaultPublishMode: "all", queueSpacingMinutes: 10, warnOnDuplicateCaptions: true };
+  const settingsRepo = new SettingsRepo(db);
+  const getPublishing = (): PublishingSettings => ({ ...PUBLISHING_DEFAULTS, ...(settingsRepo.get<Partial<PublishingSettings>>("publishing")?.value ?? {}) });
+
+  router.get("/publishing", (_req, res) => {
+    res.json(getPublishing());
+  });
+
+  router.put(
+    "/publishing",
+    asyncHandler(async (req, res) => {
+      const input = publishingSettingsSchema.parse(req.body);
+      const next = { ...getPublishing(), ...Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) } as PublishingSettings;
+      settingsRepo.set("publishing", next);
+      res.json(next);
+    })
+  );
 
   router.get("/ai", (_req, res) => {
     res.json(getPublicAiSettings(db));

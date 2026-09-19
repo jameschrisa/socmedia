@@ -18,6 +18,7 @@ function makeConnection(platform: Platform, overrides: Partial<PlatformConnectio
     id: `${platform}-1`,
     orgId: "org1",
     platform,
+    label: "",
     enabled: true,
     mode: "sandbox",
     status: "disconnected",
@@ -123,7 +124,7 @@ describe("ConnectionsPage", () => {
     renderWithProviders(<ConnectionsPage />);
 
     for (const name of ["TikTok", "YouTube", "LinkedIn", "Instagram"]) {
-      expect(await screen.findByText(name)).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: new RegExp(`^${name}`), level: 3 })).toBeInTheDocument();
     }
   });
 
@@ -212,6 +213,32 @@ describe("ConnectionsPage", () => {
     setupConnections();
     renderWithProviders(<ConnectionsPage />, { route: "/connections?connected=tiktok" });
 
-    expect(await screen.findByText("TikTok")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /^TikTok/, level: 3 })).toBeInTheDocument();
+  });
+
+  it("groups accounts by platform and adds another account through the modal", async () => {
+    const connections: PlatformConnection[] = [
+      makeConnection("tiktok", { id: "tt-1", label: "Main", status: "connected", displayName: "Brand", handle: "@brand" }),
+      makeConnection("tiktok", { id: "tt-2", label: "Founder", status: "connected", displayName: "Dr. Osei", handle: "@drosei" }),
+      makeConnection("youtube"), makeConnection("linkedin"), makeConnection("instagram"),
+    ];
+    let created: any = null;
+    mockFetch({
+      "GET /api/connections": () => connections,
+      "POST /api/connections": (init) => { created = JSON.parse(init!.body as string); const c = makeConnection("tiktok", { id: "tt-3", label: created.label || "Account 3" }); connections.push(c); return c; },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<ConnectionsPage />);
+    const group = await screen.findByTestId("platform-group-tiktok");
+    expect(within(group).getByText("2 accounts")).toBeInTheDocument();
+    expect(within(group).getByText("Main")).toBeInTheDocument();
+    expect(within(group).getByText("Founder")).toBeInTheDocument();
+
+    await user.click(within(group).getByTestId("add-account-tiktok"));
+    await user.type(screen.getByLabelText("Label"), "EU");
+    await user.selectOptions(screen.getByLabelText("App credentials"), "tt-1");
+    await user.click(screen.getByTestId("add-account-submit"));
+    await waitFor(() => expect(created).not.toBeNull());
+    expect(created).toMatchObject({ platform: "tiktok", label: "EU", copyCredentialsFrom: "tt-1" });
   });
 });

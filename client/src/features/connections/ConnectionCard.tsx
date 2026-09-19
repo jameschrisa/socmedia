@@ -10,7 +10,7 @@ import { ConnectionCardBack } from "./ConnectionCardBack";
  * configuration form. Both faces share one perspective container so the
  * flip reads as a physical card turning over rather than a cross-fade.
  */
-export function ConnectionCard({ connection }: { connection: PlatformConnection }) {
+export function ConnectionCard({ connection, siblingCount = 1 }: { connection: PlatformConnection; siblingCount?: number }) {
   const [flipped, setFlipped] = useState(false);
   // Mount the back face lazily on first "Configure" click and keep it mounted afterwards
   // so the flip animation always has both faces present, while tests can assert on the
@@ -36,7 +36,7 @@ export function ConnectionCard({ connection }: { connection: PlatformConnection 
         </div>
         {everFlipped && (
           <div className="absolute inset-0 backface-hidden overflow-hidden" style={{ transform: "rotateY(180deg)" }}>
-            <ConnectionCardBack connection={connection} mutations={mutations} onBack={() => setFlipped(false)} />
+            <ConnectionCardBack connection={connection} mutations={mutations} onBack={() => setFlipped(false)} siblingCount={siblingCount} />
           </div>
         )}
       </motion.div>

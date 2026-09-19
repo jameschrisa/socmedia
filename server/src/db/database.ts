@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS connections (
   id TEXT PRIMARY KEY,
   orgId TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   platform TEXT NOT NULL,
+  label TEXT NOT NULL DEFAULT '',
   enabled INTEGER NOT NULL DEFAULT 1,
   mode TEXT NOT NULL DEFAULT 'sandbox',
   status TEXT NOT NULL DEFAULT 'disconnected',
@@ -33,8 +34,7 @@ CREATE TABLE IF NOT EXISTS connections (
   lastTest TEXT,
   connectedAt TEXT,
   createdAt TEXT NOT NULL,
-  updatedAt TEXT NOT NULL,
-  UNIQUE(orgId, platform)
+  updatedAt TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS media (
@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS posts (
   status TEXT NOT NULL DEFAULT 'draft',
   scheduledAt TEXT,
   timezone TEXT NOT NULL DEFAULT 'UTC',
+  publishMode TEXT NOT NULL DEFAULT 'all',
+  queueSpacingMinutes INTEGER NOT NULL DEFAULT 10,
   labels TEXT NOT NULL DEFAULT '[]',
   notes TEXT NOT NULL DEFAULT '',
   createdAt TEXT NOT NULL,
@@ -85,6 +87,7 @@ CREATE TABLE IF NOT EXISTS publish_jobs (
   externalUrl TEXT,
   error TEXT,
   log TEXT NOT NULL DEFAULT '[]',
+  runAt TEXT,
   startedAt TEXT,
   finishedAt TEXT,
   createdAt TEXT NOT NULL
@@ -137,5 +140,54 @@ export function openDatabase(location: string): Db {
     db.exec("PRAGMA journal_mode = WAL;");
   }
   db.exec(MIGRATIONS);
+  runIncrementalMigrations(db);
   return db;
+}
+
+function hasColumn(db: Db, table: string, column: string): boolean {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  return cols.some((c) => c.name === column);
+}
+
+/** Additive migrations for databases created by earlier versions. Safe to run repeatedly. */
+export function runIncrementalMigrations(db: Db): void {
+  if (!hasColumn(db, "connections", "label")) db.exec("ALTER TABLE connections ADD COLUMN label TEXT NOT NULL DEFAULT ''");
+  if (!hasColumn(db, "posts", "publishMode")) db.exec("ALTER TABLE posts ADD COLUMN publishMode TEXT NOT NULL DEFAULT 'all'");
+  if (!hasColumn(db, "posts", "queueSpacingMinutes")) db.exec("ALTER TABLE posts ADD COLUMN queueSpacingMinutes INTEGER NOT NULL DEFAULT 10");
+  if (!hasColumn(db, "publish_jobs", "runAt")) db.exec("ALTER TABLE publish_jobs ADD COLUMN runAt TEXT");
+
+  // Multiple accounts per platform: drop the old UNIQUE(orgId, platform) constraint by rebuilding the table.
+  const ddl = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'connections'").get() as { sql: string } | undefined;
+  if (ddl && /UNIQUE\s*\(\s*orgId\s*,\s*platform\s*\)/i.test(ddl.sql)) {
+    db.exec(`
+      PRAGMA foreign_keys = OFF;
+      BEGIN;
+      CREATE TABLE connections_new (
+        id TEXT PRIMARY KEY,
+        orgId TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        platform TEXT NOT NULL,
+        label TEXT NOT NULL DEFAULT '',
+        enabled INTEGER NOT NULL DEFAULT 1,
+        mode TEXT NOT NULL DEFAULT 'sandbox',
+        status TEXT NOT NULL DEFAULT 'disconnected',
+        displayName TEXT NOT NULL DEFAULT '',
+        handle TEXT NOT NULL DEFAULT '',
+        avatarUrl TEXT,
+        followers INTEGER NOT NULL DEFAULT 0,
+        credentials TEXT NOT NULL,
+        settings TEXT NOT NULL,
+        lastTest TEXT,
+        connectedAt TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      );
+      INSERT INTO connections_new (id, orgId, platform, label, enabled, mode, status, displayName, handle, avatarUrl, followers, credentials, settings, lastTest, connectedAt, createdAt, updatedAt)
+        SELECT id, orgId, platform, label, enabled, mode, status, displayName, handle, avatarUrl, followers, credentials, settings, lastTest, connectedAt, createdAt, updatedAt FROM connections;
+      DROP TABLE connections;
+      ALTER TABLE connections_new RENAME TO connections;
+      CREATE INDEX IF NOT EXISTS idx_connections_org ON connections(orgId);
+      COMMIT;
+      PRAGMA foreign_keys = ON;
+    `);
+  }
 }

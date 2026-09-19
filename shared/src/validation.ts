@@ -23,8 +23,9 @@ export function effectiveCaption(post: Pick<Post, "caption" | "hashtags">, targe
 }
 
 /** Validate a post against each target platform's rules. */
-export function validatePost(post: Pick<Post, "caption" | "hashtags" | "mediaIds" | "targets" | "title" | "scheduledAt">, media: MediaAsset[] = []): ValidationIssue[] {
+export function validatePost(post: Pick<Post, "caption" | "hashtags" | "mediaIds" | "targets" | "title" | "scheduledAt"> & Partial<Pick<Post, "publishMode">>, media: MediaAsset[] = []): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
+  issues.push(...duplicateCaptionWarnings(post));
   if (post.targets.length === 0) {
     issues.push({ level: "error", message: "Select at least one platform to publish to." });
   }
@@ -67,6 +68,32 @@ export function validatePost(post: Pick<Post, "caption" | "hashtags" | "mediaIds
   }
   if (post.scheduledAt && Number.isNaN(Date.parse(post.scheduledAt))) {
     issues.push({ level: "error", message: "Scheduled time is not a valid date." });
+  }
+  return issues;
+}
+
+/**
+ * Several accounts on the same platform receiving identical content at the same moment is the
+ * classic trigger for duplicate-content throttling. Warn unless each account has its own caption
+ * or the post is queued (spaced out).
+ */
+export function duplicateCaptionWarnings(post: Pick<Post, "caption" | "hashtags" | "targets"> & Partial<Pick<Post, "publishMode">>): ValidationIssue[] {
+  const byPlatform = new Map<Platform, PostTarget[]>();
+  for (const t of post.targets) byPlatform.set(t.platform, [...(byPlatform.get(t.platform) ?? []), t]);
+  const issues: ValidationIssue[] = [];
+  for (const [platform, targets] of byPlatform) {
+    if (targets.length < 2) continue;
+    const captions = new Set(targets.map((t) => effectiveCaption(post, t)));
+    if (captions.size < targets.length) {
+      const spec = PLATFORM_SPECS[platform];
+      issues.push({
+        level: "warning",
+        platform,
+        message: post.publishMode === "queue"
+          ? `${targets.length} ${spec.name} accounts share the same caption. They will publish one after another, but consider a per-account variation.`
+          : `${targets.length} ${spec.name} accounts will post the identical caption at once. Vary the caption per account or use queue mode to avoid duplicate-content throttling.`,
+      });
+    }
   }
   return issues;
 }

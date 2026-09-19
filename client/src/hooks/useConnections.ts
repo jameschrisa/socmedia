@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ConnectionUpdateInput, PlatformConnection } from "@socmedia/shared";
+import type { ConnectionCreateInput, ConnectionUpdateInput, PlatformConnection } from "@socmedia/shared";
 import { api } from "@/lib/api";
 import { qk } from "@/lib/queryClient";
 import { useCurrentOrgId } from "./useOrg";
@@ -24,5 +24,7 @@ export function useConnectionMutations() {
   });
   const disconnect = useMutation({ mutationFn: (id: string) => api.connections.disconnect(id), onSuccess: replace });
   const refresh = useMutation({ mutationFn: (id: string) => api.connections.refresh(id), onSuccess: replace });
-  return { update, test, connect, disconnect, refresh };
+  const create = useMutation({ mutationFn: (input: ConnectionCreateInput) => api.connections.create(input), onSuccess: () => qc.invalidateQueries({ queryKey: key }) });
+  const remove = useMutation({ mutationFn: (id: string) => api.connections.remove(id), onSuccess: () => qc.invalidateQueries({ queryKey: key }) });
+  return { update, test, connect, disconnect, refresh, create, remove };
 }

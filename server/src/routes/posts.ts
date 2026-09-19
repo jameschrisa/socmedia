@@ -51,6 +51,8 @@ export function postsRouter(db: Db): Router {
         status,
         scheduledAt: input.scheduledAt ?? null,
         timezone: input.timezone,
+        publishMode: input.publishMode,
+        queueSpacingMinutes: input.queueSpacingMinutes,
         labels: input.labels,
         notes: input.notes,
         createdAt: now,

@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Link2 } from "lucide-react";
-import { PLATFORMS, PLATFORM_SPECS, isPlatform } from "@socmedia/shared";
-import { Button, EmptyState, Skeleton } from "@/components/ui";
+import { Link2, Plus } from "lucide-react";
+import { PLATFORMS, PLATFORM_SPECS, isPlatform, type Platform } from "@socmedia/shared";
+import { Button, EmptyState, PlatformIcon, Skeleton } from "@/components/ui";
+import { AddAccountModal } from "./AddAccountModal";
 import { useConnectionMutations, useConnections } from "@/hooks/useConnections";
 import { ConnectionCard } from "./ConnectionCard";
 
@@ -39,7 +40,9 @@ export function ConnectionsPage() {
   const { test } = useConnectionMutations();
 
   const connections = data ?? [];
-  const byPlatform = new Map(connections.map((c) => [c.platform, c]));
+  const [adding, setAdding] = useState<Platform | null>(null);
+  const byPlatform = new Map<Platform, typeof connections>();
+  for (const p of PLATFORMS) byPlatform.set(p, connections.filter((c) => c.platform === p));
   const connectedCount = connections.filter((c) => c.status === "connected").length;
   const sandboxCount = connections.filter((c) => c.mode === "sandbox").length;
   const liveCount = connections.filter((c) => c.mode === "live").length;
@@ -57,7 +60,7 @@ export function ConnectionsPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-ink-900">Social Profiles</h1>
-          <p className="mt-1 text-sm text-ink-500">Connect and configure publishing credentials for each network.</p>
+          <p className="mt-1 text-sm text-ink-500">Connect and configure publishing credentials for each network. Add as many accounts per network as you need.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="card flex items-center gap-4 px-4 py-2.5 text-sm">
@@ -85,13 +88,33 @@ export function ConnectionsPage() {
           description="Connections are seeded automatically when an organization is created."
         />
       ) : (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div className="space-y-8">
           {PLATFORMS.map((platform) => {
-            const connection = byPlatform.get(platform);
-            return connection ? <ConnectionCard key={connection.id} connection={connection} /> : null;
+            const accounts = byPlatform.get(platform) ?? [];
+            const spec = PLATFORM_SPECS[platform];
+            return (
+              <section key={platform} className="space-y-3" data-testid={`platform-group-${platform}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <PlatformIcon platform={platform} size={28} />
+                    <h2 className="font-sans text-sm font-semibold text-ink-900">{spec.name}</h2>
+                    <span className="text-xs text-ink-500">{accounts.length} {accounts.length === 1 ? "account" : "accounts"}</span>
+                  </div>
+                  <Button variant="outline" size="xs" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setAdding(platform)} data-testid={`add-account-${platform}`}>Add account</Button>
+                </div>
+                {accounts.length === 0 ? (
+                  <p className="text-xs text-ink-500">No {spec.name} accounts yet.</p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    {accounts.map((connection) => <ConnectionCard key={connection.id} connection={connection} siblingCount={accounts.length} />)}
+                  </div>
+                )}
+              </section>
+            );
           })}
         </div>
       )}
+      {adding && <AddAccountModal open platform={adding} siblings={byPlatform.get(adding) ?? []} onClose={() => setAdding(null)} />}
     </div>
   );
 }

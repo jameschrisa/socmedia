@@ -26,6 +26,7 @@ function rowToConnection(row: Row): PlatformConnection {
     id: row.id,
     orgId: row.orgId,
     platform: row.platform as Platform,
+    label: row.label ?? "",
     enabled: !!row.enabled,
     mode: row.mode,
     status: row.status,
@@ -55,21 +56,33 @@ export class ConnectionsRepo {
     return row ? rowToConnection(row) : undefined;
   }
 
+  /** First (oldest) connection for a platform; kept for callers that only need one. */
   getByOrgAndPlatform(orgId: string, platform: Platform): PlatformConnection | undefined {
-    const row = this.db.prepare("SELECT * FROM connections WHERE orgId = ? AND platform = ?").get(orgId, platform) as Row | undefined;
+    const row = this.db.prepare("SELECT * FROM connections WHERE orgId = ? AND platform = ? ORDER BY createdAt ASC LIMIT 1").get(orgId, platform) as Row | undefined;
     return row ? rowToConnection(row) : undefined;
+  }
+
+  listByOrgAndPlatform(orgId: string, platform: Platform): PlatformConnection[] {
+    const rows = this.db.prepare("SELECT * FROM connections WHERE orgId = ? AND platform = ? ORDER BY createdAt ASC").all(orgId, platform) as Row[];
+    return rows.map(rowToConnection);
+  }
+
+  delete(id: string): boolean {
+    const res = this.db.prepare("DELETE FROM connections WHERE id = ?").run(id);
+    return Number(res.changes) > 0;
   }
 
   create(conn: PlatformConnection): PlatformConnection {
     this.db
       .prepare(
-        `INSERT INTO connections (id, orgId, platform, enabled, mode, status, displayName, handle, avatarUrl, followers, credentials, settings, lastTest, connectedAt, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO connections (id, orgId, platform, label, enabled, mode, status, displayName, handle, avatarUrl, followers, credentials, settings, lastTest, connectedAt, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         conn.id,
         conn.orgId,
         conn.platform,
+        conn.label ?? "",
         conn.enabled ? 1 : 0,
         conn.mode,
         conn.status,
@@ -91,10 +104,11 @@ export class ConnectionsRepo {
   save(conn: PlatformConnection): PlatformConnection {
     this.db
       .prepare(
-        `UPDATE connections SET enabled=?, mode=?, status=?, displayName=?, handle=?, avatarUrl=?, followers=?, credentials=?, settings=?, lastTest=?, connectedAt=?, updatedAt=?
+        `UPDATE connections SET label=?, enabled=?, mode=?, status=?, displayName=?, handle=?, avatarUrl=?, followers=?, credentials=?, settings=?, lastTest=?, connectedAt=?, updatedAt=?
          WHERE id=?`
       )
       .run(
+        conn.label ?? "",
         conn.enabled ? 1 : 0,
         conn.mode,
         conn.status,

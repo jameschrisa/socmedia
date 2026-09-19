@@ -51,6 +51,8 @@ export interface PlatformConnection {
   id: string;
   orgId: string;
   platform: Platform;
+  /** Optional nickname to tell accounts on the same platform apart ("Main", "Founder", "EU"). */
+  label: string;
   enabled: boolean;
   mode: ConnectionMode;
   status: ConnectionStatus;
@@ -104,6 +106,9 @@ export interface PostTarget {
   hashtags?: string[] | null;   // override
 }
 
+/** How a post fans out to several accounts: all at once, or one after another with spacing. */
+export type PublishMode = "all" | "queue";
+
 export interface Post {
   id: string;
   orgId: string;
@@ -115,6 +120,9 @@ export interface Post {
   status: PostStatus;
   scheduledAt?: string | null; // ISO UTC
   timezone: string;
+  publishMode: PublishMode;
+  /** Minutes between consecutive publishes when publishMode is "queue". */
+  queueSpacingMinutes: number;
   labels: string[];
   notes: string;
   createdAt: string;
@@ -136,6 +144,8 @@ export interface PublishJob {
   externalUrl?: string | null;
   error?: string | null;
   log: { at: string; message: string }[];
+  /** For deferred (queued) jobs: the earliest time the scheduler may run it. */
+  runAt?: string | null;
   startedAt?: string | null;
   finishedAt?: string | null;
   createdAt: string;
@@ -263,3 +273,11 @@ export const AI_MODEL_SUGGESTIONS: Record<Exclude<AiProvider, "mock">, { id: str
     { id: "kimi-k2.7-code", label: "Kimi K2.7 Code" },
   ],
 };
+
+/** Workspace-wide publishing defaults. */
+export interface PublishingSettings {
+  defaultPublishMode: PublishMode;
+  queueSpacingMinutes: number;
+  /** Warn (validation) when the same caption goes to several accounts on one platform at once. */
+  warnOnDuplicateCaptions: boolean;
+}

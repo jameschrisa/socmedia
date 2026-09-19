@@ -13,6 +13,8 @@ function rowToPost(row: Row): Post {
     status: row.status,
     scheduledAt: row.scheduledAt ?? null,
     timezone: row.timezone,
+    publishMode: row.publishMode === "queue" ? "queue" : "all",
+    queueSpacingMinutes: Number(row.queueSpacingMinutes ?? 10),
     labels: JSON.parse(row.labels ?? "[]"),
     notes: row.notes,
     createdAt: row.createdAt,
@@ -69,8 +71,8 @@ export class PostsRepo {
   create(post: Post): Post {
     this.db
       .prepare(
-        `INSERT INTO posts (id, orgId, title, caption, hashtags, mediaIds, targets, status, scheduledAt, timezone, labels, notes, createdAt, updatedAt, publishedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO posts (id, orgId, title, caption, hashtags, mediaIds, targets, status, scheduledAt, timezone, publishMode, queueSpacingMinutes, labels, notes, createdAt, updatedAt, publishedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         post.id,
@@ -83,6 +85,8 @@ export class PostsRepo {
         post.status,
         post.scheduledAt ?? null,
         post.timezone,
+        post.publishMode ?? "all",
+        post.queueSpacingMinutes ?? 10,
         JSON.stringify(post.labels),
         post.notes,
         post.createdAt,
@@ -95,7 +99,7 @@ export class PostsRepo {
   save(post: Post): Post {
     this.db
       .prepare(
-        `UPDATE posts SET title=?, caption=?, hashtags=?, mediaIds=?, targets=?, status=?, scheduledAt=?, timezone=?, labels=?, notes=?, updatedAt=?, publishedAt=?
+        `UPDATE posts SET title=?, caption=?, hashtags=?, mediaIds=?, targets=?, status=?, scheduledAt=?, timezone=?, publishMode=?, queueSpacingMinutes=?, labels=?, notes=?, updatedAt=?, publishedAt=?
          WHERE id=?`
       )
       .run(
@@ -107,6 +111,8 @@ export class PostsRepo {
         post.status,
         post.scheduledAt ?? null,
         post.timezone,
+        post.publishMode ?? "all",
+        post.queueSpacingMinutes ?? 10,
         JSON.stringify(post.labels),
         post.notes,
         post.updatedAt,
