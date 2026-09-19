@@ -200,7 +200,7 @@ export function ConnectionCardBack({ connection, mutations, onBack }: Props) {
           />
           <p className="text-xs text-ink-500">
             {form.mode === "sandbox"
-              ? "Sandbox simulates publishing and connecting without calling the real API — safe for testing."
+              ? "Sandbox simulates publishing and connecting without calling the real API, safe for testing."
               : "Live mode calls the real platform API using the credentials above."}
           </p>
         </section>
@@ -268,8 +268,8 @@ export function ConnectionCardBack({ connection, mutations, onBack }: Props) {
         <section className="space-y-2">
           <h4 className="label">Token status</h4>
           <div className="space-y-1 rounded-lg border border-ink-100 bg-ink-50 p-3 text-xs">
-            <div className="flex justify-between gap-2"><span className="text-ink-500">Access token</span><span className="truncate font-mono">{connection.credentials.accessToken || "—"}</span></div>
-            <div className="flex justify-between gap-2"><span className="text-ink-500">Expires</span><span>{connection.credentials.tokenExpiresAt ? relativeTime(connection.credentials.tokenExpiresAt) : "—"}</span></div>
+            <div className="flex justify-between gap-2"><span className="text-ink-500">Access token</span><span className="truncate font-mono">{connection.credentials.accessToken || "None"}</span></div>
+            <div className="flex justify-between gap-2"><span className="text-ink-500">Expires</span><span>{connection.credentials.tokenExpiresAt ? relativeTime(connection.credentials.tokenExpiresAt) : "None"}</span></div>
           </div>
           <Button variant="outline" size="sm" onClick={handleRefreshToken} loading={refresh.isPending} disabled={!connection.credentials.accessToken}>
             Refresh token

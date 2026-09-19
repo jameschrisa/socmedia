@@ -33,7 +33,7 @@ export function TestResultList({ result }: { result: ConnectionTestResult }) {
                 <X className="h-3.5 w-3.5 shrink-0 text-red-600" aria-hidden />
               )}
               <span className="font-medium text-ink-700">{detail.label}</span>
-              {detail.info && <span className="text-ink-400">— {detail.info}</span>}
+              {detail.info && <span className="text-ink-400">{detail.info}</span>}
             </motion.li>
           ))}
         </AnimatePresence>

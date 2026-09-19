@@ -161,13 +161,12 @@
   .wordmark {
     font-family: "Outfit", system-ui, sans-serif;
     font-weight: 700;
-    letter-spacing: -0.045em;
+    letter-spacing: -0.02em;
     line-height: 1;
     font-feature-settings: "liga" 1, "kern" 1;
     color: var(--c-ink-900);
   }
-  .wordmark .wm-lig { letter-spacing: -0.14em; margin-right: -0.015em; }
-  .label { @apply text-[11px] font-semibold text-ink-400 uppercase tracking-[0.18em]; }
+  .label { @apply text-xs font-medium text-ink-500; }
   .input {
     @apply w-full rounded-none border border-ink-200 bg-glass-veil px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400 disabled:opacity-50;
   }
@@ -179,11 +178,11 @@
   .preserve-3d { transform-style: preserve-3d; }
   .backface-hidden { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
   .drift-in { @apply animate-drift; }
-  .drift-in > * { animation: drift 650ms cubic-bezier(0.22,0.61,0.36,1) forwards; }
-  .drift-in > *:nth-child(2) { animation-delay: 90ms; }
-  .drift-in > *:nth-child(3) { animation-delay: 180ms; }
-  .drift-in > *:nth-child(4) { animation-delay: 270ms; }
-  .drift-in > *:nth-child(n+5) { animation-delay: 360ms; }
+  .drift-in > * { animation: drift 420ms cubic-bezier(0.22,0.61,0.36,1) forwards; }
+  .drift-in > *:nth-child(2) { animation-delay: 60ms; }
+  .drift-in > *:nth-child(3) { animation-delay: 120ms; }
+  .drift-in > *:nth-child(4) { animation-delay: 180ms; }
+  .drift-in > *:nth-child(n+5) { animation-delay: 240ms; }
 }
 
 /* Mandatory fallbacks */

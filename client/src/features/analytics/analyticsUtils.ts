@@ -2,7 +2,7 @@ import { format, subDays } from "date-fns";
 import type { AnalyticsSummary, Platform } from "@socmedia/shared";
 import { PLATFORM_SPECS } from "@socmedia/shared";
 
-/** Pure helpers for the Analytics page — kept dependency-free so they're trivial to unit test. */
+/** Pure helpers for the Analytics page, kept dependency-free so they're trivial to unit test. */
 
 export type RangePreset = "7d" | "30d" | "90d";
 
@@ -24,7 +24,7 @@ export function rangeFor(preset: RangePreset, now: Date = new Date()): { from: s
 export type SummarySeriesPoint = AnalyticsSummary["series"][number];
 export type SeriesMetricKey = "impressions" | "engagement" | "followers";
 
-/** brand colour to use for a platform series/legend — TikTok's near-black swapped for readability. */
+/** brand colour to use for a platform series/legend, TikTok's near-black swapped for readability. */
 export function platformColor(platform: Platform): string {
   return platform === "tiktok" ? "#f0eef3" : PLATFORM_SPECS[platform].color;
 }

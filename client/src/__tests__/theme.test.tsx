@@ -18,11 +18,12 @@ describe("theme", () => {
     expect(resolveTheme("system")).toMatch(/dark|light/);
   });
 
-  it("wordmark reads suprstar with kerned pairs", () => {
+  it("wordmark reads suprstar as plain bold text", () => {
     render(<Wordmark />);
     const mark = screen.getByTestId("wordmark");
     expect(mark).toHaveTextContent("suprstar");
-    expect(mark.querySelectorAll(".wm-lig")).toHaveLength(2);
+    expect(mark.querySelectorAll("span")).toHaveLength(0);
+    expect(mark).toHaveClass("wordmark");
     fireEvent.click(mark);
   });
 });

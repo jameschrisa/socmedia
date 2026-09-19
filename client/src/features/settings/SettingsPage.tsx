@@ -159,14 +159,14 @@ export function SettingsPage() {
             <h3 className="text-sm font-semibold text-ink-900">Sandbox vs. Live</h3>
             <p className="mt-2 text-sm text-ink-500">
               Sandbox mode simulates connecting, testing and publishing so you can build flows safely. Live mode calls the
-              real platform APIs with your stored credentials — switch it per connection from Social Profiles → Configure.
+              real platform APIs with your stored credentials. Switch it per connection from Social Profiles, then Configure.
             </p>
           </Card>
           <Card className="p-5">
             <h3 className="text-sm font-semibold text-ink-900">Scheduler</h3>
             <p className="mt-2 text-sm text-ink-500">
               A background job checks for posts whose scheduled time has arrived and publishes them automatically. It runs
-              continuously on the server — there's nothing to configure here.
+              continuously on the server, so there is nothing to configure here.
             </p>
           </Card>
           <Card className="p-5">

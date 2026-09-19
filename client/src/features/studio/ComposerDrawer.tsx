@@ -396,7 +396,7 @@ export function ComposerDrawer() {
           <div>
             <h3 className="mb-2 text-sm font-semibold text-ink-900">Targets</h3>
             <div className="space-y-2">
-              {enabledConnections.length === 0 && <p className="text-xs text-ink-500">No enabled connections yet — check Social Profiles.</p>}
+              {enabledConnections.length === 0 && <p className="text-xs text-ink-500">No enabled connections yet. Check Social Profiles.</p>}
               {enabledConnections.map((connection) => {
                 const target = form.targets.find((t) => t.platform === connection.platform);
                 const included = !!target;

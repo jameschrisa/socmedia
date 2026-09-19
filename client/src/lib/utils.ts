@@ -4,9 +4,9 @@ import { format, formatDistanceToNow, isToday, isTomorrow, isYesterday, parseISO
 export const cn = (...inputs: ClassValue[]) => clsx(inputs);
 
 export function formatDateTime(iso: string | null | undefined, fmt = "MMM d, yyyy · h:mm a"): string {
-  if (!iso) return "—";
+  if (!iso) return "Not set";
   const d = typeof iso === "string" ? parseISO(iso) : iso;
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "Not set";
   return format(d, fmt);
 }
 

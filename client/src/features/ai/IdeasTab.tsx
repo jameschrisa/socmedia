@@ -64,7 +64,7 @@ export function IdeasTab() {
         <Textarea id="ai-idea-topic" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Behind-the-scenes of our product roadmap" />
       </Field>
 
-      <Field label="Audience" htmlFor="ai-idea-audience" hint="Optional — who is this for?">
+      <Field label="Audience" htmlFor="ai-idea-audience" hint="Optional. Who is this for?">
         <input id="ai-idea-audience" className="input" value={audience} onChange={(e) => setAudience(e.target.value)} placeholder="e.g. small business owners" />
       </Field>
 

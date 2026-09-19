@@ -340,7 +340,7 @@ export function AnalyticsPage() {
       <Card>
         <CardHeader
           title="Publish log"
-          subtitle="Live status of every publish attempt — refreshes every 30s"
+          subtitle="Live status of every publish attempt, refreshed every 30 seconds"
           action={<SegmentedTabs items={jobFilterTabs} value={jobFilter} onChange={setJobFilter} />}
         />
         <CardBody className="!p-0">
@@ -369,7 +369,7 @@ export function AnalyticsPage() {
                     <td className="px-5 py-3 text-ink-600">{postTitleById.get(job.postId) ?? <span className="font-mono text-xs text-ink-400">{job.postId.slice(0, 8)}</span>}</td>
                     <td className="px-5 py-3 tabular-nums text-ink-600">{job.attempts}</td>
                     <td className="px-5 py-3 text-ink-500">{relativeTime(job.finishedAt)}</td>
-                    <td className="px-5 py-3 max-w-[220px] truncate text-ink-500" title={job.error ?? undefined}>{job.error ?? "—"}</td>
+                    <td className="px-5 py-3 max-w-[220px] truncate text-ink-500" title={job.error ?? undefined}>{job.error ?? "None"}</td>
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-end gap-2">
                         {job.externalUrl && (

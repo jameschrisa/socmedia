@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Sparkles, Plus, Activity, Sun, Moon, Monitor } from "lucide-react";
+import { Sparkles, Plus, Sun, Moon, Monitor } from "lucide-react";
 import { OrgSwitcher } from "./OrgSwitcher";
 import { Button, Wordmark } from "@/components/ui";
 import { useAppStore } from "@/store/appStore";
@@ -17,10 +17,7 @@ const tabs = [
 
 export function Logo() {
   return (
-    <div className="flex items-center gap-2.5">
-      <span className="relative flex h-8 w-8 items-center justify-center bg-gradient-to-br from-brand-400 to-brand-600 text-[color:var(--c-on-brand)] shadow-sm">
-        <Activity className="h-4.5 w-4.5" style={{ width: 18, height: 18 }} />
-      </span>
+    <div className="flex items-center">
       <Wordmark />
     </div>
   );
@@ -36,7 +33,7 @@ export function TopNav() {
   return (
     <header className="sticky top-0 z-30 glass-sheet border-x-0 border-t-0 rounded-none">
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6">
-        <div className="flex h-16 items-center justify-between gap-4">
+        <div className="flex h-14 items-center justify-between gap-4">
           <Logo />
           <div className="flex items-center gap-2">
             <button
@@ -60,7 +57,7 @@ export function TopNav() {
               key={t.to}
               to={t.to}
               end={t.end}
-              className={({ isActive }) => cn("relative whitespace-nowrap px-3.5 py-3 text-sm font-medium transition-colors", isActive ? "text-ink-900" : "text-ink-800 hover:text-ink-900")}
+              className={({ isActive }) => cn("relative whitespace-nowrap px-3.5 py-2.5 text-sm font-medium transition-colors", isActive ? "text-ink-900" : "text-ink-800 hover:text-ink-900")}
             >
               {({ isActive }) => (
                 <>
