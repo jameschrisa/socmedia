@@ -304,6 +304,10 @@ export interface AuthState {
   /** True when no user exists yet: the login page offers to create the first owner. */
   needsSetup: boolean;
   user?: User | null;
+  /** Sign-in methods on offer; present on /auth/status. */
+  providers?: AuthProviders;
+  /** Domains that may self-serve sign in (shown as a hint on the sign-in page). */
+  allowedDomains?: string[];
 }
 
 /** Permissions derived from a role. Servers enforce these; clients use them to hide controls. */
@@ -412,4 +416,48 @@ export interface QuickPostResult {
   /** Where the caption came from: typed, the memo transcript, AI-written from the transcript, or nothing yet. */
   captionSource: "caption" | "transcript" | "ai" | "none";
   links: QuickPostLink[];
+}
+
+/* ---------- Sign-in methods, access policy and access requests ---------- */
+/** Which sign-in methods the server currently offers (drives the sign-in page). */
+export interface AuthProviders {
+  password: boolean;
+  /** Email sign-in links; true when a mail provider is configured, or in development where links go to the console. */
+  magicLink: boolean;
+  google: boolean;
+}
+
+/** A domain whose members may sign themselves in (magic link or Google) and how they are provisioned. */
+export interface AllowedDomain {
+  domain: string;            // lowercase, no @
+  role: UserRole;            // role given to auto-provisioned users (never owner)
+  orgSlugs: string[] | "*";  // organizations they get access to
+}
+
+export interface AccessPolicy {
+  domains: AllowedDomain[];
+  /** When true, users an admin already invited can use magic link / Google even if their domain is not listed. */
+  allowInvitedUsersAnyDomain: boolean;
+}
+
+export type AccessRequestStatus = "pending" | "approved" | "declined";
+
+export interface AccessRequest {
+  id: string;
+  email: string;
+  name: string;
+  organization?: string | null;
+  message?: string | null;
+  status: AccessRequestStatus;
+  createdAt: string;
+  decidedAt?: string | null;
+  decidedBy?: string | null;
+}
+
+export interface MagicLinkRequestResult {
+  ok: true;
+  /** "email" when a message was sent; "log" when the link was written to the activity log (development only). */
+  delivered: "email" | "log";
+  /** Present only when delivered === "log" outside production, so developers can click it. */
+  link?: string;
 }

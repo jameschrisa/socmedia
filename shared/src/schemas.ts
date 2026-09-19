@@ -203,3 +203,31 @@ export const quickPostFieldsSchema = z.object({
   transcript: z.string().max(4000).optional(),
   polish: z.coerce.boolean().default(true),
 });
+
+/* ---------- Magic link, Google, access policy, access requests ---------- */
+export const emailSchema = z.string().trim().toLowerCase().email().max(200);
+export const magicLinkRequestSchema = z.object({ email: emailSchema });
+export const domainSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/, "Enter a domain like example.com");
+export const allowedDomainSchema = z.object({
+  domain: domainSchema,
+  role: z.enum(["admin", "editor", "viewer"]).default("editor"),
+  orgSlugs: z.union([z.literal("*"), z.array(z.string().min(1)).max(50)]).default("*"),
+});
+export const accessPolicySchema = z.object({
+  domains: z.array(allowedDomainSchema).max(50),
+  allowInvitedUsersAnyDomain: z.boolean().default(true),
+});
+export const accessRequestCreateSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  email: emailSchema,
+  organization: z.string().trim().max(120).optional(),
+  message: z.string().trim().max(1000).optional(),
+});
+export const accessRequestApproveSchema = z.object({
+  role: z.enum(["admin", "editor", "viewer"]).default("editor"),
+  orgIds: z.union([z.literal("*"), z.array(z.string().min(1))]).default("*"),
+});
