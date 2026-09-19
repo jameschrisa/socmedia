@@ -19,11 +19,11 @@ describe("demo organizations", () => {
     const res = await request(ctx.app).post("/api/orgs/demo").send({ profile: "larkspur" });
     expect(res.status).toBe(201);
     const org = res.body;
-    expect(org.name).toBe("Larkspur Coffee Roasters");
+    expect(org.name).toBe("Larkspur Health");
     const h = { "X-Org-Id": org.id };
     const conns = (await request(ctx.app).get("/api/connections").set(h)).body;
     expect(conns).toHaveLength(4);
-    expect(conns.every((c: any) => c.status === "connected" && c.handle === "@larkspurroasters")).toBe(true);
+    expect(conns.every((c: any) => c.status === "connected" && c.handle === "@larkspurhealth")).toBe(true);
     const posts = (await request(ctx.app).get("/api/posts?includeUnscheduled=1").set(h)).body;
     expect(posts.length).toBe(DEMO_PROFILES.larkspur!.posts.length);
     expect(new Set(posts.map((p: any) => p.status))).toEqual(expect.any(Set));

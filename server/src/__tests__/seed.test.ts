@@ -33,10 +33,10 @@ describe("seedIfEmpty", () => {
     const orgsRepo = new OrganizationsRepo(db);
     const orgs = orgsRepo.list();
     expect(orgs).toHaveLength(2);
-    expect(orgs.map((o) => o.slug)).toEqual(expect.arrayContaining(["f3i", "larkspur-coffee"]));
+    expect(orgs.map((o) => o.slug)).toEqual(expect.arrayContaining(["f3i", "larkspur-health"]));
 
     const org2 = orgs.find((o) => o.slug === "f3i")!;
-    const org1 = orgs.find((o) => o.slug === "larkspur-coffee")!;
+    const org1 = orgs.find((o) => o.slug === "larkspur-health")!;
     const connectionsRepo = new ConnectionsRepo(db);
     expect(connectionsRepo.listByOrg(org1.id)).toHaveLength(PLATFORMS.length);
     expect(connectionsRepo.listByOrg(org2.id)).toHaveLength(PLATFORMS.length);

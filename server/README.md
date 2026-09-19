@@ -14,7 +14,7 @@ npm run test -w server     # vitest
 npm run typecheck -w server
 ```
 
-On first boot the server seeds two organizations (F3i and the "Larkspur Coffee Roasters" demo brand) into
+On first boot the server seeds two organizations (F3i and the "Larkspur Health" demo brand) into
 `DATA_DIR/pulse.db` if the database is empty. Seeding is skipped whenever any organization already
 exists, so it's safe to restart the server repeatedly.
 
