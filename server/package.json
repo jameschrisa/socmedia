@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "start": "node dist/index.js"
+    "start": "NODE_ENV=production tsx src/index.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",
@@ -18,7 +18,8 @@
     "multer": "^2.4.0",
     "nanoid": "^5.0.9",
     "sharp": "^0.33.5",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "tsx": "^4.19.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -27,7 +28,6 @@
     "@types/node": "^22.13.1",
     "@types/supertest": "^6.0.2",
     "supertest": "^7.0.0",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vitest": "^3.0.5"
   }

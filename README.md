@@ -41,3 +41,24 @@ npm run test:e2e          # Playwright smoke tests (starts API + web)
 ## Going live
 
 See `server/README.md` for how to create OAuth apps on each platform and what redirect URI to register. Switch a connection to **Live** on the back of its card, save credentials, then use **Connect** to run the OAuth flow.
+
+## Deploy
+
+The server keeps SQLite, uploads and the scheduler on local disk, so it needs a persistent Node host. The client is static and can live anywhere, including Vercel.
+
+### API (Docker)
+
+```bash
+docker build -f server/Dockerfile -t pulse-api .
+docker run -d -p 4000:4000 -v pulse-data:/data \
+  -e SECRET_KEY=change-me -e CLIENT_URL=https://your-app.vercel.app \
+  -e PUBLIC_BASE_URL=https://api.your-domain.com pulse-api
+```
+
+Or `docker compose up -d` for a local production run. The image also serves the built client from `client/dist`, so one container can run the whole app. Mount `/data` on a persistent volume: it holds the database, media and logos. Railway, Render and Fly.io all build this Dockerfile directly; set the build context to the repository root.
+
+Environment: `PORT`, `DATA_DIR`, `SECRET_KEY` (encrypts stored credentials), `CLIENT_URL` (CORS and OAuth redirects), `PUBLIC_BASE_URL` (Instagram and TikTok fetch media from this URL in live mode), optional `ANTHROPIC_API_KEY`. Register each platform's OAuth redirect URI as `<PUBLIC_BASE_URL>/api/connections/oauth/callback`.
+
+### Client (Vercel)
+
+Import the repo with **Root directory** `client` and the **Vite** preset; `client/vercel.json` supplies the build settings, SPA fallback and cache headers. Replace `YOUR-API-HOST` in its rewrites with your API domain so `/api` and `/uploads` proxy to the server.

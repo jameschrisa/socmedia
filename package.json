@@ -14,7 +14,8 @@
     "typecheck": "npm run typecheck -w shared && npm run typecheck -w server && npm run typecheck -w client",
     "test": "npm run test -w shared && npm run test -w server && npm run test -w client",
     "test:e2e": "playwright test",
-    "start": "node server/dist/index.js"
+    "start": "npm run start -w server",
+    "build:client": "npm run build -w client"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
