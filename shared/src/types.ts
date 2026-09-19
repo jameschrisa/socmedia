@@ -461,3 +461,41 @@ export interface MagicLinkRequestResult {
   /** Present only when delivered === "log" outside production, so developers can click it. */
   link?: string;
 }
+
+/* ---------- Console: OS terminal and platform docs ---------- */
+/** Whether the host allows the in-app OS terminal and what shell it would run. */
+export interface TerminalStatus {
+  enabled: boolean;
+  /** Why it is disabled, when it is (feature flag, role, or platform). */
+  reason?: string | null;
+  platform: "darwin" | "win32" | "linux" | string;
+  shell: string;        // e.g. /bin/zsh, powershell.exe
+  hostname: string;
+  user: string;         // OS user the shell runs as
+  cwd: string;
+  /** True when a real pseudo-terminal is available (node-pty); false for the pipe-based fallback. */
+  pty: boolean;
+}
+
+export type TerminalClientMessage =
+  | { type: "input"; data: string }
+  | { type: "resize"; cols: number; rows: number }
+  | { type: "ping" };
+
+export type TerminalServerMessage =
+  | { type: "ready"; status: TerminalStatus; cols: number; rows: number }
+  | { type: "output"; data: string }
+  | { type: "exit"; code: number | null }
+  | { type: "error"; message: string }
+  | { type: "pong" };
+
+/** One search hit from the bundled platform developer documentation (docs/platforms). */
+export interface PlatformDocHit {
+  platform: Platform | "general";
+  file: string;         // repo-relative path
+  topic: string;        // front-matter topic
+  heading: string;      // section heading
+  excerpt: string;      // the matching section text, trimmed
+  score: number;
+  sources: string[];    // URLs from the front matter
+}
