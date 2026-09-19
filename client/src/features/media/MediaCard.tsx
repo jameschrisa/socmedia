@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Film, ImagePlus, Pencil, Trash2 } from "lucide-react";
 import { FORMAT_SPECS, type MediaAsset } from "@socmedia/shared";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
@@ -41,29 +40,33 @@ export function MediaCard({
             <Film className="h-8 w-8" />
           </div>
         )}
-        <div className="absolute left-2 top-2 flex flex-wrap gap-1">
-          <Badge tone="neutral" className={cn(asset.kind === "video" ? "bg-black/60 text-white" : "")}>{asset.kind}</Badge>
-          {asset.format && <Badge tone="info">Derived · {FORMAT_SPECS[asset.format].label}</Badge>}
+        {/* top scrim so badges and controls read on bright imagery */}
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/70 via-black/35 to-transparent" />
+        <div className="absolute left-2.5 top-2.5 flex flex-wrap gap-1">
+          <span className="media-chip">{asset.kind}</span>
+          {asset.format && <span className="media-chip text-cyan-400">Derived · {FORMAT_SPECS[asset.format].label}</span>}
         </div>
-        <div className="absolute right-2 top-2 flex gap-1">
+        <div className="absolute right-2.5 top-2.5 flex gap-1.5">
           {asset.kind === "image" && onEdit && (
             <button
               type="button"
               aria-label={`Edit ${asset.filename}`}
+              title="Edit image"
               onClick={() => onEdit(asset)}
-              className="rounded-md glass-sheet p-1.5 text-ink-600 shadow hover:bg-glass-strong"
+              className="media-action"
             >
-              <Pencil className="h-3.5 w-3.5" />
+              <Pencil className="h-4 w-4" />
             </button>
           )}
           {onDelete && (
             <button
               type="button"
               aria-label={`Delete ${asset.filename}`}
+              title="Delete"
               onClick={() => { if (window.confirm(`Delete ${asset.filename}?`)) onDelete(asset); }}
-              className="rounded-md glass-sheet p-1.5 text-ink-600 shadow hover:bg-red-50 hover:text-red-600"
+              className="media-action media-action-danger"
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-4 w-4" />
             </button>
           )}
         </div>
