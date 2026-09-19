@@ -286,7 +286,7 @@ export function ImageEditor({ asset, initialFormat, allowedFormats, onExport, on
         <div className="space-y-5">
           <div data-testid="filters-panel">
             <h3 className="mb-2 text-sm font-semibold text-ink-900">Filters</h3>
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin" role="listbox" aria-label="Filter presets">
+            <div className="grid grid-cols-4 gap-2" role="listbox" aria-label="Filter presets">
               {FILTER_PRESETS.map((preset) => {
                 const active = (matchingPreset(adj) ?? "custom") === preset.key || (preset.key === "none" && matchingPreset(adj) === null && JSON.stringify(adj) === JSON.stringify(adjustmentsForPreset("none")));
                 const tint = cssTintFor(preset.look);
@@ -299,7 +299,7 @@ export function ImageEditor({ asset, initialFormat, allowedFormats, onExport, on
                     title={preset.description}
                     data-testid={`filter-${preset.key}`}
                     onClick={() => editor.applyLook(adjustmentsForPreset(preset.key))}
-                    className={cn("group flex w-[68px] shrink-0 flex-col items-center gap-1 text-[10px] text-ink-600 transition", active ? "text-ink-900" : "hover:text-ink-900")}
+                    className={cn("group flex min-w-0 flex-col items-center gap-1 text-[10px] text-ink-600 transition", active ? "text-ink-900" : "hover:text-ink-900")}
                   >
                     <span className={cn("relative block h-12 w-full overflow-hidden border", active ? "border-brand-500 ring-2 ring-brand-200" : "border-ink-200")}>
                       <img src={asset.thumbnailUrl ?? asset.url} alt="" className="h-full w-full object-cover" style={{ filter: cssFilterFor(preset.look) }} draggable={false} />
@@ -326,7 +326,7 @@ export function ImageEditor({ asset, initialFormat, allowedFormats, onExport, on
               {adj.tint && (
                 <label className="flex items-center gap-2 text-xs text-ink-600">
                   <span className="w-20 shrink-0">Tint</span>
-                  <input type="color" aria-label="Tint colour" value={adj.tint.color} onChange={(e) => editor.setAdjustments((a) => ({ ...a, tint: a.tint ? { ...a.tint, color: e.target.value } : null }))} />
+                  <input type="color" aria-label="Tint colour" className="h-6 w-8 shrink-0 border border-ink-200 bg-transparent p-0" value={adj.tint.color} onChange={(e) => editor.setAdjustments((a) => ({ ...a, tint: a.tint ? { ...a.tint, color: e.target.value } : null }))} />
                   <input type="range" aria-label="Tint strength" min={0} max={60} step={2} className="flex-1" value={Math.round(adj.tint.alpha * 100)} onChange={(e) => editor.setAdjustments((a) => ({ ...a, tint: a.tint ? { ...a.tint, alpha: Number(e.target.value) / 100 } : null }))} />
                   <button type="button" className="link" onClick={() => editor.setAdjustments((a) => ({ ...a, tint: null }))}>Remove</button>
                 </label>
