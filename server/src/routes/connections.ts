@@ -8,6 +8,7 @@ import type { PlatformConnection } from "@socmedia/shared";
 import { config } from "../config";
 import type { Db } from "../db/database";
 import { ConnectionsRepo } from "../db/repositories/connections";
+import { requireRole, requireWrite } from "../middleware/auth";
 import { isMasked, mask } from "../crypto";
 import { NotFoundError } from "../middleware/errors";
 import { getAdapter } from "../platforms";
@@ -42,6 +43,34 @@ function decodeState(state: string): { connectionId: string } {
 export function connectionsRouter(db: Db): Router {
   const router = Router();
   const repo = new ConnectionsRepo(db);
+
+  // Creating/deleting accounts and editing credentials/mode is admin+; other mutations (test/connect/
+  // disconnect/refresh, label/settings edits) only require editor+.
+  router.use((req, res, next) => {
+    if (req.method === "GET") {
+      next();
+      return;
+    }
+    if (req.method === "DELETE") {
+      requireRole("admin")(req, res, next);
+      return;
+    }
+    if (req.method === "POST" && req.path === "/") {
+      requireRole("admin")(req, res, next);
+      return;
+    }
+    if (req.method === "PATCH") {
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      if (Object.prototype.hasOwnProperty.call(body, "credentials") || Object.prototype.hasOwnProperty.call(body, "mode")) {
+        requireRole("admin")(req, res, next);
+        return;
+      }
+      requireWrite(req, res, next);
+      return;
+    }
+    // POST /:id/test, /:id/connect, /:id/disconnect, /:id/refresh
+    requireWrite(req, res, next);
+  });
 
   router.get(
     "/",

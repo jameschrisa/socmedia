@@ -4,6 +4,8 @@ import { Sparkles, Plus, Sun, Moon, Monitor } from "lucide-react";
 import { OrgSwitcher } from "./OrgSwitcher";
 import { Button, SparkMark, Wordmark } from "@/components/ui";
 import { useAppStore } from "@/store/appStore";
+import { useAuth } from "@/hooks/useAuth";
+import { UserMenu } from "@/features/auth/UserMenu";
 import { cn } from "@/lib/utils";
 
 const tabs = [
@@ -29,6 +31,7 @@ export function TopNav() {
   const toggleAi = useAppStore((s) => s.toggleAiPanel);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
+  const { can } = useAuth();
   const nextTheme = theme === "dark" ? "light" : theme === "light" ? "system" : "dark";
   const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
   return (
@@ -47,9 +50,14 @@ export function TopNav() {
             >
               <ThemeIcon className="h-4 w-4" />
             </button>
-            <Button variant="outline" size="sm" icon={<Sparkles className="h-4 w-4 text-brand-500" />} onClick={toggleAi} data-testid="ai-toggle">AI Assistant</Button>
-            <Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openComposer(null)} data-testid="new-post">New post</Button>
+            {can.write && (
+              <>
+                <Button variant="outline" size="sm" icon={<Sparkles className="h-4 w-4 text-brand-500" />} onClick={toggleAi} data-testid="ai-toggle">AI Assistant</Button>
+                <Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openComposer(null)} data-testid="new-post">New post</Button>
+              </>
+            )}
             <OrgSwitcher />
+            <UserMenu />
           </div>
         </div>
         <nav className="-mb-px flex gap-1 overflow-x-auto no-scrollbar" aria-label="Primary">

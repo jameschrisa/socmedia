@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Copy, Film, ImagePlus, Pencil, Trash2 } from "lucide-react";
+import { Copy, Film, ImagePlus, Pencil, Play, Scissors, Trash2 } from "lucide-react";
 import { FORMAT_SPECS, type MediaAsset } from "@socmedia/shared";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
+import { formatTimecode } from "./videoMath";
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -37,6 +38,15 @@ export function MediaCard({
       <div className="relative aspect-square bg-ink-100">
         {asset.kind === "image" ? (
           <img src={asset.thumbnailUrl ?? asset.url} alt={asset.filename} className="h-full w-full object-cover" />
+        ) : asset.thumbnailUrl ? (
+          <>
+            <img src={asset.thumbnailUrl} alt={asset.filename} className="h-full w-full object-cover" />
+            <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white">
+                <Play className="h-4 w-4 translate-x-0.5" fill="currentColor" />
+              </span>
+            </div>
+          </>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-ink-400">
             <Film className="h-8 w-8" />
@@ -58,6 +68,17 @@ export function MediaCard({
               className="media-action"
             >
               <Pencil className="h-4 w-4" />
+            </button>
+          )}
+          {asset.kind === "video" && onEdit && (
+            <button
+              type="button"
+              aria-label={`Edit ${asset.filename}`}
+              title="Trim and crop video"
+              onClick={() => onEdit(asset)}
+              className="media-action"
+            >
+              <Scissors className="h-4 w-4" />
             </button>
           )}
           {onDuplicate && (
@@ -88,6 +109,7 @@ export function MediaCard({
         <p className="truncate text-sm font-medium text-ink-900" title={asset.filename}>{asset.filename}</p>
         <p className="text-xs text-ink-500">
           {asset.width && asset.height ? `${asset.width}×${asset.height} · ` : ""}
+          {asset.kind === "video" && asset.durationSeconds != null ? `${formatTimecode(asset.durationSeconds)} · ` : ""}
           {formatSize(asset.size)}
         </p>
         <input

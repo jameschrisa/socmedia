@@ -36,6 +36,7 @@ import { useAppStore, type ComposerDefaults } from "@/store/appStore";
 import { useAiBridge } from "@/features/ai/aiBridge";
 import { cn } from "@/lib/utils";
 import { ImageEditor, type ImageEditorExportResult } from "@/features/media/ImageEditor";
+import { VideoEditor } from "@/features/media/VideoEditor";
 import { MediaPicker } from "@/features/media/MediaPicker";
 import { PlatformPreview } from "./PlatformPreview";
 
@@ -142,6 +143,7 @@ export function ComposerDrawer() {
   }, [composerOpen, composerPostId, publishing.data]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<MediaAsset | null>(null);
+  const [editingVideo, setEditingVideo] = useState<MediaAsset | null>(null);
   const [hashtagDraft, setHashtagDraft] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -279,6 +281,18 @@ export function ComposerDrawer() {
       },
     );
     setEditingAsset(null);
+  }
+
+  /** Attach a video clip (new or replaced) to the post's media and any targets whose format it matches. */
+  function handleVideoDone(asset: MediaAsset) {
+    setForm((f) => ({
+      ...f,
+      mediaIds: f.mediaIds.includes(asset.id) ? f.mediaIds : [...f.mediaIds, asset.id],
+      targets: asset.format
+        ? f.targets.map((t) => (t.format === asset.format ? { ...t, mediaIds: t.mediaIds.includes(asset.id) ? t.mediaIds : [...t.mediaIds, asset.id] } : t))
+        : f.targets,
+    }));
+    setEditingVideo(null);
   }
 
   function buildInput(overrides: Partial<PostInput> = {}): PostInput {
@@ -546,11 +560,11 @@ export function ComposerDrawer() {
                     >
                       <X className="h-3 w-3" />
                     </button>
-                    {asset.kind === "image" && (
+                    {(asset.kind === "image" || asset.kind === "video") && (
                       <button
                         type="button"
                         aria-label={`Edit ${asset.filename}`}
-                        onClick={() => setEditingAsset(asset)}
+                        onClick={() => (asset.kind === "video" ? setEditingVideo(asset) : setEditingAsset(asset))}
                         className="absolute bottom-0.5 left-0.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white opacity-0 group-hover:opacity-100"
                       >
                         Edit
@@ -647,6 +661,15 @@ export function ComposerDrawer() {
           allowedFormats={allowedEditFormats}
           onExport={handleExport}
           onClose={() => setEditingAsset(null)}
+        />
+      )}
+
+      {editingVideo && (
+        <VideoEditor
+          asset={editingVideo}
+          initialFormat={editingVideo.format ?? editorInitialFormat}
+          onDone={handleVideoDone}
+          onClose={() => setEditingVideo(null)}
         />
       )}
     </Drawer>

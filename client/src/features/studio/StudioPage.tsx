@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ImagePlus, Search, UploadCloud } from "lucide-react";
-import type { MediaAsset } from "@socmedia/shared";
+import { VIDEO_MAX_SECONDS, type MediaAsset } from "@socmedia/shared";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader, SectionTitle } from "@/components/ui/Card";
 import { EmptyState, Skeleton } from "@/components/ui/Skeleton";
@@ -12,7 +12,30 @@ import { usePosts } from "@/hooks/usePosts";
 import { useAppStore } from "@/store/appStore";
 import { cn, formatDateTime } from "@/lib/utils";
 import { ImageEditor, type ImageEditorExportResult } from "@/features/media/ImageEditor";
+import { VideoEditor } from "@/features/media/VideoEditor";
 import { MediaCard } from "@/features/media/MediaCard";
+import { formatTimecode } from "@/features/media/videoMath";
+
+/** Reads a video file's duration client-side via an object URL, so we can refuse over-length
+ * uploads before spending a round trip to the server. */
+function readVideoDuration(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    const cleanup = () => URL.revokeObjectURL(url);
+    video.onloadedmetadata = () => {
+      const duration = video.duration;
+      cleanup();
+      resolve(duration);
+    };
+    video.onerror = () => {
+      cleanup();
+      reject(new Error("Could not read video metadata"));
+    };
+    video.src = url;
+  });
+}
 
 type KindFilter = "all" | "image" | "video";
 
@@ -27,6 +50,7 @@ export function StudioPage() {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [editingAsset, setEditingAsset] = useState<MediaAsset | null>(null);
+  const [editingVideo, setEditingVideo] = useState<MediaAsset | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const allTags = useMemo(() => {
@@ -51,10 +75,21 @@ export function StudioPage() {
     return [...(posts ?? [])].sort((a, b) => (b.updatedAt > a.updatedAt ? 1 : -1)).slice(0, 8);
   }, [posts]);
 
-  const uploadFiles = (files: FileList | File[]) => {
+  const uploadFiles = async (files: FileList | File[]) => {
     const list = Array.from(files).filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"));
     if (list.length === 0) return;
-    list.forEach((file) => {
+    for (const file of list) {
+      if (file.type.startsWith("video/")) {
+        try {
+          const duration = await readVideoDuration(file);
+          if (Number.isFinite(duration) && duration > VIDEO_MAX_SECONDS) {
+            toast.error("Videos must be 5 minutes or shorter", { description: `${file.name} is ${formatTimecode(duration)} long` });
+            continue;
+          }
+        } catch {
+          // If we can't probe it client-side, let the server validate (it still runs ffprobe).
+        }
+      }
       upload.mutate(
         { file },
         {
@@ -62,7 +97,7 @@ export function StudioPage() {
           onSuccess: () => toast.success(`Uploaded ${file.name}`),
         },
       );
-    });
+    }
   };
 
   const handleExport = (result: ImageEditorExportResult) => {
@@ -91,7 +126,7 @@ export function StudioPage() {
             accept="image/*,video/*"
             multiple
             className="hidden"
-            onChange={(e) => { if (e.target.files) uploadFiles(e.target.files); e.target.value = ""; }}
+            onChange={(e) => { if (e.target.files) void uploadFiles(e.target.files); e.target.value = ""; }}
           />
           <Button variant="primary" icon={<UploadCloud className="h-4 w-4" />} onClick={() => fileInputRef.current?.click()} loading={upload.isPending}>
             Upload
@@ -106,13 +141,14 @@ export function StudioPage() {
         onDrop={(e) => {
           e.preventDefault();
           setDragOver(false);
-          if (e.dataTransfer.files?.length) uploadFiles(e.dataTransfer.files);
+          if (e.dataTransfer.files?.length) void uploadFiles(e.dataTransfer.files);
         }}
         data-testid="upload-dropzone"
       >
         <CardBody className="flex flex-col items-center justify-center gap-2 py-8 text-center">
           <UploadCloud className="h-6 w-6 text-ink-400" />
           <p className="text-sm text-ink-600">Drag and drop images or video here, or use the Upload button.</p>
+          <p className="text-xs text-ink-500">Videos up to 5:00</p>
         </CardBody>
       </Card>
 
@@ -164,7 +200,7 @@ export function StudioPage() {
                 <MediaCard
                   key={asset.id}
                   asset={asset}
-                  onEdit={setEditingAsset}
+                  onEdit={(a) => (a.kind === "video" ? setEditingVideo(a) : setEditingAsset(a))}
                   onUse={(a) => openComposer(null, { mediaIds: [a.id] })}
                   onDelete={(a) => remove.mutate(a.id, { onSuccess: () => toast.success(`Deleted ${a.filename}`) })}
                   onDuplicate={(a) => duplicate.mutate(a.id, { onSuccess: () => toast.success(`Duplicated ${a.filename}`), onError: (err) => toast.error("Duplicate failed", { description: (err as Error).message }) })}
@@ -208,6 +244,15 @@ export function StudioPage() {
           initialFormat={editingAsset.format ?? "square"}
           onExport={handleExport}
           onClose={() => setEditingAsset(null)}
+        />
+      )}
+
+      {editingVideo && (
+        <VideoEditor
+          asset={editingVideo}
+          initialFormat={editingVideo.format ?? undefined}
+          onDone={() => setEditingVideo(null)}
+          onClose={() => setEditingVideo(null)}
         />
       )}
     </div>

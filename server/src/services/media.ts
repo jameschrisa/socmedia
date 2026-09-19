@@ -3,7 +3,27 @@ import path from "node:path";
 import { nanoid } from "nanoid";
 import sharp from "sharp";
 import type { MediaAsset, PostFormat } from "@socmedia/shared";
+import { VIDEO_MAX_SECONDS } from "@socmedia/shared";
 import { config } from "../config";
+import { posterFrame, probeVideo } from "./video";
+
+/** Thrown when an uploaded/derived video exceeds VIDEO_MAX_SECONDS; the file has already been removed. */
+export class VideoTooLongError extends Error {
+  durationSeconds: number;
+  constructor(durationSeconds: number) {
+    super(`Video is ${durationSeconds}s, longer than the ${VIDEO_MAX_SECONDS}s limit`);
+    this.name = "VideoTooLongError";
+    this.durationSeconds = durationSeconds;
+  }
+}
+
+/** Formats a duration in seconds as "M:SS" for user-facing error messages. */
+export function formatDuration(totalSeconds: number): string {
+  const s = Math.max(0, Math.round(totalSeconds));
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${String(sec).padStart(2, "0")}`;
+}
 
 export function uploadsDirFor(orgId: string): string {
   return path.join(config.dataDir, "uploads", orgId);
@@ -50,6 +70,7 @@ export interface SavedFile {
   kind: "image" | "video";
   width?: number | null;
   height?: number | null;
+  durationSeconds?: number | null;
   thumbnailUrl?: string | null;
 }
 
@@ -64,6 +85,7 @@ export async function saveUploadBuffer(orgId: string, buffer: Buffer, mimeType: 
 
   let width: number | null = null;
   let height: number | null = null;
+  let durationSeconds: number | null = null;
   let thumbnailUrl: string | null = null;
 
   if (kind === "image") {
@@ -80,6 +102,36 @@ export async function saveUploadBuffer(orgId: string, buffer: Buffer, mimeType: 
     }
   }
 
+  if (kind === "video") {
+    let probe: Awaited<ReturnType<typeof probeVideo>> | null = null;
+    try {
+      probe = await probeVideo(absolutePath);
+    } catch {
+      probe = null;
+    }
+    if (probe) {
+      if (probe.durationSeconds > VIDEO_MAX_SECONDS) {
+        try {
+          fs.unlinkSync(absolutePath);
+        } catch {
+          // already gone
+        }
+        throw new VideoTooLongError(probe.durationSeconds);
+      }
+      durationSeconds = probe.durationSeconds;
+      width = probe.width;
+      height = probe.height;
+      try {
+        const thumbName = `${path.parse(filename).name}_poster.jpg`;
+        const thumbPath = path.join(dir, thumbName);
+        await posterFrame(absolutePath, thumbPath);
+        thumbnailUrl = `/uploads/${orgId}/${thumbName}`;
+      } catch {
+        // poster generation failed; leave thumbnail unset
+      }
+    }
+  }
+
   return {
     filename,
     absolutePath,
@@ -89,6 +141,7 @@ export async function saveUploadBuffer(orgId: string, buffer: Buffer, mimeType: 
     kind,
     width,
     height,
+    durationSeconds,
     thumbnailUrl,
   };
 }

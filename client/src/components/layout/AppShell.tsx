@@ -7,9 +7,13 @@ import { useCardFocus } from "@/hooks/useCardFocus";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { AiPanel } from "@/features/ai/AiPanel";
 import { ComposerDrawer } from "@/features/studio/ComposerDrawer";
+import { ApiError } from "@/lib/api";
 
 export function AppShell() {
   const { isError, error, refetch } = useOrgs();
+  // 401s mean the session ended; RequireAuth already handles showing the login
+  // screen for that, so this card should only ever appear for real API outages.
+  const unreachable = isError && !(error instanceof ApiError && error.status === 401);
   useCardFocus("main");
   const location = useLocation();
   const mode = useThemeMode();
@@ -17,7 +21,7 @@ export function AppShell() {
     <div className="min-h-screen flex flex-col">
       <TopNav />
       <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 sm:px-6 py-6">
-        {isError ? (
+        {unreachable ? (
           <div className="card p-8 text-center">
             <h2 className="text-lg font-semibold">Can't reach the suprstar API</h2>
             <p className="mt-1 text-sm text-ink-500">

@@ -24,6 +24,13 @@ export class BadRequestError extends Error {
   }
 }
 
+export class ForbiddenError extends Error {
+  constructor(message = "Forbidden") {
+    super(message);
+    this.name = "ForbiddenError";
+  }
+}
+
 /** Generic HTTP error carrying an explicit status code (used e.g. for 502s from the AI service). */
 export class HttpError extends Error {
   status: number;
@@ -48,6 +55,10 @@ export function errorHandler(err: unknown, req: Request, res: Response, next: Ne
   }
   if (err instanceof BadRequestError) {
     res.status(400).json({ error: err.message, details: err.details });
+    return;
+  }
+  if (err instanceof ForbiddenError) {
+    res.status(403).json({ error: err.message });
     return;
   }
   if (err instanceof NotFoundError) {

@@ -6,7 +6,7 @@ Errors: `{ error: string, details?: unknown }` with 400 (validation), 404, 409, 
 Types come from `@socmedia/shared` (`shared/src/types.ts`, zod schemas in `shared/src/schemas.ts`).
 
 ## Authentication & users
-All `/api` routes except `GET /health`, `GET /auth/status`, `POST /auth/setup`, `POST /auth/login` and `GET /connections/oauth/callback` require a signed-in user. `/uploads/*` stays public because the platforms pull media from those URLs in live mode.
+All `/api` routes except `GET /health`, `GET /auth/status`, `GET /auth/me`, `POST /auth/setup`, `POST /auth/login` and `GET /connections/oauth/callback` require a signed-in user. `/uploads/*` stays public because the platforms pull media from those URLs in live mode. (`GET /auth/me` is listed separately below as "never 401"; it is implemented as a public route so signed-out clients can poll it without special-casing.)
 Sessions: `POST /auth/login` sets an httpOnly cookie `suprstar_session` (SameSite=Lax, Secure in production, 30 days). Unauthenticated requests get 401 `{ error: "Sign in required" }`; forbidden ones 403.
 Roles (`shared/src/types.ts` `ROLE_CAPABILITIES`): `owner` and `admin` manage users, organizations and workspace settings and can access every org; `editor` can create/edit/publish within their orgs; `viewer` is read-only (GET) within their orgs. Org-scoped routes check membership (`orgIds` includes the org, or `"*"`) → 403 otherwise. Mutating routes (POST/PATCH/PUT/DELETE) require `editor` or above; `/settings/*`, `/users/*`, org create/update/delete and connection create/delete/credentials require `admin`+. Owners cannot be demoted or deactivated by admins; the last active owner cannot be removed.
 - `GET /auth/status` (public) → `{ needsSetup: boolean, authenticated: boolean }`
@@ -25,6 +25,7 @@ Roles (`shared/src/types.ts` `ROLE_CAPABILITIES`): `owner` and `admin` manage us
 - `GET /health` → `{ ok: true, version, time, ai: { configured: boolean, model } }`
 
 ## Organizations (not org-scoped)
+Every mutating method under `/orgs` (POST/PATCH/DELETE, including the demo-seeding endpoints) requires `admin`+, same as org create/update/delete/logo; `GET` endpoints only require a signed-in user.
 - `GET /orgs` → `Organization[]`
 - `POST /orgs` body `organizationInputSchema` → `Organization` (201). Seeds 4 disconnected sandbox connections for the new org.
 - `POST /orgs/demo` also accepts identity overrides `{ profile, name?, slug?, handle?, brandColor?, timezone? }` so one content profile can seed several brands.

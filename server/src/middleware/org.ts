@@ -26,6 +26,10 @@ export function orgMiddleware(db: Db) {
       res.status(400).json({ error: `Unknown organization: ${orgId}` });
       return;
     }
+    if (req.user && req.user.orgIds !== "*" && !req.user.orgIds.includes(org.id)) {
+      res.status(403).json({ error: "You do not have access to this organization" });
+      return;
+    }
     req.org = org;
     next();
   };

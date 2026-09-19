@@ -20,6 +20,11 @@ export const config = {
   publicBaseUrl: process.env.PUBLIC_BASE_URL || "",
   nodeEnv: process.env.NODE_ENV || "development",
   isTest: process.env.NODE_ENV === "test" || !!process.env.VITEST,
+  adminEmail: process.env.ADMIN_EMAIL || "",
+  adminPassword: process.env.ADMIN_PASSWORD || "",
+  adminName: process.env.ADMIN_NAME || "Owner",
+  /** Test-only: when set (and isTest), attachUser treats cookie-less requests as this user id. */
+  testAuthUserId: null as string | null,
 };
 
 export type Config = typeof config;

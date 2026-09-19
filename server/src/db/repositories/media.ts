@@ -76,12 +76,39 @@ export class MediaRepo {
   }
 
   /** Swap the stored file (and its derived metadata) on an existing asset, keeping its id, tags and history. */
-  replaceFile(id: string, patch: { filename: string; mimeType: string; size: number; width?: number | null; height?: number | null; url: string; thumbnailUrl?: string | null; format?: string | null }): MediaAsset | undefined {
+  replaceFile(
+    id: string,
+    patch: {
+      filename: string;
+      mimeType: string;
+      size: number;
+      width?: number | null;
+      height?: number | null;
+      durationSeconds?: number | null;
+      url: string;
+      thumbnailUrl?: string | null;
+      format?: string | null;
+    }
+  ): MediaAsset | undefined {
     const existing = this.get(id);
     if (!existing) return undefined;
+    const durationSeconds = patch.durationSeconds !== undefined ? patch.durationSeconds : existing.durationSeconds ?? null;
     this.db
-      .prepare("UPDATE media SET filename = ?, mimeType = ?, size = ?, width = ?, height = ?, url = ?, thumbnailUrl = ?, format = ? WHERE id = ?")
-      .run(patch.filename, patch.mimeType, patch.size, patch.width ?? null, patch.height ?? null, patch.url, patch.thumbnailUrl ?? null, patch.format ?? existing.format ?? null, id);
+      .prepare(
+        "UPDATE media SET filename = ?, mimeType = ?, size = ?, width = ?, height = ?, durationSeconds = ?, url = ?, thumbnailUrl = ?, format = ? WHERE id = ?"
+      )
+      .run(
+        patch.filename,
+        patch.mimeType,
+        patch.size,
+        patch.width ?? null,
+        patch.height ?? null,
+        durationSeconds,
+        patch.url,
+        patch.thumbnailUrl ?? null,
+        patch.format ?? existing.format ?? null,
+        id
+      );
     return this.get(id);
   }
 

@@ -119,6 +119,27 @@ CREATE TABLE IF NOT EXISTS app_settings (
   updatedAt TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  orgIds TEXT NOT NULL DEFAULT '[]',
+  passwordHash TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  mustChangePassword INTEGER NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL,
+  lastLoginAt TEXT
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  id TEXT PRIMARY KEY,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expiresAt TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(userId);
 CREATE INDEX IF NOT EXISTS idx_connections_org ON connections(orgId);
 CREATE INDEX IF NOT EXISTS idx_media_org ON media(orgId);
 CREATE INDEX IF NOT EXISTS idx_posts_org ON posts(orgId);

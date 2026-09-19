@@ -1,0 +1,98 @@
+import type { NextFunction, Request, Response } from "express";
+import type { User, UserRole } from "@socmedia/shared";
+import { config } from "../config";
+import type { Db } from "../db/database";
+import { UsersRepo } from "../db/repositories/users";
+import { parseCookies, resolveUserFromCookie, SESSION_COOKIE_NAME } from "../services/auth";
+
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface Request {
+      user?: User;
+    }
+  }
+}
+
+const ROLE_ORDER: Record<UserRole, number> = { viewer: 0, editor: 1, admin: 2, owner: 3 };
+
+/**
+ * Parses the session cookie and attaches the signed-in user to `req.user`.
+ * In tests (config.isTest), when no cookie is present at all and `config.testAuthUserId` is set,
+ * requests are treated as that user so existing tests can drive the API without a real login flow.
+ */
+export function attachUser(db: Db) {
+  const usersRepo = new UsersRepo(db);
+  return (req: Request, _res: Response, next: NextFunction) => {
+    const cookies = parseCookies(req.headers.cookie);
+    const raw = cookies[SESSION_COOKIE_NAME];
+    if (raw) {
+      const user = resolveUserFromCookie(db, raw);
+      if (user) req.user = user;
+      next();
+      return;
+    }
+    if (config.isTest && config.testAuthUserId) {
+      const user = usersRepo.get(config.testAuthUserId);
+      if (user) req.user = user;
+    }
+    next();
+  };
+}
+
+export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  if (!req.user) {
+    res.status(401).json({ error: "Sign in required" });
+    return;
+  }
+  next();
+}
+
+/** Requires the signed-in user's role to be at least `min` (viewer < editor < admin < owner). */
+export function requireRole(min: UserRole) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ error: "Sign in required" });
+      return;
+    }
+    if (ROLE_ORDER[req.user.role] < ROLE_ORDER[min]) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    next();
+  };
+}
+
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/** Mutating (non-GET/HEAD/OPTIONS) requests require editor role or above. */
+export function requireWrite(req: Request, res: Response, next: NextFunction): void {
+  if (SAFE_METHODS.has(req.method)) {
+    next();
+    return;
+  }
+  requireRole("editor")(req, res, next);
+}
+
+/** Paths that never require a signed-in user (see docs/API.md "Authentication & users"). */
+const PUBLIC_GET_PATHS = new Set(["/api/health", "/api/auth/status", "/api/auth/me", "/api/connections/oauth/callback"]);
+const PUBLIC_POST_PATHS = new Set(["/api/auth/setup", "/api/auth/login"]);
+
+/** Global gate: lets public routes and /uploads through, requires a signed-in user for everything else under /api. */
+export function authGate(req: Request, res: Response, next: NextFunction): void {
+  if (req.path.startsWith("/uploads")) {
+    next();
+    return;
+  }
+  if (req.method === "GET" && PUBLIC_GET_PATHS.has(req.path)) {
+    next();
+    return;
+  }
+  if (req.method === "POST" && PUBLIC_POST_PATHS.has(req.path)) {
+    next();
+    return;
+  }
+  requireAuth(req, res, next);
+}
+
+export { ROLE_ORDER };

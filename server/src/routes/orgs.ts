@@ -9,6 +9,7 @@ import type { Db } from "../db/database";
 import { allPlatforms, buildDefaultConnection } from "../db/defaults";
 import { ConnectionsRepo } from "../db/repositories/connections";
 import { OrganizationsRepo } from "../db/repositories/organizations";
+import { requireRole } from "../middleware/auth";
 import { BadRequestError, ConflictError, NotFoundError } from "../middleware/errors";
 import { asyncHandler } from "../utils/asyncHandler";
 import { uploadsDirFor } from "../services/media";
@@ -89,6 +90,15 @@ export function ensureConnectionsForOrg(db: Db, orgId: string) {
 export function orgsRouter(db: Db): Router {
   const router = Router();
   const repo = new OrganizationsRepo(db);
+
+  // Reading the org list/detail is available to any signed-in user; every mutation is admin+.
+  router.use((req, res, next) => {
+    if (req.method === "GET") {
+      next();
+      return;
+    }
+    requireRole("admin")(req, res, next);
+  });
 
   router.get(
     "/orgs",

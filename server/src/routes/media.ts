@@ -1,11 +1,23 @@
+import fs from "node:fs";
+import path from "node:path";
 import { Router } from "express";
 import multer from "multer";
 import { nanoid } from "nanoid";
-import type { MediaAsset, PostFormat } from "@socmedia/shared";
+import { clipRequestSchema, type MediaAsset, type PostFormat } from "@socmedia/shared";
 import type { Db } from "../db/database";
 import { MediaRepo } from "../db/repositories/media";
 import { BadRequestError, NotFoundError } from "../middleware/errors";
-import { copyMediaFiles, deleteMediaFiles, saveDataUrl, saveUploadBuffer } from "../services/media";
+import {
+  copyMediaFiles,
+  deleteMediaFiles,
+  ensureUploadsDir,
+  formatDuration,
+  resolveMediaPath,
+  saveDataUrl,
+  saveUploadBuffer,
+  VideoTooLongError,
+} from "../services/media";
+import { posterFrame, trimVideo } from "../services/video";
 import { asyncHandler } from "../utils/asyncHandler";
 
 const upload = multer({
@@ -40,7 +52,15 @@ export function mediaRouter(db: Db): Router {
     asyncHandler(async (req, res) => {
       if (!req.file) throw new BadRequestError("Missing file field");
       const orgId = req.org!.id;
-      const saved = await saveUploadBuffer(orgId, req.file.buffer, req.file.mimetype, req.file.originalname);
+      let saved;
+      try {
+        saved = await saveUploadBuffer(orgId, req.file.buffer, req.file.mimetype, req.file.originalname);
+      } catch (err) {
+        if (err instanceof VideoTooLongError) {
+          throw new BadRequestError(`Videos must be 5 minutes or shorter (this one is ${formatDuration(err.durationSeconds)})`);
+        }
+        throw err;
+      }
       const now = new Date().toISOString();
       const asset: MediaAsset = {
         id: nanoid(),
@@ -51,7 +71,7 @@ export function mediaRouter(db: Db): Router {
         size: saved.size,
         width: saved.width ?? null,
         height: saved.height ?? null,
-        durationSeconds: null,
+        durationSeconds: saved.durationSeconds ?? null,
         url: saved.url,
         thumbnailUrl: saved.thumbnailUrl ?? null,
         tags: parseTags(req.body.tags),
@@ -90,6 +110,81 @@ export function mediaRouter(db: Db): Router {
         createdAt: now,
       };
       const created = repo.create(asset);
+      res.status(201).json(created);
+    })
+  );
+
+  /** Trim/crop/mute a video asset with ffmpeg, either as a new derived asset or replacing it in place. */
+  router.post(
+    "/:id/clip",
+    asyncHandler(async (req, res) => {
+      const existing = repo.get(req.params.id);
+      if (!existing || existing.orgId !== req.org!.id || existing.kind !== "video") {
+        throw new NotFoundError(`Media ${req.params.id} not found`);
+      }
+      const input = clipRequestSchema.parse(req.body);
+      const sourceDuration = existing.durationSeconds ?? 0;
+      if (input.end > sourceDuration + 0.05) {
+        throw new BadRequestError(`Clip end (${input.end}s) is beyond the source video's duration (${sourceDuration}s)`);
+      }
+
+      const orgId = existing.orgId;
+      const dir = ensureUploadsDir(orgId);
+      const base = existing.filename.replace(/\.[^.]+$/, "");
+      const clipName = `${base}-clip-${input.start}s-${input.end}s.mp4`;
+      const outputPath = path.join(dir, clipName);
+
+      const probe = await trimVideo({
+        input: resolveMediaPath(existing.url),
+        output: outputPath,
+        start: input.start,
+        end: input.end,
+        format: input.format ?? null,
+        muted: input.muted,
+      });
+
+      const posterName = `${path.parse(clipName).name}_poster.jpg`;
+      const posterPath = path.join(dir, posterName);
+      await posterFrame(outputPath, posterPath);
+      const posterUrl = `/uploads/${orgId}/${posterName}`;
+      const clipUrl = `/uploads/${orgId}/${clipName}`;
+      const size = fs.statSync(outputPath).size;
+
+      if (input.mode === "replace") {
+        const previous = { url: existing.url, thumbnailUrl: existing.thumbnailUrl };
+        const updated = repo.replaceFile(existing.id, {
+          filename: clipName,
+          mimeType: "video/mp4",
+          size,
+          width: probe.width,
+          height: probe.height,
+          durationSeconds: probe.durationSeconds,
+          url: clipUrl,
+          thumbnailUrl: posterUrl,
+          format: input.format ?? existing.format ?? null,
+        });
+        deleteMediaFiles(previous);
+        res.json(updated);
+        return;
+      }
+
+      const created = repo.create({
+        id: nanoid(),
+        orgId,
+        kind: "video",
+        filename: clipName,
+        mimeType: "video/mp4",
+        size,
+        width: probe.width,
+        height: probe.height,
+        durationSeconds: probe.durationSeconds,
+        url: clipUrl,
+        thumbnailUrl: posterUrl,
+        tags: [...existing.tags, "clip"],
+        sourceAssetId: existing.id,
+        format: input.format ?? null,
+        createdAt: new Date().toISOString(),
+      });
       res.status(201).json(created);
     })
   );

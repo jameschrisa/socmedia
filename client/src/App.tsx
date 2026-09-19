@@ -1,6 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { queryClient } from "@/lib/queryClient";
+import { RequireAuth } from "@/features/auth/RequireAuth";
 import { AppShell } from "@/components/layout/AppShell";
 import { OverviewPage } from "@/features/overview/OverviewPage";
 import { CalendarPage } from "@/features/calendar/CalendarPage";
@@ -14,7 +15,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
-          <Route element={<AppShell />}>
+          <Route element={<RequireAuth><AppShell /></RequireAuth>}>
             <Route index element={<OverviewPage />} />
             <Route path="calendar" element={<CalendarPage />} />
             <Route path="studio" element={<StudioPage />} />

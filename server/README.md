@@ -29,7 +29,38 @@ exists, so it's safe to restart the server repeatedly.
 | `ANTHROPIC_API_KEY` | _(unset)_ | When unset, all `/api/ai/*` routes use the deterministic mock generator (`mock: true` in every response) |
 | `ANTHROPIC_MODEL` | `claude-opus-5` | Passed to the Anthropic SDK |
 | `SCHEDULER_INTERVAL_MS` | `30000` | How often the background scheduler checks for due scheduled posts |
-| `SECRET_KEY` | dev default (**change in production**) | Used to derive the AES-256-GCM key that encrypts `clientSecret`/`accessToken`/`refreshToken` at rest |
+| `SECRET_KEY` | dev default (**change in production**) | Used to derive the AES-256-GCM key that encrypts `clientSecret`/`accessToken`/`refreshToken` at rest, and to sign the session cookie |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | _(unset)_ | When both are set and no users exist yet, the server creates the first `owner` account with these credentials on boot (`ensureBootstrapAdmin`, called from `src/index.ts`). Equivalent to completing `POST /auth/setup` by hand. |
+| `ADMIN_NAME` | `Owner` | Display name for the bootstrap admin |
+
+## Authentication & users
+
+Every `/api` route except `GET /health`, `GET /auth/status`, `GET /auth/me`, `POST /auth/setup`,
+`POST /auth/login` and `GET /connections/oauth/callback` requires a signed-in user (`/uploads/*` also
+stays public). Sign-in sets an httpOnly cookie (`suprstar_session`, `SameSite=Lax`, `Secure` in
+production, 30 days) whose value is a session id signed with `SECRET_KEY` (HMAC-SHA256); the session
+itself lives in the `sessions` table and is cleaned up lazily on lookup. Passwords are hashed with
+`node:crypto` scrypt (per-user salt, timing-safe comparison) in `src/services/auth.ts`.
+
+Roles, from least to most privileged: `viewer` (read-only within their orgs) < `editor` (create/edit/
+publish within their orgs) < `admin` < `owner` (both manage users, organizations and workspace settings,
+and can access every org). Org-scoped routes additionally check membership (`orgIds` includes the org,
+or `orgIds === "*"`) and return 403 otherwise. `/settings/*`, `/users/*`, org create/update/delete and
+connection create/delete/credentials all require `admin`+; owners cannot be demoted or deactivated by an
+admin, and the last active owner can never be removed. See `docs/API.md` for the full route-by-route
+breakdown.
+
+In tests, `createTestContext()` seeds an `owner` user and points `config.testAuthUserId` at them so
+existing `supertest(ctx.app)` calls (no cookie) keep working; call `ctx.disableAuthBypass()` to exercise
+real 401/403/login flows with `supertest.agent(ctx.app)`.
+
+## Video
+
+Uploads and clips are processed with `ffmpeg-static`/`ffprobe-static` (`src/services/video.ts`). Video
+uploads are probed for duration/width/height and get a JPEG poster frame (`thumbnailUrl`) at 1s (or 0s
+if shorter); uploads over `VIDEO_MAX_SECONDS` (300s, from `@socmedia/shared`) are rejected with 400.
+`POST /media/:id/clip` trims (and optionally crops/mutes) a video with ffmpeg, either as a new derived
+asset (`mode: "new"`) or in place (`mode: "replace"`).
 
 ## Sandbox vs. live mode
 
@@ -89,9 +120,11 @@ Switch a connection's mode with `PATCH /connections/:id { "mode": "live" }`.
 
 ## Data model notes
 
-- SQLite tables: `organizations`, `connections`, `media`, `posts`, `publish_jobs`, `metric_snapshots`.
-  JSON-shaped fields (credentials, settings, targets, hashtags, tags, labels, log) are stored as `TEXT`
-  and parsed/serialized in `src/db/repositories/*.ts`.
+- SQLite tables: `organizations`, `connections`, `media`, `posts`, `publish_jobs`, `metric_snapshots`,
+  `users`, `sessions`. JSON-shaped fields (credentials, settings, targets, hashtags, tags, labels, log,
+  `orgIds`) are stored as `TEXT` and parsed/serialized in `src/db/repositories/*.ts`. `users.orgIds` is
+  either the literal string `"*"` or a JSON array of org ids; `users.email` has a `UNIQUE COLLATE NOCASE`
+  index.
 - Secrets (`clientSecret`, `accessToken`, `refreshToken`) are encrypted at rest with AES-256-GCM
   (`src/crypto.ts`), keyed off `SECRET_KEY`, and only ever returned to clients masked
   (`"" ` or `"••••" + last4`). `PATCH` requests that echo a masked value back are ignored, so the UI can

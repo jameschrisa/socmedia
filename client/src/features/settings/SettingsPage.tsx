@@ -5,11 +5,13 @@ import type { Organization, OrganizationInput } from "@socmedia/shared";
 import { Badge, Button, Card, Modal, OrgLogo, SectionTitle, SegmentedTabs } from "@/components/ui";
 import { useAppStore, type ThemePref } from "@/store/appStore";
 import { useOrgMutations, useOrgs } from "@/hooks/useOrg";
+import { useAuth } from "@/hooks/useAuth";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { OrgFormModal } from "./OrgFormModal";
 import { AiProviderSettings } from "./AiProviderSettings";
 import { PublishingSettingsCard } from "./PublishingSettingsCard";
+import { UsersCard } from "./UsersCard";
 
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : "Something went wrong";
@@ -60,6 +62,7 @@ function OrgRow({ org, current, onSelect, onEdit, onDelete, deletable }: {
 export function SettingsPage() {
   const { orgs, currentOrg, currentOrgId, setCurrentOrgId, isLoading } = useOrgs();
   const { create, update, remove, uploadLogo, removeLogo } = useOrgMutations();
+  const { can } = useAuth();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
@@ -142,6 +145,13 @@ export function SettingsPage() {
           )}
         </Card>
       </section>
+
+      {can.manageUsers && (
+        <section id="users" className="space-y-3">
+          <SectionTitle>Users & access</SectionTitle>
+          <UsersCard />
+        </section>
+      )}
 
       <section className="space-y-3">
         <SectionTitle>AI providers</SectionTitle>

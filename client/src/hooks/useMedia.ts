@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ClipRequestInput } from "@socmedia/shared";
 import { api } from "@/lib/api";
 import { qk } from "@/lib/queryClient";
 import { useCurrentOrgId } from "./useOrg";
@@ -16,7 +17,8 @@ export function useMediaMutations() {
   const exportDataUrl = useMutation({ mutationFn: api.media.exportDataUrl, onSuccess: invalidate });
   const update = useMutation({ mutationFn: ({ id, tags }: { id: string; tags: string[] }) => api.media.update(id, { tags }), onSuccess: invalidate });
   const replace = useMutation({ mutationFn: ({ id, dataUrl, format }: { id: string; dataUrl: string; format?: string }) => api.media.replace(id, { dataUrl, format }), onSuccess: invalidate });
+  const clip = useMutation({ mutationFn: ({ id, input }: { id: string; input: ClipRequestInput }) => api.media.clip(id, input), onSuccess: invalidate });
   const duplicate = useMutation({ mutationFn: (id: string) => api.media.duplicate(id), onSuccess: invalidate });
   const remove = useMutation({ mutationFn: (id: string) => api.media.remove(id), onSuccess: invalidate });
-  return { upload, exportDataUrl, replace, duplicate, update, remove };
+  return { upload, exportDataUrl, replace, clip, duplicate, update, remove };
 }
