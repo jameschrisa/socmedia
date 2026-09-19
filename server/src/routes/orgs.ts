@@ -12,6 +12,8 @@ import { OrganizationsRepo } from "../db/repositories/organizations";
 import { BadRequestError, ConflictError, NotFoundError } from "../middleware/errors";
 import { asyncHandler } from "../utils/asyncHandler";
 import { uploadsDirFor } from "../services/media";
+import { z } from "zod";
+import { DEMO_PROFILES, createDemoOrg, seedDemoContent } from "../db/seed";
 
 const LOGO_TYPES: Record<string, string> = {
   "image/svg+xml": "svg",
@@ -112,6 +114,41 @@ export function orgsRouter(db: Db): Router {
       });
       ensureConnectionsForOrg(db, org.id);
       res.status(201).json(org);
+    })
+  );
+
+  const demoBody = z.object({ profile: z.string().min(1) });
+  const resolveProfile = (key: string) => {
+    const profile = DEMO_PROFILES[key];
+    if (!profile) throw new BadRequestError(`Unknown demo profile "${key}". Available: ${Object.keys(DEMO_PROFILES).join(", ")}`);
+    return profile;
+  };
+
+  /** Available demo content profiles. */
+  router.get("/orgs/demo/profiles", (_req, res) => {
+    res.json(Object.values(DEMO_PROFILES).map((p) => ({ key: p.key, name: p.name, brandColor: p.brandColor, posts: p.posts.length })));
+  });
+
+  /** Create a new organization filled with a demo profile's content. */
+  router.post(
+    "/orgs/demo",
+    asyncHandler(async (req, res) => {
+      const { profile } = demoBody.parse(req.body);
+      const org = await createDemoOrg(db, resolveProfile(profile));
+      res.status(201).json(org);
+    })
+  );
+
+  /** Fill an existing organization with a demo profile's content (adds to whatever is there). */
+  router.post(
+    "/orgs/:id/demo",
+    asyncHandler(async (req, res) => {
+      const existing = repo.get(req.params.id);
+      if (!existing) throw new NotFoundError(`Organization ${req.params.id} not found`);
+      const { profile } = demoBody.parse(req.body);
+      ensureConnectionsForOrg(db, existing.id);
+      await seedDemoContent(db, existing.id, resolveProfile(profile));
+      res.json(repo.get(existing.id));
     })
   );
 

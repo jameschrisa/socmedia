@@ -27,13 +27,13 @@ describe("seedIfEmpty", () => {
     fs.rmSync(dataDir, { recursive: true, force: true });
   });
 
-  it("creates two organizations, connections for each platform, and demo content for the first org", async () => {
+  it("creates three organizations, connections for each platform, and demo content for the demo brands", async () => {
     await seedIfEmpty(db);
 
     const orgsRepo = new OrganizationsRepo(db);
     const orgs = orgsRepo.list();
-    expect(orgs).toHaveLength(2);
-    expect(orgs.map((o) => o.slug)).toEqual(expect.arrayContaining(["holistiplan", "f3i"]));
+    expect(orgs).toHaveLength(3);
+    expect(orgs.map((o) => o.slug)).toEqual(expect.arrayContaining(["holistiplan", "f3i", "larkspur-coffee"]));
 
     const [org1, org2] = orgs;
     const connectionsRepo = new ConnectionsRepo(db);

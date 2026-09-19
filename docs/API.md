@@ -11,6 +11,9 @@ Types come from `@socmedia/shared` (`shared/src/types.ts`, zod schemas in `share
 ## Organizations (not org-scoped)
 - `GET /orgs` → `Organization[]`
 - `POST /orgs` body `organizationInputSchema` → `Organization` (201). Seeds 4 disconnected sandbox connections for the new org.
+- `GET /orgs/demo/profiles` → available demo content profiles `{ key, name, brandColor, posts }[]`
+- `POST /orgs/demo` `{ profile }` → creates a new organization filled with that profile's demo content (201)
+- `POST /orgs/:id/demo` `{ profile }` → fills an existing organization with demo content
 - `GET /orgs/:id` → `Organization`
 - `PATCH /orgs/:id` body partial `organizationInputSchema` → `Organization`
 - `DELETE /orgs/:id` → 204 (refuses to delete the last org: 409)

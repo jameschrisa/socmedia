@@ -96,7 +96,20 @@ interface SamplePostSpec {
   jobs?: Partial<Record<Platform, "succeeded" | "failed">>;
 }
 
-const SAMPLE_POSTS: SamplePostSpec[] = [
+/** A demo content profile: brand identity plus a realistic set of posts. */
+export interface DemoProfile {
+  key: string;
+  name: string;
+  slug: string;
+  brandColor: string;
+  timezone: string;
+  displayName: string;
+  handle: string;
+  followers: Record<Platform, number>;
+  posts: SamplePostSpec[];
+}
+
+const HOLISTIPLAN_POSTS: SamplePostSpec[] = [
   {
     title: "Your 2026 tax season checklist",
     caption:
@@ -174,6 +187,126 @@ const SAMPLE_POSTS: SamplePostSpec[] = [
   },
 ];
 
+const LARKSPUR_POSTS: SamplePostSpec[] = [
+  {
+    title: "Ethiopia Guji, washed: back on the shelf",
+    caption:
+      "Our most requested coffee is back. Guji Uraga, washed, tasting like bergamot, peach and a long honey finish.\n\nRoasted Tuesday, shipping Thursday. 250g and 1kg bags.",
+    hashtags: ["specialtycoffee", "singleorigin", "ethiopiancoffee", "larkspurroasters"],
+    status: "published",
+    offsetDays: -16,
+    platforms: ["instagram", "tiktok"],
+    jobs: { instagram: "succeeded", tiktok: "succeeded" },
+  },
+  {
+    title: "Why your pour-over tastes sour (and the 30-second fix)",
+    caption:
+      "Sour cup? Nine times out of ten it's under-extraction. Grind a touch finer, raise your water to 96°C, and slow the pour. Watch the full method in the video.",
+    hashtags: ["pourover", "brewguide", "homebarista", "v60"],
+    status: "published",
+    offsetDays: -12,
+    platforms: ["youtube", "tiktok"],
+    jobs: { youtube: "succeeded", tiktok: "succeeded" },
+  },
+  {
+    title: "Meet Rosa, head roaster",
+    caption:
+      "Rosa has cupped over 4,000 lots for us since 2021. Here she explains how she picks a roast curve for a new harvest, and why she never trusts the first batch.",
+    hashtags: ["roastery", "behindthescenes", "coffeeroasting"],
+    status: "published",
+    offsetDays: -8,
+    platforms: ["linkedin", "instagram", "youtube"],
+    jobs: { linkedin: "succeeded", instagram: "succeeded", youtube: "failed" },
+  },
+  {
+    title: "Wholesale pricing for 2027 cafés",
+    caption:
+      "We're opening 12 wholesale partner slots for cafés in the Pacific Northwest. Weekly roasting, free dial-in support, and no minimums for your first quarter.\n\nDetails and application in the comments.",
+    hashtags: ["wholesalecoffee", "cafeowners", "pnwcoffee"],
+    status: "partially_published",
+    offsetDays: -3,
+    platforms: ["linkedin", "instagram"],
+    jobs: { linkedin: "succeeded", instagram: "failed" },
+  },
+  {
+    title: "Cold brew concentrate: the 1:8 recipe",
+    caption:
+      "Twelve hours, coarse grind, 1:8 by weight. That's the whole recipe. Dilute 1:1 with water or milk and you're set for the week.",
+    hashtags: ["coldbrew", "recipe", "summercoffee"],
+    status: "scheduled",
+    offsetDays: 2,
+    platforms: ["tiktok", "instagram"],
+  },
+  {
+    title: "Saturday cupping at the roastery",
+    caption:
+      "Free public cupping this Saturday at 10am. Six coffees on the table including two we haven't released yet. No experience needed, bring a friend.",
+    hashtags: ["cupping", "portlandcoffee", "coffeeevents"],
+    status: "scheduled",
+    offsetDays: 5,
+    platforms: ["instagram", "linkedin"],
+  },
+  {
+    title: "Colombia Huila, natural: first look",
+    caption:
+      "Strawberry, cacao nib, and a syrupy body. We only got 4 bags of this natural from finca La Esperanza, so it's a small release.",
+    hashtags: ["colombiancoffee", "naturalprocess", "smallbatch"],
+    status: "needs_approval",
+    offsetDays: 9,
+    platforms: ["instagram", "tiktok"],
+  },
+  {
+    title: "Holiday gift boxes open for pre-order",
+    caption:
+      "Three coffees, a ceramic dripper, and a hand-written tasting card. Pre-orders open today, shipping the first week of December.",
+    hashtags: ["giftguide", "coffeegifts", "holidaygifts"],
+    status: "scheduled",
+    offsetDays: 13,
+    platforms: ["instagram", "linkedin", "youtube"],
+  },
+  {
+    title: "Grinder maintenance in 5 minutes",
+    caption: "Burrs clean, retention low, coffee sweeter. A quick monthly routine for any home grinder.",
+    hashtags: ["grinder", "coffeegear", "maintenance"],
+    status: "draft",
+    offsetDays: null,
+    platforms: ["youtube"],
+  },
+  {
+    title: "Origin trip recap: Nariño",
+    caption: "Two weeks, nine farms, one very full notebook. Here's what we learned about next year's harvest.",
+    hashtags: ["origintrip", "directtrade", "colombia"],
+    status: "draft",
+    offsetDays: null,
+    platforms: ["linkedin"],
+  },
+];
+
+export const DEMO_PROFILES: Record<string, DemoProfile> = {
+  holistiplan: {
+    key: "holistiplan",
+    name: "Holistiplan",
+    slug: "holistiplan",
+    brandColor: "#6C5CE7",
+    timezone: "America/Chicago",
+    displayName: "Holistiplan",
+    handle: "@holistiplan",
+    followers: { tiktok: 18400, youtube: 6200, linkedin: 9800, instagram: 14200 },
+    posts: HOLISTIPLAN_POSTS,
+  },
+  larkspur: {
+    key: "larkspur",
+    name: "Larkspur Coffee Roasters",
+    slug: "larkspur-coffee",
+    brandColor: "#B4532A",
+    timezone: "America/Los_Angeles",
+    displayName: "Larkspur Coffee Roasters",
+    handle: "@larkspurroasters",
+    followers: { tiktok: 23150, youtube: 4720, linkedin: 2980, instagram: 31600 },
+    posts: LARKSPUR_POSTS,
+  },
+};
+
 function fakeExternalUrl(platform: Platform, handle: string, id: string): string {
   switch (platform) {
     case "tiktok":
@@ -187,13 +320,15 @@ function fakeExternalUrl(platform: Platform, handle: string, id: string): string
   }
 }
 
-async function seedFirstOrg(db: Db, orgId: string, brandColor: string) {
+/** Fill an organization with a profile's demo content: connected sandbox accounts, media, posts, jobs and 30 days of metrics. */
+export async function seedDemoContent(db: Db, orgId: string, profile: DemoProfile): Promise<void> {
   const connectionsRepo = new ConnectionsRepo(db);
   const postsRepo = new PostsRepo(db);
   const jobsRepo = new JobsRepo(db);
   const metricsRepo = new MetricsRepo(db);
-
-  const fakeFollowers: Record<Platform, number> = { tiktok: 18400, youtube: 6200, linkedin: 9800, instagram: 14200 };
+  const org = new OrganizationsRepo(db).get(orgId);
+  const brandColor = org?.brandColor ?? profile.brandColor;
+  const fakeFollowers = profile.followers;
 
   const connectionByPlatform: Partial<Record<Platform, ReturnType<ConnectionsRepo["get"]>>> = {};
   for (const platform of ["tiktok", "youtube", "linkedin", "instagram"] as Platform[]) {
@@ -203,9 +338,9 @@ async function seedFirstOrg(db: Db, orgId: string, brandColor: string) {
     const connected = connectionsRepo.save({
       ...existing,
       status: "connected",
-      displayName: "Holistiplan",
-      handle: "@holistiplan",
-      avatarUrl: `https://api.dicebear.com/9.x/initials/svg?seed=Holistiplan`,
+      displayName: profile.displayName,
+      handle: profile.handle,
+      avatarUrl: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(profile.displayName)}`,
       followers: fakeFollowers[platform],
       credentials: {
         ...existing.credentials,
@@ -236,7 +371,7 @@ async function seedFirstOrg(db: Db, orgId: string, brandColor: string) {
     instagram: "square",
   };
 
-  for (const [index, spec] of SAMPLE_POSTS.entries()) {
+  for (const [index, spec] of profile.posts.entries()) {
     const targets = spec.platforms
       .map((platform) => connectionByPlatform[platform])
       .filter((c): c is NonNullable<typeof c> => !!c)
@@ -262,7 +397,7 @@ async function seedFirstOrg(db: Db, orgId: string, brandColor: string) {
       targets,
       status: spec.status,
       scheduledAt,
-      timezone: "America/Chicago",
+      timezone: profile.timezone,
       labels: [],
       notes: "",
       createdAt,
@@ -329,7 +464,26 @@ async function seedFirstOrg(db: Db, orgId: string, brandColor: string) {
   }
 }
 
-/** Idempotently seeds two demo organizations; skipped entirely when any organization already exists. */
+/** Create a new organization from a demo profile (unique slug) and fill it with content. */
+export async function createDemoOrg(db: Db, profile: DemoProfile) {
+  const orgsRepo = new OrganizationsRepo(db);
+  let slug = profile.slug;
+  let i = 2;
+  while (orgsRepo.getBySlug(slug)) slug = `${profile.slug}-${i++}`;
+  const org = orgsRepo.create({
+    id: nanoid(),
+    name: profile.name,
+    slug,
+    brandColor: profile.brandColor,
+    timezone: profile.timezone,
+    logoUrl: null,
+    createdAt: now(),
+  });
+  ensureConnectionsForOrg(db, org.id);
+  await seedDemoContent(db, org.id, profile);
+  return org;
+}
+
 /** Copy a logo bundled with the server (server/assets) into the uploads folder for a seeded org. */
 function seedBundledLogo(db: Db, orgId: string, assetName: string): void {
   try {
@@ -371,5 +525,6 @@ export async function seedIfEmpty(db: Db): Promise<void> {
   ensureConnectionsForOrg(db, org2.id);
   seedBundledLogo(db, org2.id, "f3i-mark.svg");
 
-  await seedFirstOrg(db, org1.id, "#6C5CE7");
+  await seedDemoContent(db, org1.id, DEMO_PROFILES.holistiplan!);
+  await createDemoOrg(db, DEMO_PROFILES.larkspur!);
 }
