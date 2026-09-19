@@ -5,7 +5,7 @@ import type { MediaAsset, PostFormat } from "@socmedia/shared";
 import type { Db } from "../db/database";
 import { MediaRepo } from "../db/repositories/media";
 import { BadRequestError, NotFoundError } from "../middleware/errors";
-import { deleteMediaFiles, saveDataUrl, saveUploadBuffer } from "../services/media";
+import { copyMediaFiles, deleteMediaFiles, saveDataUrl, saveUploadBuffer } from "../services/media";
 import { asyncHandler } from "../utils/asyncHandler";
 
 const upload = multer({
@@ -91,6 +91,56 @@ export function mediaRouter(db: Db): Router {
       };
       const created = repo.create(asset);
       res.status(201).json(created);
+    })
+  );
+
+  /** Replace an asset's file in place (image editor "Save"): same id, new pixels. */
+  router.put(
+    "/:id/replace",
+    asyncHandler(async (req, res) => {
+      const existing = repo.get(req.params.id);
+      if (!existing || existing.orgId !== req.org!.id) throw new NotFoundError("Media not found");
+      const { dataUrl, format } = req.body ?? {};
+      if (typeof dataUrl !== "string") throw new BadRequestError("dataUrl is required");
+      const base = existing.filename.replace(/\.[^.]+$/, "");
+      const saved = await saveDataUrl(existing.orgId, dataUrl, `${base}.jpg`);
+      const previous = { url: existing.url, thumbnailUrl: existing.thumbnailUrl };
+      const updated = repo.replaceFile(existing.id, {
+        filename: saved.filename,
+        mimeType: saved.mimeType,
+        size: saved.size,
+        width: saved.width ?? null,
+        height: saved.height ?? null,
+        url: saved.url,
+        thumbnailUrl: saved.thumbnailUrl ?? null,
+        format: typeof format === "string" ? format : existing.format,
+      });
+      deleteMediaFiles(previous);
+      res.json(updated);
+    })
+  );
+
+  /** Clone an asset (files copied, new id) so it can be edited independently. */
+  router.post(
+    "/:id/duplicate",
+    asyncHandler(async (req, res) => {
+      const existing = repo.get(req.params.id);
+      if (!existing || existing.orgId !== req.org!.id) throw new NotFoundError("Media not found");
+      const saved = await copyMediaFiles(existing, existing.orgId);
+      const copy = repo.create({
+        ...existing,
+        id: nanoid(),
+        filename: saved.filename,
+        mimeType: saved.mimeType,
+        size: saved.size,
+        width: saved.width ?? existing.width ?? null,
+        height: saved.height ?? existing.height ?? null,
+        url: saved.url,
+        thumbnailUrl: saved.thumbnailUrl ?? null,
+        sourceAssetId: existing.id,
+        createdAt: new Date().toISOString(),
+      });
+      res.status(201).json(copy);
     })
   );
 

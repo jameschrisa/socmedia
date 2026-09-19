@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Film, ImagePlus, Pencil, Trash2 } from "lucide-react";
+import { Copy, Film, ImagePlus, Pencil, Trash2 } from "lucide-react";
 import { FORMAT_SPECS, type MediaAsset } from "@socmedia/shared";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -15,12 +15,14 @@ export function MediaCard({
   onEdit,
   onUse,
   onDelete,
+  onDuplicate,
   onTagsChange,
 }: {
   asset: MediaAsset;
   onEdit?: (asset: MediaAsset) => void;
   onUse?: (asset: MediaAsset) => void;
   onDelete?: (asset: MediaAsset) => void;
+  onDuplicate?: (asset: MediaAsset) => void;
   onTagsChange?: (tags: string[]) => void;
 }) {
   const [tagDraft, setTagDraft] = useState(asset.tags.join(", "));
@@ -56,6 +58,17 @@ export function MediaCard({
               className="media-action"
             >
               <Pencil className="h-4 w-4" />
+            </button>
+          )}
+          {onDuplicate && (
+            <button
+              type="button"
+              aria-label={`Duplicate ${asset.filename}`}
+              title="Duplicate"
+              onClick={() => onDuplicate(asset)}
+              className="media-action"
+            >
+              <Copy className="h-4 w-4" />
             </button>
           )}
           {onDelete && (

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { MediaAsset, Post } from "@socmedia/shared";
 import { mockFetch, renderWithProviders } from "@/test-utils";
 import { useAppStore } from "@/store/appStore";
@@ -93,5 +93,18 @@ describe("StudioPage", () => {
     renderWithProviders(<StudioPage />);
     expect(await screen.findByText("Launch day")).toBeInTheDocument();
     expect(screen.getByText("draft")).toBeInTheDocument();
+  });
+
+  it("duplicates a creative from the card action", async () => {
+    let duplicated: string | null = null;
+    mockFetch({
+      "GET /api/media": () => media,
+      "GET /api/posts": () => posts,
+      "POST /api/media/:id/duplicate": (_init, url) => { duplicated = url!.split("/media/")[1]!.split("/")[0]!; return { ...media[0]!, id: "copy-1", sourceAssetId: media[0]!.id }; },
+    });
+    renderWithProviders(<StudioPage />);
+    const btn = await screen.findAllByRole("button", { name: /^Duplicate / });
+    fireEvent.click(btn[0]!);
+    await waitFor(() => expect(duplicated).toBe(media[0]!.id));
   });
 });

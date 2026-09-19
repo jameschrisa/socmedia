@@ -34,6 +34,8 @@ Types come from `@socmedia/shared` (`shared/src/types.ts`, zod schemas in `share
 - `GET /media` → `MediaAsset[]` newest first
 - `POST /media` multipart field `file` (image/* or video/*), optional fields `tags` (comma list), `sourceAssetId`, `format` → `MediaAsset` (201). Images: width/height detected with sharp; a 480px thumbnail is generated. Files stored under `data/uploads/<orgId>/` and served at `/uploads/<orgId>/<file>`.
 - `POST /media/export` JSON `{ dataUrl: "data:image/png;base64,...", filename, sourceAssetId?, format?, tags? }` → `MediaAsset` (201). Used by the image editor to save an edited/cropped export.
+- `PUT /media/:id/replace` JSON `{ dataUrl, format? }` → `MediaAsset`: overwrites the asset's file in place (same id); used by the image editor's Save. Old files are deleted.
+- `POST /media/:id/duplicate` → `MediaAsset` (201): clones the asset with copied files and `sourceAssetId` set to the original.
 - `PATCH /media/:id` `{ tags?: string[] }` → `MediaAsset`
 - `DELETE /media/:id` → 204
 

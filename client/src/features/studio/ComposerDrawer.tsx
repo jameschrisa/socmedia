@@ -113,7 +113,7 @@ export function ComposerDrawer() {
   const { data: connections } = useConnections();
   const { data: media } = useMedia();
   const { create, update, remove, schedule, publish } = usePostMutations();
-  const { upload, exportDataUrl } = useMediaMutations();
+  const { upload, replace } = useMediaMutations();
 
   const pending = useAiBridge((s) => s.pending);
   const consume = useAiBridge((s) => s.consume);
@@ -234,9 +234,8 @@ export function ComposerDrawer() {
 
   function handleExport(result: ImageEditorExportResult) {
     if (!editingAsset) return;
-    const base = editingAsset.filename.replace(/\.[^.]+$/, "");
-    exportDataUrl.mutate(
-      { dataUrl: result.dataUrl, filename: `${base}-${result.format}.jpg`, sourceAssetId: editingAsset.id, format: result.format, tags: [result.format] },
+    replace.mutate(
+      { id: editingAsset.id, dataUrl: result.dataUrl, format: result.format },
       {
         onSuccess: (asset) => {
           setForm((f) => ({
@@ -244,9 +243,9 @@ export function ComposerDrawer() {
             mediaIds: f.mediaIds.includes(asset.id) ? f.mediaIds : [...f.mediaIds, asset.id],
             targets: f.targets.map((t) => (t.format === result.format ? { ...t, mediaIds: t.mediaIds.includes(asset.id) ? t.mediaIds : [...t.mediaIds, asset.id] } : t)),
           }));
-          toast.success("Cropped export saved");
+          toast.success("Creative updated");
         },
-        onError: (err) => toast.error("Export failed", { description: (err as Error).message }),
+        onError: (err) => toast.error("Save failed", { description: (err as Error).message }),
       },
     );
     setEditingAsset(null);

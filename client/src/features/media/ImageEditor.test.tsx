@@ -127,4 +127,18 @@ describe("ImageEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Library" }));
     expect(screen.getByText("Add from library")).toBeInTheDocument();
   });
+
+  it("lets the user recolour and reposition the brand badge", () => {
+    renderWithProviders(<ImageEditor asset={asset} initialFormat="square" onExport={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.queryByTestId("brand-badge-controls")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Toggle brand badge"));
+    const bg = screen.getByLabelText("Badge background colour") as HTMLInputElement;
+    fireEvent.change(bg, { target: { value: "#ff8800" } });
+    expect((screen.getByLabelText("Badge background colour") as HTMLInputElement).value).toBe("#ff8800");
+    expect(screen.getByRole("button", { name: "Use brand colour" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Badge text colour"), { target: { value: "#000000" } });
+    expect((screen.getByLabelText("Badge text colour") as HTMLInputElement).value).toBe("#000000");
+    fireEvent.change(screen.getByLabelText("Badge corner"), { target: { value: "bottom-right" } });
+    expect((screen.getByLabelText("Badge corner") as HTMLSelectElement).value).toBe("bottom-right");
+  });
 });

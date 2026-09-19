@@ -15,6 +15,8 @@ export function useMediaMutations() {
   const upload = useMutation({ mutationFn: ({ file, extra }: { file: File; extra?: { tags?: string[]; sourceAssetId?: string; format?: string } }) => api.media.upload(file, extra), onSuccess: invalidate });
   const exportDataUrl = useMutation({ mutationFn: api.media.exportDataUrl, onSuccess: invalidate });
   const update = useMutation({ mutationFn: ({ id, tags }: { id: string; tags: string[] }) => api.media.update(id, { tags }), onSuccess: invalidate });
+  const replace = useMutation({ mutationFn: ({ id, dataUrl, format }: { id: string; dataUrl: string; format?: string }) => api.media.replace(id, { dataUrl, format }), onSuccess: invalidate });
+  const duplicate = useMutation({ mutationFn: (id: string) => api.media.duplicate(id), onSuccess: invalidate });
   const remove = useMutation({ mutationFn: (id: string) => api.media.remove(id), onSuccess: invalidate });
-  return { upload, exportDataUrl, update, remove };
+  return { upload, exportDataUrl, replace, duplicate, update, remove };
 }

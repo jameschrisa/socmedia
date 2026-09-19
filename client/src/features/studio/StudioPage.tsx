@@ -18,7 +18,7 @@ type KindFilter = "all" | "image" | "video";
 
 export function StudioPage() {
   const { data: media, isLoading: mediaLoading } = useMedia();
-  const { upload, exportDataUrl, update, remove } = useMediaMutations();
+  const { upload, replace, duplicate, update, remove } = useMediaMutations();
   const { data: posts, isLoading: postsLoading } = usePosts({ includeUnscheduled: true });
   const openComposer = useAppStore((s) => s.openComposer);
 
@@ -67,12 +67,11 @@ export function StudioPage() {
 
   const handleExport = (result: ImageEditorExportResult) => {
     if (!editingAsset) return;
-    const base = editingAsset.filename.replace(/\.[^.]+$/, "");
-    exportDataUrl.mutate(
-      { dataUrl: result.dataUrl, filename: `${base}-${result.format}.jpg`, sourceAssetId: editingAsset.id, format: result.format, tags: [result.format] },
+    replace.mutate(
+      { id: editingAsset.id, dataUrl: result.dataUrl, format: result.format },
       {
-        onSuccess: () => toast.success("Export saved to media library"),
-        onError: (err) => toast.error("Export failed", { description: (err as Error).message }),
+        onSuccess: () => toast.success("Creative updated"),
+        onError: (err) => toast.error("Save failed", { description: (err as Error).message }),
       },
     );
     setEditingAsset(null);
@@ -168,6 +167,7 @@ export function StudioPage() {
                   onEdit={setEditingAsset}
                   onUse={(a) => openComposer(null, { mediaIds: [a.id] })}
                   onDelete={(a) => remove.mutate(a.id, { onSuccess: () => toast.success(`Deleted ${a.filename}`) })}
+                  onDuplicate={(a) => duplicate.mutate(a.id, { onSuccess: () => toast.success(`Duplicated ${a.filename}`), onError: (err) => toast.error("Duplicate failed", { description: (err as Error).message }) })}
                   onTagsChange={(tags) => update.mutate({ id: asset.id, tags })}
                 />
               ))}

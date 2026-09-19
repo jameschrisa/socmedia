@@ -33,6 +33,13 @@ export interface StickerLayer {
   opacity: number; // 0..1
 }
 
+export type BadgeCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+export interface BadgeStyle {
+  background: string | null; // null = organization brand colour
+  text: string;
+  corner: BadgeCorner;
+}
+
 export interface Adjustments {
   brightness: number; // -1..1
   contrast: number; // -100..100
@@ -60,6 +67,8 @@ export function useImageEditor(imageUrl: string, initialFormat: PostFormat, allo
   const [textLayers, setTextLayers] = useState<TextLayer[]>([]);
   const [stickers, setStickers] = useState<StickerLayer[]>([]);
   const [brandBadge, setBrandBadge] = useState(false);
+  const [badgeStyle, setBadgeStyle] = useState<BadgeStyle>({ background: null, text: "#ffffff", corner: "top-left" });
+  const updateBadgeStyle = (patch: Partial<BadgeStyle>) => setBadgeStyle((b) => ({ ...b, ...patch }));
 
   const stageRef = useRef<any>(null);
   const imageNodeRef = useRef<any>(null);
@@ -217,6 +226,8 @@ export function useImageEditor(imageUrl: string, initialFormat: PostFormat, allo
     setStickerScale,
     brandBadge,
     setBrandBadge,
+    badgeStyle,
+    updateBadgeStyle,
     stageRef,
     imageNodeRef,
     exportRegion: region,

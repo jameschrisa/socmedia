@@ -102,6 +102,12 @@ export async function saveDataUrl(orgId: string, dataUrl: string, filename?: str
   return saveUploadBuffer(orgId, buffer, mimeType, filename);
 }
 
+/** Copy an existing asset's file into new stored files (new names, fresh thumbnail) for duplication. */
+export async function copyMediaFiles(asset: Pick<MediaAsset, "url" | "mimeType" | "filename">, orgId: string): Promise<SavedFile> {
+  const buffer = fs.readFileSync(resolveMediaPath(asset.url));
+  return saveUploadBuffer(orgId, buffer, asset.mimeType, asset.filename);
+}
+
 export function deleteMediaFiles(asset: Pick<MediaAsset, "url" | "thumbnailUrl">) {
   for (const url of [asset.url, asset.thumbnailUrl]) {
     if (!url) continue;

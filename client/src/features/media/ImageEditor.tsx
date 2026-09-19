@@ -16,7 +16,7 @@ import { MediaPicker } from "./MediaPicker";
 import { useMedia } from "@/hooks/useMedia";
 import { toast } from "sonner";
 import { measureTextWidth, probeImageSize, readFileAsDataUrl, rgba } from "./editorText";
-import type { StickerLayer } from "./useImageEditor";
+import type { BadgeCorner, StickerLayer } from "./useImageEditor";
 import { fontStack } from "@/lib/fontManifest";
 
 export interface ImageEditorExportResult {
@@ -39,6 +39,21 @@ const PRESET_ORDER: PostFormat[] = [...POST_FORMATS];
 export function ImageEditor({ asset, initialFormat, allowedFormats, onExport, onClose }: ImageEditorProps) {
   const { currentOrg } = useOrgs();
   const editor = useImageEditor(asset.url, initialFormat, allowedFormats);
+
+  // Konva only applies filters to a cached node. Re-cache whenever the source, its display size or the
+  // adjustments change, at export resolution so the saved image stays sharp.
+  const adj = editor.adjustments;
+  useEffect(() => {
+    const node = editor.imageNodeRef.current;
+    if (!node || !editor.image || typeof node.cache !== "function") return;
+    try {
+      node.cache({ pixelRatio: Math.min(4, Math.max(1, editor.exportRegion.pixelRatio || 1)) });
+      node.getLayer()?.batchDraw();
+    } catch {
+      /* jsdom / mocked konva */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor.image, editor.displaySize.width, editor.displaySize.height, adj.brightness, adj.contrast, adj.saturation, adj.blur]);
 
   // Load any self-hosted font faces used by text layers before Konva draws them, then redraw.
   const usedFonts = editor.textLayers.map((t) => t.fontFamily).join("|");
@@ -205,10 +220,14 @@ export function ImageEditor({ asset, initialFormat, allowedFormats, onExport, on
                 ))}
                 {editor.brandBadge && currentOrg && (() => {
                   const pillW = Math.max(90, measureTextWidth(currentOrg.name, 13, fontStack("Inter"), "bold") + 28);
+                  const pillH = 28;
+                  const { corner, background, text } = editor.badgeStyle;
+                  const x = corner.endsWith("right") ? editor.frame.x + editor.frame.width - pillW - 12 : editor.frame.x + 12;
+                  const y = corner.startsWith("bottom") ? editor.frame.y + editor.frame.height - pillH - 12 : editor.frame.y + 12;
                   return (
-                    <Group x={editor.frame.x + 12} y={editor.frame.y + 12}>
-                      <Rect width={pillW} height={28} cornerRadius={14} fill={currentOrg.brandColor} />
-                      <Text text={currentOrg.name} x={0} y={0} width={pillW} height={28} align="center" verticalAlign="middle" fontSize={13} fontFamily={fontStack("Inter")} fill="#fff" fontStyle="bold" />
+                    <Group x={x} y={y}>
+                      <Rect width={pillW} height={pillH} cornerRadius={14} fill={background ?? currentOrg.brandColor} />
+                      <Text text={currentOrg.name} x={0} y={0} width={pillW} height={pillH} align="center" verticalAlign="middle" fontSize={13} fontFamily={fontStack("Inter")} fill={text} fontStyle="bold" />
                     </Group>
                   );
                 })()}
@@ -326,12 +345,45 @@ export function ImageEditor({ asset, initialFormat, allowedFormats, onExport, on
             ))}
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border border-ink-200 p-3">
-            <div>
-              <p className="text-sm font-medium text-ink-900">Brand badge</p>
-              <p className="text-xs text-ink-500">{currentOrg ? currentOrg.name : "Org"} pill in the corner</p>
+          <div className="rounded-lg border border-ink-200 p-3 space-y-3" data-testid="brand-badge-panel">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-ink-900">Brand badge</p>
+                <p className="text-xs text-ink-500">{currentOrg ? currentOrg.name : "Org"} pill on the image</p>
+              </div>
+              <Toggle checked={editor.brandBadge} onChange={editor.setBrandBadge} label="Toggle brand badge" />
             </div>
-            <Toggle checked={editor.brandBadge} onChange={editor.setBrandBadge} label="Toggle brand badge" />
+            {editor.brandBadge && (
+              <div className="space-y-2 text-xs text-ink-600" data-testid="brand-badge-controls">
+                <label className="flex items-center gap-2">
+                  <span className="w-20 shrink-0">Background</span>
+                  <input
+                    type="color"
+                    aria-label="Badge background colour"
+                    value={editor.badgeStyle.background ?? currentOrg?.brandColor ?? "#59d8e6"}
+                    onChange={(e) => editor.updateBadgeStyle({ background: e.target.value })}
+                  />
+                  <span className="font-mono text-[11px] text-ink-500">{editor.badgeStyle.background ?? currentOrg?.brandColor ?? ""}</span>
+                  {editor.badgeStyle.background && (
+                    <button type="button" className="link ml-auto" onClick={() => editor.updateBadgeStyle({ background: null })}>Use brand colour</button>
+                  )}
+                </label>
+                <label className="flex items-center gap-2">
+                  <span className="w-20 shrink-0">Text</span>
+                  <input type="color" aria-label="Badge text colour" value={editor.badgeStyle.text} onChange={(e) => editor.updateBadgeStyle({ text: e.target.value })} />
+                  <span className="font-mono text-[11px] text-ink-500">{editor.badgeStyle.text}</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <span className="w-20 shrink-0">Corner</span>
+                  <select aria-label="Badge corner" className="input h-8 py-0 text-xs" value={editor.badgeStyle.corner} onChange={(e) => editor.updateBadgeStyle({ corner: e.target.value as BadgeCorner })}>
+                    <option value="top-left">Top left</option>
+                    <option value="top-right">Top right</option>
+                    <option value="bottom-left">Bottom left</option>
+                    <option value="bottom-right">Bottom right</option>
+                  </select>
+                </label>
+              </div>
+            )}
           </div>
         </div>
       </div>

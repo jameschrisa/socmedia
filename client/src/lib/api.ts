@@ -90,6 +90,8 @@ export const api = {
     },
     exportDataUrl: (input: { dataUrl: string; filename: string; sourceAssetId?: string; format?: string; tags?: string[] }) =>
       request<MediaAsset>("/media/export", { method: "POST", body: json(input) }),
+    replace: (id: string, input: { dataUrl: string; format?: string }) => request<MediaAsset>(`/media/${id}/replace`, { method: "PUT", body: json(input) }),
+    duplicate: (id: string) => request<MediaAsset>(`/media/${id}/duplicate`, { method: "POST" }),
     update: (id: string, input: { tags?: string[] }) => request<MediaAsset>(`/media/${id}`, { method: "PATCH", body: json(input) }),
     remove: (id: string) => request<void>(`/media/${id}`, { method: "DELETE" }),
   },
