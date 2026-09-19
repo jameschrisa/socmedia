@@ -1,5 +1,6 @@
 import type { Db } from "../db/database";
 import { PostsRepo } from "../db/repositories/posts";
+import { log } from "./logger";
 import { publishPost, runDueJobs } from "./publisher";
 
 /** Publishes every scheduled post whose scheduledAt has passed. Returns the number published. */
@@ -16,6 +17,9 @@ export async function runSchedulerTick(db: Db, now: Date = new Date()): Promise<
   }
   // Queue-mode fan-out: run any deferred per-account jobs that are now due.
   count += await runDueJobs(db, now);
+  if (count > 0) {
+    log.info("scheduler", `Tick published ${count} job(s)/post(s)`, { data: { count } });
+  }
   return count;
 }
 
@@ -23,7 +27,7 @@ export async function runSchedulerTick(db: Db, now: Date = new Date()): Promise<
 export function startScheduler(db: Db, intervalMs: number): () => void {
   const timer = setInterval(() => {
     runSchedulerTick(db).catch((err) => {
-      console.error(JSON.stringify({ level: "error", message: "scheduler tick failed", error: err instanceof Error ? err.message : String(err) }));
+      log.error("scheduler", "Scheduler tick failed", { data: { error: err instanceof Error ? err.message : String(err) } });
     });
   }, intervalMs);
   if (typeof timer.unref === "function") timer.unref();

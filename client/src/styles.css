@@ -203,6 +203,29 @@
   .chip { @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300; }
   .chip-active { @apply border-brand-500 bg-brand-50 text-brand-700; }
   .chip-inactive { @apply border-ink-200 text-ink-600 hover:bg-ink-50; }
+
+  /* ---- Terminal (Console drawer): always dark and monospace, independent of the light/dark theme. ----
+     Re-pins the shared glass tokens on this element so nested Buttons/Inputs/Selects render in the
+     terminal's dark palette even when the app is in light mode. */
+  .terminal {
+    --c-canvas: #0a0b10; --c-surface: #11121a;
+    --c-ink-900: #f0eef3; --c-ink-800: #dcdae6; --c-ink-700: #c9c7d4; --c-ink-600: #b5b3c2; --c-ink-500: #a5a3b2; --c-ink-400: #7a7987;
+    --c-ink-300: rgba(255,255,255,0.18); --c-ink-200: rgba(255,255,255,0.12); --c-ink-100: rgba(255,255,255,0.07); --c-ink-50: rgba(255,255,255,0.05);
+    --c-glass-veil: rgba(255,255,255,0.05); --c-glass-panel: rgba(255,255,255,0.07); --c-glass-sheet: rgba(255,255,255,0.10); --c-glass-strong: rgba(255,255,255,0.14);
+    --c-glass-menu: rgba(20,22,31,0.96);
+    --c-edge: rgba(255,255,255,0.12); --c-edge-strong: rgba(255,255,255,0.16);
+    --c-brand-50: rgba(89,216,230,0.10); --c-brand-100: rgba(89,216,230,0.18); --c-brand-200: rgba(89,216,230,0.32);
+    --c-brand-300: #8ae4ee; --c-brand-400: #6fdeea; --c-brand-500: #59d8e6; --c-brand-600: #3fc6d6; --c-on-brand: #0d0f16;
+    --c-amber-fg: #f0b46f; --c-red-fg: #ff8f9a;
+    --sh-card: inset 0 1px 0 rgba(255,255,255,0.10), 0 18px 48px rgba(5,6,12,0.50);
+    --sh-pop: inset 0 1px 0 rgba(255,255,255,0.12), 0 24px 64px rgba(5,6,12,0.65);
+    --term-url: #8ae4ee;
+    background: var(--c-canvas);
+    color: var(--c-ink-900);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .terminal .term-link { color: var(--term-url); text-decoration: underline; text-underline-offset: 2px; }
+  .terminal .term-link:hover { color: var(--c-brand-300); }
 }
 
 /* Mandatory fallbacks */

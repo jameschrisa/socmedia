@@ -4,9 +4,12 @@ import { config } from "./config";
 import { openDatabase } from "./db/database";
 import { seedIfEmpty } from "./db/seed";
 import { ensureBootstrapAdmin } from "./services/auth";
+import { log } from "./services/logger";
 import { startScheduler } from "./services/scheduler";
 
 async function main() {
+  log.pruneOldFiles();
+
   const dbPath = path.join(config.dataDir, "pulse.db");
   const db = openDatabase(dbPath);
   ensureBootstrapAdmin(db);
@@ -16,14 +19,9 @@ async function main() {
   const stopScheduler = startScheduler(db, config.schedulerIntervalMs);
 
   const server = app.listen(config.port, () => {
-    console.log(
-      JSON.stringify({
-        level: "info",
-        message: `Pulse API listening on :${config.port}`,
-        dataDir: config.dataDir,
-        aiConfigured: !!config.anthropicApiKey,
-      })
-    );
+    log.info("system", `Pulse API listening on :${config.port}`, {
+      data: { dataDir: config.dataDir, aiConfigured: !!config.anthropicApiKey },
+    });
   });
 
   const shutdown = () => {
@@ -35,6 +33,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(err);
+  log.error("system", "Fatal startup error", { data: { error: err instanceof Error ? err.message : String(err) } });
   process.exit(1);
 });

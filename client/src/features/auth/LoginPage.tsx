@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type InputHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type InputHTMLAttributes, type ReactNode } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth, useAuthMutations } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
@@ -8,11 +8,72 @@ function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : "Something went wrong";
 }
 
+/** Full-bleed looping background clip behind the sign-in card. Falls back to the poster frame
+ * only (no video element at all) when the user prefers reduced motion, and pauses while the
+ * tab is hidden so it doesn't burn battery in a background tab. */
+function LoginBackground() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [reducedMotion, setReducedMotion] = useState(
+    () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+  );
+
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const listener = () => setReducedMotion(mq.matches);
+    mq.addEventListener?.("change", listener);
+    return () => mq.removeEventListener?.("change", listener);
+  }, []);
+
+  useEffect(() => {
+    if (reducedMotion) return;
+    const onVisibility = () => {
+      const el = videoRef.current;
+      if (!el) return;
+      if (document.hidden) el.pause();
+      else el.play().catch(() => {});
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [reducedMotion]);
+
+  return (
+    <div className="fixed inset-0 -z-10 overflow-hidden" aria-hidden>
+      {reducedMotion ? (
+        <img src="/media/login-bg.jpg" alt="" className="h-full w-full object-cover" />
+      ) : (
+        <video
+          ref={videoRef}
+          className="h-full w-full object-cover"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          poster="/media/login-bg.jpg"
+        >
+          <source src="/media/login-bg.mp4" type="video/mp4" />
+        </video>
+      )}
+      {/* Dark glass scrim so the sign-in card stays readable over the footage in both themes. */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: "linear-gradient(180deg, rgba(5,6,12,0.32) 0%, rgba(5,6,12,0.52) 55%, rgba(5,6,12,0.74) 100%)",
+          backdropFilter: "blur(2px)",
+          WebkitBackdropFilter: "blur(2px)",
+        }}
+      />
+    </div>
+  );
+}
+
 function Shell({ children }: { children: ReactNode }) {
   // The sign-in gate renders outside AppShell, so it applies the stored theme itself.
   useThemeMode();
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="relative min-h-screen flex items-center justify-center p-4">
+      <LoginBackground />
       <div className="card glass-sheet w-full max-w-sm p-8 space-y-6 drift-in">
         <div className="flex items-center justify-center gap-2">
           <SparkMark size={26} />

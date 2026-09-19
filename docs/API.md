@@ -6,7 +6,7 @@ Errors: `{ error: string, details?: unknown }` with 400 (validation), 404, 409, 
 Types come from `@socmedia/shared` (`shared/src/types.ts`, zod schemas in `shared/src/schemas.ts`).
 
 ## Authentication & users
-All `/api` routes except `GET /health`, `GET /auth/status`, `GET /auth/me`, `POST /auth/setup`, `POST /auth/login` and `GET /connections/oauth/callback` require a signed-in user. `/uploads/*` stays public because the platforms pull media from those URLs in live mode. (`GET /auth/me` is listed separately below as "never 401"; it is implemented as a public route so signed-out clients can poll it without special-casing.)
+All `/api` routes except `GET /health`, `GET /auth/status`, `GET /auth/me`, `POST /auth/setup`, `POST /auth/login`, `GET /connections/oauth/callback` and `GET`/`POST /quick/:token` (the phone quick-post link; see "Quick post from a phone" below — its own token secret is the credential, and `/quick/tokens*` link-management routes are *not* included in this exception) require a signed-in user. `/uploads/*` stays public because the platforms pull media from those URLs in live mode. (`GET /auth/me` is listed separately below as "never 401"; it is implemented as a public route so signed-out clients can poll it without special-casing.)
 Sessions: `POST /auth/login` sets an httpOnly cookie `suprstar_session` (SameSite=Lax, Secure in production, 30 days). Unauthenticated requests get 401 `{ error: "Sign in required" }`; forbidden ones 403.
 Roles (`shared/src/types.ts` `ROLE_CAPABILITIES`): `owner` and `admin` manage users, organizations and workspace settings and can access every org; `editor` can create/edit/publish within their orgs; `viewer` is read-only (GET) within their orgs. Org-scoped routes check membership (`orgIds` includes the org, or `"*"`) → 403 otherwise. Mutating routes (POST/PATCH/PUT/DELETE) require `editor` or above; `/settings/*`, `/users/*`, org create/update/delete and connection create/delete/credentials require `admin`+. Owners cannot be demoted or deactivated by admins; the last active owner cannot be removed.
 - `GET /auth/status` (public) → `{ needsSetup: boolean, authenticated: boolean }`
@@ -109,3 +109,71 @@ Background loop every `SCHEDULER_INTERVAL_MS` (default 30000) publishes posts wh
 - `GET /settings/ai/models?provider=` → `{ provider, models: string[] }`.
 - `GET /health` now reports `ai: { configured, provider, model }` from the active settings. When the chosen provider has no key the AI endpoints fall back to the offline mock.
 - Moonshot (Kimi) is called through its OpenAI-compatible endpoint (`https://api.moonshot.ai/v1/chat/completions`, JSON mode) and validated against the same zod schemas as Anthropic's structured outputs.
+
+## Activity log ("console")
+Every request, auth event, scheduler tick that published something, publish job, media mutation, org/settings change and agent/quick-post action is recorded to a singleton logger (`server/src/services/logger.ts`): an in-memory ring buffer of the last 2000 entries (used for these endpoints and the SSE stream), newline-delimited JSON files at `<dataDir>/logs/app-YYYY-MM-DD.log` (one per calendar day, pruned after 14 days at server startup), and stdout as JSON (so platforms that only capture stdout, e.g. Render, still see everything). Secrets are redacted: any data field whose name contains `password`, `token`, `secret` or `apiKey` (case-insensitive) becomes `"[redacted]"`, recursively.
+
+A `LogEntry` is `{ id, at, level: "debug"|"info"|"warn"|"error", source: "http"|"auth"|"scheduler"|"publisher"|"media"|"agent"|"quick"|"system", message, orgId: string|null, userId: string|null, data: Record<string, unknown>|null }`.
+
+Visibility: `owner`/`admin` see every entry. `editor`/`viewer` never see `auth` or `system`-source entries, and only see entries where `orgId` is `null` or one of their orgs.
+
+- `GET /api/logs?limit&level&source&since&q` (signed-in) → `{ entries: LogEntry[] }`. `limit` (default 200, max 2000) newest-last (chronological); `level`/`source` exact match; `since` is an ISO datetime; `q` is a case-insensitive substring match on `message`.
+- `GET /api/logs/stream` (signed-in) → Server-Sent Events, `Content-Type: text/event-stream`. Each new entry (post-visibility-filter, honouring `?level&source` query filters) is sent as `event: log\ndata: <LogEntry JSON>\n\n`; a `: ping\n\n` comment is sent every 20s to keep the connection alive through proxies. Uses the same cookie session as everything else (EventSource sends cookies automatically with `withCredentials`/same-origin); no special client handling needed beyond that. The stream itself is excluded from HTTP request logging.
+- `GET /api/logs/files` (admin+) → `{ files: LogFileInfo[] }`, `LogFileInfo = { name, size, modifiedAt }`, newest first.
+- `GET /api/logs/files/:name?tail=500` (admin+; `name` must match `^app-\d{4}-\d{2}-\d{2}\.log$`, else 400; unknown file → 404) → `{ name, size, lines: string[] }`, the last `tail` (default 500, max 10000) lines of that file.
+
+## Agent console
+`POST /api/agent/commands` (org-scoped via `X-Org-Id`, signed-in, any role) body `{ input }` (`agentCommandSchema`, 1–4000 chars) → `AgentCommandResult` = `{ id, input, reply, actions: AgentAction[], model, mock, at }`. `AgentAction = { tool, input, ok, summary }`. `reply` is plain text (may contain newlines / simple space-padded tables), capped at 1500 characters for AI replies. Every command is logged (source `agent`, listing the tools used); every tool-driven mutation is logged again individually.
+
+Two paths, chosen by whether `input` (trimmed) starts with `/`:
+
+**a) Built-in slash commands** — exact, fast, no AI call (`model: "slash-command"`, `mock: false`):
+- `/help` — lists commands
+- `/status` — scheduler interval + post counts by status + enabled/total accounts
+- `/posts [status]` — list posts, optionally filtered
+- `/jobs [status]` — list publish jobs, optionally filtered (e.g. `failed`, `queued`)
+- `/accounts` — list connected accounts
+- `/media` — list media assets
+- `/publish <postId>` — publish a post now (**write role**: editor+)
+- `/retry <jobId>` — retry a failed/stuck job (**write role**: editor+)
+- `/logs [level] [n]` — recent log lines (respects the caller's log visibility rules)
+- `/whoami` — the caller's name/email/role/orgs
+
+Viewers get a clear refusal (`ok: false` action, reply explains the role requirement) instead of a 403 when they try a write slash command, so read-only commands in the same session keep working.
+
+**b) Anything else** goes to a tool-using AI agent, using whichever provider is active in `aiSettings` (see Settings above):
+- **Anthropic**: a manual `messages.create` tool-use loop (up to 8 iterations) — the model can call any tool below; results are fed back as `tool_result` blocks until it replies with plain text (`end_turn`).
+- **Moonshot**: the same tool set via its OpenAI-compatible function-calling API (`tool_calls` / `role: "tool"` messages), same 8-iteration cap.
+- **No provider configured**: a deterministic offline mock (`mock: true`, `model: "offline-mock"`) pattern-matches a handful of intents — "list posts", "what failed", "publish `<postId>`", "schedule `<postId>` for `<when>`" — and otherwise explains that an AI provider needs to be configured in Settings → AI.
+
+Tools (all scoped to the caller's org and role; write tools refuse for viewers with a clear message instead of mutating): `list_posts({status?, limit?})`, `get_post({id})`, `create_post({title, caption, hashtags?, platforms?, connectionIds?, scheduledAt?, mediaIds?})` (targets default to every enabled account for the given platforms — or every enabled account if neither is given — format = each platform's first supported format), `update_post({id, ...})`, `schedule_post({id, scheduledAt})`, `publish_post({id})`, `delete_post({id})`, `list_media({kind?, tag?})`, `list_accounts()`, `list_jobs({status?})`, `retry_job({id})`, `analytics_summary({range?: "7d"|"30d"})`, `generate_captions({brief, platforms})`, `recent_logs({level?, limit?})`, `search_posts({q})`.
+
+The system prompt names the organization, today's date and its timezone, and instructs the model to use tools rather than invent ids, and to confirm exactly what changed (with ids).
+
+## Quick post from a phone
+A long-lived link ties an org, a user and a set of target accounts to a secret token; opening it on a phone shows a tiny page to snap a photo (and optionally record a voice memo) and post it — no login required on the phone.
+
+**Link management** (signed-in, org-scoped via `X-Org-Id`, write role: editor+):
+- `GET /api/quick/tokens` → `QuickPostToken[]` for the org (no `token` field — the secret is never returned again after creation).
+- `POST /api/quick/tokens` body `quickPostTokenCreateSchema` `{ label, connectionIds?, publishMode? }` → `QuickPostToken` (201) **including `token`** (the 32+ char url-safe secret) — shown once; only its sha256 hash is stored, alongside a 4-character `tokenPreview` for display.
+- `PATCH /api/quick/tokens/:id` body `quickPostTokenUpdateSchema` (partial, plus `active`) → `QuickPostToken`.
+- `DELETE /api/quick/tokens/:id` → 204.
+
+**Public endpoints** (no session — the token secret in the URL is the credential; excluded from the auth gate; rate-limited to 30 submissions per token per hour, 429 beyond that):
+- `GET /api/quick/:token` → `QuickPostPublicInfo` = `{ label, orgName, orgLogoUrl, brandColor, targets: { connectionId, platform, label, handle }[], aiAvailable }`. 404 for an unknown or deactivated token; never reveals the org id.
+- `POST /api/quick/:token` multipart/form-data:
+  - `image` (required, `image/*`, ≤ 15MB) — saved via the normal media pipeline, tagged `["quick"]`.
+  - `memo` (optional, `audio/*`, ≤ 20MB) — saved under `data/uploads/<orgId>/memos/<file>` and referenced by URL in the post's `notes`. **It is not transcribed server-side** — the phone page is expected to supply an on-device speech-to-text `transcript` field alongside it.
+  - Text fields (`quickPostFieldsSchema`): `caption?`, `transcript?`, `polish` (default `true`).
+
+  Caption resolution, in order:
+  1. `caption` non-empty → used as-is, `captionSource: "caption"`.
+  2. else `transcript` non-empty → if `polish` is true **and** an AI provider is configured, the transcript is turned into a one-paragraph caption plus up to 8 hashtags via `aiProviders.structured()` (`captionSource: "ai"`); otherwise (including the offline mock) the trimmed transcript is used as-is (`captionSource: "transcript"`).
+  3. else → the post is created as a `draft` with `notes: "Needs a caption (submitted from phone)"` (plus the memo URL, if any) and the response is **202** with `status: "needs_caption"` and empty `links`.
+
+  Otherwise (a caption was resolved): a post is created (`title` = first 60 chars of the caption, `mediaIds: [image.id]`, `targets` = the token's `connectionIds` or every enabled account of the org with each platform's first supported format, `publishMode` from the token) and published immediately via the normal publish path, and the response is **201** `QuickPostResult` = `{ post, media, status, caption, captionSource, links: QuickPostLink[] }` where each `QuickPostLink` = `{ connectionId, platform, label, status, url, error }` mirrors that target's publish job (sandbox mode returns simulated URLs, same as the rest of the app). The token's `usesCount`/`lastUsedAt` are bumped on every successful submission (including `needs_caption`), and the confirmation (with links) is logged under source `quick` so it shows up in the activity console too.
+
+  iOS Shortcuts example:
+  ```sh
+  curl -F image=@photo.jpg -F caption="Fresh from the studio" https://host/api/quick/<token>
+  ```

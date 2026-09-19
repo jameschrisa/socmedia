@@ -12,6 +12,7 @@ import { OrgFormModal } from "./OrgFormModal";
 import { AiProviderSettings } from "./AiProviderSettings";
 import { PublishingSettingsCard } from "./PublishingSettingsCard";
 import { UsersCard } from "./UsersCard";
+import { QuickPostSection } from "./QuickPostSection";
 
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : "Something went wrong";
@@ -162,6 +163,13 @@ export function SettingsPage() {
         <SectionTitle>Publishing accounts</SectionTitle>
         <PublishingSettingsCard />
       </section>
+
+      {can.write && (
+        <section className="space-y-3">
+          <SectionTitle>Quick post from your phone</SectionTitle>
+          <QuickPostSection />
+        </section>
+      )}
 
       <section className="space-y-3">
         <SectionTitle>Appearance</SectionTitle>

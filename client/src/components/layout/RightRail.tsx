@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { BookOpen, CalendarCheck2, Sparkles, HeartHandshake, ExternalLink, X } from "lucide-react";
+import { BookOpen, CalendarCheck2, Sparkles, HeartHandshake, ExternalLink, Terminal, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button, Portal, useAnchorPosition } from "@/components/ui";
 import { useAppStore } from "@/store/appStore";
@@ -16,6 +16,7 @@ type PanelId = "docs" | "scheduler" | "approvals";
  */
 export function RightRail() {
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen);
+  const toggleConsole = useAppStore((s) => s.toggleConsole);
   const [open, setOpen] = useState<PanelId | null>(null);
   const railRef = useRef<HTMLElement>(null);
   const PANEL_W = 288;
@@ -24,8 +25,9 @@ export function RightRail() {
 
   const toggle = (id: PanelId) => setOpen((cur) => (cur === id ? null : id));
 
-  const items: { id: PanelId | "ai"; label: string; icon: React.ReactNode; tone: string; onClick: () => void }[] = [
+  const items: { id: PanelId | "ai" | "console"; label: string; icon: React.ReactNode; tone: string; onClick: () => void }[] = [
     { id: "ai", label: "AI Assistant", icon: <Sparkles className="h-4 w-4" />, tone: "text-brand-600 bg-brand-50 hover:bg-brand-100", onClick: () => { setOpen(null); setAiPanelOpen(true); } },
+    { id: "console", label: "Console", icon: <Terminal className="h-4 w-4" />, tone: "text-ink-600 bg-ink-50 hover:bg-ink-100", onClick: () => { setOpen(null); toggleConsole(); } },
     { id: "docs", label: "Documentation", icon: <BookOpen className="h-4 w-4" />, tone: "text-ink-600 bg-ink-50 hover:bg-ink-100", onClick: () => toggle("docs") },
     { id: "scheduler", label: "Scheduler status", icon: <CalendarCheck2 className="h-4 w-4" />, tone: "text-green-600 bg-green-50 hover:bg-green-100", onClick: () => toggle("scheduler") },
     { id: "approvals", label: "Approvals", icon: <HeartHandshake className="h-4 w-4" />, tone: "text-pink-600 bg-pink-50 hover:bg-pink-100", onClick: () => toggle("approvals") },
@@ -39,10 +41,10 @@ export function RightRail() {
           type="button"
           title={item.label}
           aria-label={item.label}
-          aria-expanded={item.id === "ai" ? undefined : open === item.id}
+          aria-expanded={item.id === "ai" || item.id === "console" ? undefined : open === item.id}
           onClick={item.onClick}
           data-testid={`rail-${item.id}`}
-          className={cn("flex h-10 w-10 items-center justify-center border border-ink-200 bg-glass transition-colors", item.tone, open === item.id && "ring-2 ring-brand-300")}
+          className={cn("flex h-10 w-10 items-center justify-center border border-ink-200 bg-glass transition-colors", item.tone, item.id !== "ai" && item.id !== "console" && open === item.id && "ring-2 ring-brand-300")}
         >
           {item.icon}
         </button>

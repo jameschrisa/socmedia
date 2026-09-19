@@ -6,6 +6,7 @@ import { JobsRepo } from "../db/repositories/jobs";
 import { MediaRepo } from "../db/repositories/media";
 import { PostsRepo } from "../db/repositories/posts";
 import { getAdapter } from "../platforms";
+import { log } from "./logger";
 
 function recomputePostStatus(db: Db, post: Post): Post {
   const jobsRepo = new JobsRepo(db);
@@ -72,6 +73,11 @@ async function runJob(db: Db, job: PublishJob): Promise<PublishJob> {
     return working;
   }
 
+  log.info("publisher", `Publishing post ${post.id} to ${job.platform} (${conn.label || conn.displayName || conn.id})`, {
+    orgId: job.orgId,
+    data: { postId: post.id, jobId: job.id, platform: job.platform, connectionId: job.connectionId, connectionLabel: conn.label },
+  });
+
   try {
     const mediaIds = target.mediaIds.length ? target.mediaIds : post.mediaIds;
     const media = mediaRepo.getMany(mediaIds);
@@ -87,6 +93,10 @@ async function runJob(db: Db, job: PublishJob): Promise<PublishJob> {
       error: null,
       log: [...working.log, { at: finishedAt, message: `Published successfully (${result.externalId})` }],
     });
+    log.info("publisher", `Published post ${post.id} to ${job.platform} (${conn.label || conn.displayName || conn.id})`, {
+      orgId: job.orgId,
+      data: { postId: post.id, jobId: job.id, platform: job.platform, connectionLabel: conn.label, externalUrl: result.externalUrl },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown publish error";
     const finishedAt = new Date().toISOString();
@@ -96,6 +106,10 @@ async function runJob(db: Db, job: PublishJob): Promise<PublishJob> {
       error: message,
       finishedAt,
       log: [...working.log, { at: finishedAt, message: `Failed: ${message}` }],
+    });
+    log.error("publisher", `Failed to publish post ${post.id} to ${job.platform} (${conn.label || conn.displayName || conn.id}): ${message}`, {
+      orgId: job.orgId,
+      data: { postId: post.id, jobId: job.id, platform: job.platform, connectionLabel: conn.label, error: message },
     });
   }
   return working;

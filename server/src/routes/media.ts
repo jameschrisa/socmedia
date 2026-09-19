@@ -18,6 +18,7 @@ import {
   VideoTooLongError,
 } from "../services/media";
 import { posterFrame, trimVideo } from "../services/video";
+import { log } from "../services/logger";
 import { asyncHandler } from "../utils/asyncHandler";
 
 const upload = multer({
@@ -80,6 +81,7 @@ export function mediaRouter(db: Db): Router {
         createdAt: now,
       };
       const created = repo.create(asset);
+      log.info("media", `Uploaded ${created.kind} "${created.filename}"`, { orgId, userId: req.user?.id, data: { mediaId: created.id, size: created.size } });
       res.status(201).json(created);
     })
   );
@@ -164,6 +166,7 @@ export function mediaRouter(db: Db): Router {
           format: input.format ?? existing.format ?? null,
         });
         deleteMediaFiles(previous);
+        log.info("media", `Replaced clip on media ${updated!.id}`, { orgId, userId: req.user?.id, data: { mediaId: updated!.id } });
         res.json(updated);
         return;
       }
@@ -185,6 +188,7 @@ export function mediaRouter(db: Db): Router {
         format: input.format ?? null,
         createdAt: new Date().toISOString(),
       });
+      log.info("media", `Created clip ${created.id} from ${existing.id}`, { orgId, userId: req.user?.id, data: { mediaId: created.id, sourceAssetId: existing.id } });
       res.status(201).json(created);
     })
   );
@@ -211,6 +215,7 @@ export function mediaRouter(db: Db): Router {
         format: typeof format === "string" ? format : existing.format,
       });
       deleteMediaFiles(previous);
+      log.info("media", `Replaced media ${updated!.id}`, { orgId: existing.orgId, userId: req.user?.id, data: { mediaId: updated!.id } });
       res.json(updated);
     })
   );
@@ -235,6 +240,7 @@ export function mediaRouter(db: Db): Router {
         sourceAssetId: existing.id,
         createdAt: new Date().toISOString(),
       });
+      log.info("media", `Duplicated media ${existing.id} as ${copy.id}`, { orgId: existing.orgId, userId: req.user?.id, data: { mediaId: copy.id, sourceAssetId: existing.id } });
       res.status(201).json(copy);
     })
   );

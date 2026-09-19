@@ -6,6 +6,7 @@ import { UsersRepo } from "../db/repositories/users";
 import { requireAuth } from "../middleware/auth";
 import { BadRequestError, ConflictError } from "../middleware/errors";
 import { clearSessionCookie, hashPassword, parseCookies, signIn, signOut, verifyPassword, SESSION_COOKIE_NAME } from "../services/auth";
+import { log } from "../services/logger";
 import { asyncHandler } from "../utils/asyncHandler";
 
 /** Not org-scoped: authentication and the current user's own account. */
@@ -39,6 +40,7 @@ export function authRouter(db: Db): Router {
         lastLoginAt: now,
       });
       signIn(res, db, created.id);
+      log.info("auth", `Setup: created first owner ${input.email}`, { userId: created.id, data: { email: input.email } });
       res.status(201).json({ authenticated: true, needsSetup: false, user: created });
     })
   );
@@ -49,6 +51,7 @@ export function authRouter(db: Db): Router {
       const input = loginSchema.parse(req.body);
       const record = usersRepo.getByEmail(input.email);
       if (!record || !record.active || !verifyPassword(input.password, record.passwordHash)) {
+        log.warn("auth", `Login failed for ${input.email}`, { data: { email: input.email } });
         res.status(401).json({ error: "Invalid email or password" });
         return;
       }
@@ -56,6 +59,7 @@ export function authRouter(db: Db): Router {
       usersRepo.touchLogin(record.id, now);
       signIn(res, db, record.id);
       const user = usersRepo.get(record.id)!;
+      log.info("auth", `Login succeeded for ${input.email}`, { userId: user.id, data: { email: input.email } });
       res.json({ authenticated: true, needsSetup: false, user });
     })
   );
@@ -67,6 +71,7 @@ export function authRouter(db: Db): Router {
       const cookies = parseCookies(req.headers.cookie);
       signOut(db, cookies[SESSION_COOKIE_NAME]);
       clearSessionCookie(res);
+      log.info("auth", `Logout: ${req.user!.email}`, { userId: req.user!.id });
       res.status(204).end();
     })
   );
@@ -88,6 +93,7 @@ export function authRouter(db: Db): Router {
         throw new BadRequestError("Current password is incorrect");
       }
       usersRepo.update(record.id, { passwordHash: hashPassword(input.newPassword), mustChangePassword: false });
+      log.info("auth", `Password changed: ${req.user!.email}`, { userId: req.user!.id });
       res.status(204).end();
     })
   );

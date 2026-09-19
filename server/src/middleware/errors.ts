@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
+import { log } from "../services/logger";
 
 export class NotFoundError extends Error {
   constructor(message = "Not found") {
@@ -73,7 +74,11 @@ export function errorHandler(err: unknown, req: Request, res: Response, next: Ne
     res.status(err.status).json({ error: err.message, details: err.details });
     return;
   }
-  console.error(err);
   const message = err instanceof Error ? err.message : "Internal server error";
+  log.error("http", `Unhandled error: ${message}`, {
+    userId: req.user?.id ?? null,
+    orgId: req.org?.id ?? null,
+    data: { path: req.path, method: req.method, stack: err instanceof Error ? err.stack : undefined },
+  });
   res.status(500).json({ error: message });
 }

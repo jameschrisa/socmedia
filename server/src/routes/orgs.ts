@@ -12,6 +12,7 @@ import { OrganizationsRepo } from "../db/repositories/organizations";
 import { requireRole } from "../middleware/auth";
 import { BadRequestError, ConflictError, NotFoundError } from "../middleware/errors";
 import { asyncHandler } from "../utils/asyncHandler";
+import { log } from "../services/logger";
 import { uploadsDirFor } from "../services/media";
 import { z } from "zod";
 import { DEMO_PROFILES, createDemoOrg, seedDemoContent } from "../db/seed";
@@ -125,6 +126,7 @@ export function orgsRouter(db: Db): Router {
         createdAt: now,
       });
       ensureConnectionsForOrg(db, org.id);
+      log.info("system", `Organization created: ${org.name}`, { orgId: org.id, userId: req.user?.id, data: { slug: org.slug } });
       res.status(201).json(org);
     })
   );
@@ -191,6 +193,7 @@ export function orgsRouter(db: Db): Router {
         if (clash && clash.id !== existing.id) throw new ConflictError(`Slug "${input.slug}" is already in use`);
       }
       const updated = repo.update(req.params.id, input);
+      log.info("system", `Organization updated: ${updated!.name}`, { orgId: updated!.id, userId: req.user?.id });
       res.json(updated);
     })
   );

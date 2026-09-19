@@ -8,6 +8,7 @@ import { UsersRepo } from "../db/repositories/users";
 import { requireRole } from "../middleware/auth";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../middleware/errors";
 import { hashPassword } from "../services/auth";
+import { log } from "../services/logger";
 import { asyncHandler } from "../utils/asyncHandler";
 
 /** Admin+ only user management (not org-scoped: owners/admins manage every org's roster). */
@@ -46,6 +47,7 @@ export function usersRouter(db: Db): Router {
         createdAt: now,
         lastLoginAt: null,
       });
+      log.info("auth", `User invited: ${created.email}`, { userId: req.user!.id, data: { invitedUserId: created.id, role: created.role } });
       res.status(201).json(created);
     })
   );
@@ -84,6 +86,10 @@ export function usersRouter(db: Db): Router {
       if (input.active === false || input.password !== undefined) {
         sessionsRepo.deleteByUser(existing.id);
       }
+      log.info("auth", input.active === false ? `User deactivated: ${existing.email}` : `User updated: ${existing.email}`, {
+        userId: actor.id,
+        data: { targetUserId: existing.id },
+      });
       res.json(updated);
     })
   );

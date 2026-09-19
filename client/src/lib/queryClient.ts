@@ -21,4 +21,9 @@ export const qk = {
   jobs: (orgId: string | null, params?: Record<string, unknown>) => ["jobs", orgId, params ?? {}] as const,
   analytics: (orgId: string | null, params?: Record<string, unknown>) => ["analytics", orgId, params ?? {}] as const,
   snapshots: (orgId: string | null, params?: Record<string, unknown>) => ["snapshots", orgId, params ?? {}] as const,
+  logs: (params?: Record<string, unknown>) => ["logs", params ?? {}] as const,
+  logFiles: ["logs", "files"] as const,
+  logFile: (name: string, tail?: number) => ["logs", "file", name, tail ?? null] as const,
+  quickTokens: (orgId: string | null) => ["quick", "tokens", orgId] as const,
+  quickInfo: (token: string) => ["quick", "info", token] as const,
 };

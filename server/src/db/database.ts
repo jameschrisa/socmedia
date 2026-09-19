@@ -170,12 +170,37 @@ function hasColumn(db: Db, table: string, column: string): boolean {
   return cols.some((c) => c.name === column);
 }
 
+function hasTable(db: Db, table: string): boolean {
+  const row = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(table) as { name: string } | undefined;
+  return !!row;
+}
+
 /** Additive migrations for databases created by earlier versions. Safe to run repeatedly. */
 export function runIncrementalMigrations(db: Db): void {
   if (!hasColumn(db, "connections", "label")) db.exec("ALTER TABLE connections ADD COLUMN label TEXT NOT NULL DEFAULT ''");
   if (!hasColumn(db, "posts", "publishMode")) db.exec("ALTER TABLE posts ADD COLUMN publishMode TEXT NOT NULL DEFAULT 'all'");
   if (!hasColumn(db, "posts", "queueSpacingMinutes")) db.exec("ALTER TABLE posts ADD COLUMN queueSpacingMinutes INTEGER NOT NULL DEFAULT 10");
   if (!hasColumn(db, "publish_jobs", "runAt")) db.exec("ALTER TABLE publish_jobs ADD COLUMN runAt TEXT");
+
+  if (!hasTable(db, "quick_post_tokens")) {
+    db.exec(`
+      CREATE TABLE quick_post_tokens (
+        id TEXT PRIMARY KEY,
+        orgId TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        userId TEXT NOT NULL,
+        label TEXT NOT NULL DEFAULT '',
+        tokenHash TEXT NOT NULL UNIQUE,
+        tokenPreview TEXT NOT NULL,
+        connectionIds TEXT NOT NULL DEFAULT '[]',
+        publishMode TEXT NOT NULL DEFAULT 'all',
+        active INTEGER NOT NULL DEFAULT 1,
+        usesCount INTEGER NOT NULL DEFAULT 0,
+        lastUsedAt TEXT,
+        createdAt TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_quick_post_tokens_org ON quick_post_tokens(orgId);
+    `);
+  }
 
   // Multiple accounts per platform: drop the old UNIQUE(orgId, platform) constraint by rebuilding the table.
   const ddl = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'connections'").get() as { sql: string } | undefined;

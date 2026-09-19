@@ -7,6 +7,7 @@ import { useCardFocus } from "@/hooks/useCardFocus";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { AiPanel } from "@/features/ai/AiPanel";
 import { ComposerDrawer } from "@/features/studio/ComposerDrawer";
+import { ConsoleDrawer } from "@/features/console/ConsoleDrawer";
 import { ApiError } from "@/lib/api";
 
 export function AppShell() {
@@ -41,6 +42,7 @@ export function AppShell() {
       </main>
       <AiPanel />
       <ComposerDrawer />
+      <ConsoleDrawer />
       <Toaster position="bottom-right" theme={mode} closeButton toastOptions={{ className: "text-sm glass-sheet !rounded-2xl" }} />
     </div>
   );

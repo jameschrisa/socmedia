@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Sparkles, Plus, Sun, Moon, Monitor } from "lucide-react";
+import { Sparkles, Plus, Sun, Moon, Monitor, Terminal } from "lucide-react";
 import { OrgSwitcher } from "./OrgSwitcher";
 import { Button, SparkMark, Wordmark } from "@/components/ui";
 import { useAppStore } from "@/store/appStore";
@@ -29,6 +29,7 @@ export function Logo() {
 export function TopNav() {
   const openComposer = useAppStore((s) => s.openComposer);
   const toggleAi = useAppStore((s) => s.toggleAiPanel);
+  const toggleConsole = useAppStore((s) => s.toggleConsole);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
   const { can } = useAuth();
@@ -49,6 +50,16 @@ export function TopNav() {
               className="inline-flex h-8 w-8 items-center justify-center glass-veil text-ink-800 hover:bg-glass-strong"
             >
               <ThemeIcon className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={toggleConsole}
+              aria-label="Console"
+              title="Console (Ctrl+`)"
+              data-testid="rail-console-mobile"
+              className="inline-flex h-8 w-8 items-center justify-center glass-veil text-ink-800 hover:bg-glass-strong lg:hidden"
+            >
+              <Terminal className="h-4 w-4" />
             </button>
             {can.write && (
               <>

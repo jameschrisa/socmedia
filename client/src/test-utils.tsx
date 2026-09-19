@@ -39,3 +39,47 @@ export function mockFetch(routes: Record<string, (init?: RequestInit, url?: stri
   globalThis.fetch = fn as unknown as typeof fetch;
   return { fn, calls };
 }
+
+type Listener = (ev: { data?: string }) => void;
+
+/** Minimal EventSource stand-in: jsdom has none. Auto-fires "open" on the next tick; tests
+ * drive it further with `dispatch("log", entry)` / `dispatch("error")` on the latest instance. */
+export class MockEventSource {
+  static instances: MockEventSource[] = [];
+  url: string;
+  withCredentials: boolean;
+  private listeners: Record<string, Listener[]> = {};
+  closed = false;
+
+  constructor(url: string, opts?: { withCredentials?: boolean }) {
+    this.url = url;
+    this.withCredentials = !!opts?.withCredentials;
+    MockEventSource.instances.push(this);
+    setTimeout(() => { if (!this.closed) this.dispatch("open"); }, 0);
+  }
+
+  addEventListener(type: string, cb: Listener) {
+    (this.listeners[type] ??= []).push(cb);
+  }
+
+  removeEventListener(type: string, cb: Listener) {
+    this.listeners[type] = (this.listeners[type] ?? []).filter((f) => f !== cb);
+  }
+
+  dispatch(type: string, data?: unknown) {
+    const ev = { data: typeof data === "string" || data === undefined ? data : JSON.stringify(data) };
+    for (const cb of this.listeners[type] ?? []) cb(ev);
+  }
+
+  close() {
+    this.closed = true;
+  }
+}
+
+/** Installs `MockEventSource` as the global `EventSource` for the duration of a test; returns a restore function. */
+export function installMockEventSource() {
+  const previous = (globalThis as any).EventSource;
+  (globalThis as any).EventSource = MockEventSource;
+  MockEventSource.instances = [];
+  return () => { (globalThis as any).EventSource = previous; };
+}

@@ -19,3 +19,11 @@ if (!window.matchMedia) {
 }
 Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || vi.fn();
 Element.prototype.scrollTo = Element.prototype.scrollTo || (vi.fn() as any);
+
+// jsdom doesn't implement object URLs (used for local photo/video previews).
+if (!("createObjectURL" in URL)) {
+  (URL as any).createObjectURL = vi.fn(() => "blob:mock-url");
+}
+if (!("revokeObjectURL" in URL)) {
+  (URL as any).revokeObjectURL = vi.fn();
+}

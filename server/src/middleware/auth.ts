@@ -78,6 +78,13 @@ export function requireWrite(req: Request, res: Response, next: NextFunction): v
 const PUBLIC_GET_PATHS = new Set(["/api/health", "/api/auth/status", "/api/auth/me", "/api/connections/oauth/callback"]);
 const PUBLIC_POST_PATHS = new Set(["/api/auth/setup", "/api/auth/login"]);
 
+/**
+ * Quick-post-from-a-phone: the token secret in the URL *is* the credential, so `GET/POST
+ * /api/quick/:token` are public. `/api/quick/tokens` and `/api/quick/tokens/:id` (link management)
+ * are excluded and stay behind normal auth.
+ */
+const QUICK_PUBLIC_PATH_RE = /^\/api\/quick\/(?!tokens(?:\/|$))[^/]+\/?$/;
+
 /** Global gate: lets public routes and /uploads through, requires a signed-in user for everything else under /api. */
 export function authGate(req: Request, res: Response, next: NextFunction): void {
   if (req.path.startsWith("/uploads")) {
@@ -89,6 +96,10 @@ export function authGate(req: Request, res: Response, next: NextFunction): void 
     return;
   }
   if (req.method === "POST" && PUBLIC_POST_PATHS.has(req.path)) {
+    next();
+    return;
+  }
+  if ((req.method === "GET" || req.method === "POST") && QUICK_PUBLIC_PATH_RE.test(req.path)) {
     next();
     return;
   }

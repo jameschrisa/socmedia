@@ -4,6 +4,8 @@ import type {
   ConnectionUpdateInput, PostInput, PostUpdateInput, OrganizationInput, ImproveRequestInput,
   AiSettings, AiSettingsUpdateInput, AiProviderTestResult, ConnectionCreateInput, PublishingSettings, PublishingSettingsInput,
   AuthState, User, LoginInput, SetupInput, UserCreateInput, UserUpdateInput, ChangePasswordInput, ClipRequestInput,
+  LogEntry, LogLevel, LogSource, LogFileInfo, AgentCommandResult, PublishMode,
+  QuickPostToken, QuickPostPublicInfo, QuickPostResult,
 } from "@socmedia/shared";
 import { useAppStore } from "@/store/appStore";
 
@@ -178,6 +180,44 @@ export const api = {
     improve: (input: ImproveRequestInput) => request<{ caption: string; hashtags: string[]; model: string; mock: boolean }>("/ai/improve", { method: "POST", body: json(input) }),
     hashtags: (input: { caption: string; platform: Platform; count?: number }) => request<{ hashtags: string[]; model: string; mock: boolean }>("/ai/hashtags", { method: "POST", body: json(input) }),
     bestTimes: (platform: Platform) => request<{ slots: { weekday: number; hour: number; score: number }[] }>("/ai/best-times", { method: "POST", body: json({ platform }) }),
+  },
+
+  logs: {
+    list: (params: { limit?: number; level?: LogLevel; source?: LogSource; since?: string; q?: string } = {}) => {
+      const q = new URLSearchParams();
+      if (params.limit) q.set("limit", String(params.limit));
+      if (params.level) q.set("level", params.level);
+      if (params.source) q.set("source", params.source);
+      if (params.since) q.set("since", params.since);
+      if (params.q) q.set("q", params.q);
+      const qs = q.toString();
+      return request<{ entries: LogEntry[] }>(`/logs${qs ? `?${qs}` : ""}`);
+    },
+    files: () => request<{ files: LogFileInfo[] }>("/logs/files"),
+    file: (name: string, tail = 500) => request<{ name: string; size: number; lines: string[] }>(`/logs/files/${encodeURIComponent(name)}?tail=${tail}`),
+    /** URL for a same-origin EventSource; the browser can't attach the X-Org-Id header to SSE requests. */
+    streamUrl: (params: { level?: LogLevel; source?: LogSource } = {}) => {
+      const q = new URLSearchParams();
+      if (params.level) q.set("level", params.level);
+      if (params.source) q.set("source", params.source);
+      const qs = q.toString();
+      return `${BASE}/logs/stream${qs ? `?${qs}` : ""}`;
+    },
+  },
+
+  agent: {
+    command: (input: string) => request<AgentCommandResult>("/agent/commands", { method: "POST", body: json({ input }) }),
+  },
+
+  quick: {
+    tokens: () => request<QuickPostToken[]>("/quick/tokens"),
+    createToken: (input: { label: string; connectionIds: string[]; publishMode: PublishMode }) =>
+      request<QuickPostToken>("/quick/tokens", { method: "POST", body: json(input) }),
+    updateToken: (id: string, input: Partial<{ label: string; connectionIds: string[]; publishMode: PublishMode; active: boolean }>) =>
+      request<QuickPostToken>(`/quick/tokens/${id}`, { method: "PATCH", body: json(input) }),
+    removeToken: (id: string) => request<void>(`/quick/tokens/${id}`, { method: "DELETE" }),
+    info: (token: string) => request<QuickPostPublicInfo>(`/quick/${token}`, {}, { org: false }),
+    post: (token: string, form: FormData) => request<QuickPostResult>(`/quick/${token}`, { method: "POST", body: form }, { org: false }),
   },
 };
 

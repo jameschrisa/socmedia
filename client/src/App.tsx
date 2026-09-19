@@ -9,12 +9,14 @@ import { StudioPage } from "@/features/studio/StudioPage";
 import { ConnectionsPage } from "@/features/connections/ConnectionsPage";
 import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
+import { QuickPostPage } from "@/features/quick/QuickPostPage";
 
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
+          <Route path="/go/:token" element={<QuickPostPage />} />
           <Route element={<RequireAuth><AppShell /></RequireAuth>}>
             <Route index element={<OverviewPage />} />
             <Route path="calendar" element={<CalendarPage />} />

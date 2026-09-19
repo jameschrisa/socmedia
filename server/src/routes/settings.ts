@@ -5,6 +5,7 @@ import { SettingsRepo } from "../db/repositories/settings";
 import type { Db } from "../db/database";
 import { listModels, testProvider } from "../services/aiProviders";
 import { getPublicAiSettings, saveAiSettings } from "../services/aiSettings";
+import { log } from "../services/logger";
 import { asyncHandler } from "../utils/asyncHandler";
 
 const providerParam = z.object({ provider: z.enum(["anthropic", "moonshot"]) });
@@ -27,6 +28,7 @@ export function settingsRouter(db: Db): Router {
       const input = publishingSettingsSchema.parse(req.body);
       const next = { ...getPublishing(), ...Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) } as PublishingSettings;
       settingsRepo.set("publishing", next);
+      log.info("system", "Publishing settings updated", { userId: req.user?.id, data: { ...next } });
       res.json(next);
     })
   );
@@ -39,7 +41,9 @@ export function settingsRouter(db: Db): Router {
     "/ai",
     asyncHandler(async (req, res) => {
       const input = aiSettingsUpdateSchema.parse(req.body);
-      res.json(saveAiSettings(db, input));
+      const saved = saveAiSettings(db, input);
+      log.info("system", `AI settings updated (provider: ${saved.provider})`, { userId: req.user?.id, data: { provider: saved.provider } });
+      res.json(saved);
     })
   );
 

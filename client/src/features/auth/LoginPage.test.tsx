@@ -65,4 +65,44 @@ describe("LoginPage", () => {
     const post = calls.find((c) => c.method === "POST" && c.url.includes("/auth/password"))!;
     expect(post.body).toMatchObject({ currentPassword: "temp12345", newPassword: "brandnew123" });
   });
+
+  function mockMatchMedia(reduceMotion: boolean) {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes("prefers-reduced-motion") ? reduceMotion : false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia;
+    return () => { window.matchMedia = original; };
+  }
+
+  it("shows the background video with a poster when motion is allowed", async () => {
+    const restore = mockMatchMedia(false);
+    mockFetch({ "GET /api/auth/me": () => ({ authenticated: false, needsSetup: false, user: null }) });
+    renderWithProviders(<LoginPage />);
+    await screen.findByRole("heading", { name: /sign in/i });
+
+    const video = document.querySelector("video");
+    expect(video).toBeTruthy();
+    expect(video).toHaveAttribute("poster", "/media/login-bg.jpg");
+    expect(video?.querySelector("source")).toHaveAttribute("src", "/media/login-bg.mp4");
+    restore();
+  });
+
+  it("shows only the poster image, no video, under prefers-reduced-motion", async () => {
+    const restore = mockMatchMedia(true);
+    mockFetch({ "GET /api/auth/me": () => ({ authenticated: false, needsSetup: false, user: null }) });
+    renderWithProviders(<LoginPage />);
+    await screen.findByRole("heading", { name: /sign in/i });
+
+    expect(document.querySelector("video")).toBeNull();
+    const poster = document.querySelector("img[alt='']");
+    expect(poster).toHaveAttribute("src", "/media/login-bg.jpg");
+    restore();
+  });
 });
