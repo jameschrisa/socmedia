@@ -1,4 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
+import type { AccessRequestStatus } from "@socmedia/shared";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,4 +27,6 @@ export const qk = {
   logFile: (name: string, tail?: number) => ["logs", "file", name, tail ?? null] as const,
   quickTokens: (orgId: string | null) => ["quick", "tokens", orgId] as const,
   quickInfo: (token: string) => ["quick", "info", token] as const,
+  accessPolicy: ["settings", "accessPolicy"] as const,
+  accessRequests: (status: AccessRequestStatus) => ["accessRequests", status] as const,
 };

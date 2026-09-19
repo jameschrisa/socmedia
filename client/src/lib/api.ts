@@ -6,6 +6,8 @@ import type {
   AuthState, User, LoginInput, SetupInput, UserCreateInput, UserUpdateInput, ChangePasswordInput, ClipRequestInput,
   LogEntry, LogLevel, LogSource, LogFileInfo, AgentCommandResult, PublishMode,
   QuickPostToken, QuickPostPublicInfo, QuickPostResult,
+  AccessPolicy, AccessRequest, AccessRequestStatus, MagicLinkRequestResult,
+  MagicLinkRequestInput, AccessRequestCreateInput, AccessRequestApproveInput,
 } from "@socmedia/shared";
 import { useAppStore } from "@/store/appStore";
 
@@ -55,6 +57,8 @@ export const api = {
     setup: (input: SetupInput) => request<AuthState>("/auth/setup", { method: "POST", body: json(input) }, { org: false }),
     logout: () => request<void>("/auth/logout", { method: "POST" }, { org: false }),
     changePassword: (input: ChangePasswordInput) => request<void>("/auth/password", { method: "POST", body: json(input) }, { org: false }),
+    requestMagicLink: (input: MagicLinkRequestInput) => request<MagicLinkRequestResult>("/auth/magic/request", { method: "POST", body: json(input) }, { org: false }),
+    requestAccess: (input: AccessRequestCreateInput) => request<AccessRequest>("/auth/access-requests", { method: "POST", body: json(input) }, { org: false }),
   },
 
   users: {
@@ -62,6 +66,12 @@ export const api = {
     create: (input: UserCreateInput) => request<User>("/users", { method: "POST", body: json(input) }, { org: false }),
     update: (id: string, input: UserUpdateInput) => request<User>(`/users/${id}`, { method: "PATCH", body: json(input) }, { org: false }),
     remove: (id: string) => request<void>(`/users/${id}`, { method: "DELETE" }, { org: false }),
+    accessRequests: {
+      list: (status?: AccessRequestStatus) => request<AccessRequest[]>(`/users/access-requests${status ? `?status=${status}` : ""}`, {}, { org: false }),
+      approve: (id: string, input: AccessRequestApproveInput) =>
+        request<{ request: AccessRequest; user: User; temporaryPassword?: string; magicLinkSent: boolean }>(`/users/access-requests/${id}/approve`, { method: "POST", body: json(input) }, { org: false }),
+      decline: (id: string) => request<AccessRequest>(`/users/access-requests/${id}/decline`, { method: "POST" }, { org: false }),
+    },
   },
 
   health: () => request<{ ok: boolean; version: string; time: string; ai: { configured: boolean; provider: "anthropic" | "moonshot" | "mock"; model: string } }>("/health", {}, { org: false }),
@@ -73,6 +83,8 @@ export const api = {
     getPublishing: () => request<PublishingSettings>("/settings/publishing", {}, { org: false }),
     updatePublishing: (input: PublishingSettingsInput) => request<PublishingSettings>("/settings/publishing", { method: "PUT", body: json(input) }, { org: false }),
     aiModels: (provider: "anthropic" | "moonshot") => request<{ provider: string; models: string[] }>(`/settings/ai/models?provider=${provider}`, {}, { org: false }),
+    getAccessPolicy: () => request<AccessPolicy>("/settings/access-policy", {}, { org: false }),
+    updateAccessPolicy: (input: AccessPolicy) => request<AccessPolicy>("/settings/access-policy", { method: "PUT", body: json(input) }, { org: false }),
   },
 
   orgs: {

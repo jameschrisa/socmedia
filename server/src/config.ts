@@ -25,6 +25,14 @@ export const config = {
   adminName: process.env.ADMIN_NAME || "Owner",
   /** Test-only: when set (and isTest), attachUser treats cookie-less requests as this user id. */
   testAuthUserId: null as string | null,
+  /** Google SSO (see server/src/services/googleAuth.ts). Both must be set for /auth/google/* to work. */
+  googleClientId: process.env.GOOGLE_CLIENT_ID || "",
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+  /** Outbound mail (see server/src/services/mailer.ts): "resend" | "smtp" | "log" (default). */
+  mailProvider: (process.env.MAIL_PROVIDER || "log").toLowerCase(),
+  mailFrom: process.env.MAIL_FROM || "",
+  resendApiKey: process.env.RESEND_API_KEY || "",
+  smtpUrl: process.env.SMTP_URL || "",
 };
 
 export type Config = typeof config;

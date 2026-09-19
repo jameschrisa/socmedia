@@ -6,7 +6,7 @@ test.use({ storageState: { cookies: [], origins: [] } });
 test.describe("sign-in background video", () => {
   test("a signed-out visit renders the looping background video with a poster and an mp4 source", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Only authorized suprstars allowed" })).toBeVisible();
 
     const video = page.locator("video");
     await expect(video).toHaveCount(1);
@@ -29,7 +29,7 @@ test.describe("sign-in background video", () => {
     const page = await context.newPage();
     try {
       await page.goto("/");
-      await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Only authorized suprstars allowed" })).toBeVisible();
       await expect(page.locator("video")).toHaveCount(0);
       const img = page.locator("img[src='/media/login-bg.jpg']");
       await expect(img).toHaveCount(1);

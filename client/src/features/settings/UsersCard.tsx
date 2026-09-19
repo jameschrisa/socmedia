@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Copy, Eye, EyeOff, KeyRound, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import type { Organization, User, UserCreateInput, UserRole, UserUpdateInput } from "@socmedia/shared";
 import { Badge, Button, Card, CardBody, CardHeader, EmptyState, Field, Input, Modal, Select, Skeleton, Toggle } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,6 +9,7 @@ import { useOrgs } from "@/hooks/useOrg";
 import { api } from "@/lib/api";
 import { qk } from "@/lib/queryClient";
 import { cn, relativeTime } from "@/lib/utils";
+import { generatePassword, TemporaryPasswordReveal } from "./passwordUtils";
 
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : "Something went wrong";
@@ -16,23 +17,6 @@ function errorMessage(e: unknown): string {
 
 const ROLE_LABEL: Record<UserRole, string> = { owner: "Owner", admin: "Admin", editor: "Editor", viewer: "Viewer" };
 const ROLE_TONE: Record<UserRole, "brand" | "info" | "neutral"> = { owner: "brand", admin: "brand", editor: "info", viewer: "neutral" };
-
-function generatePassword(length = 12): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
-  const bytes = new Uint32Array(length);
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) crypto.getRandomValues(bytes);
-  else for (let i = 0; i < length; i++) bytes[i] = Math.floor(Math.random() * 0xffffffff);
-  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
-}
-
-async function copyToClipboard(value: string) {
-  try {
-    await navigator.clipboard.writeText(value);
-    toast.success("Copied to clipboard");
-  } catch {
-    toast.error("Couldn't copy. Select the password and copy it manually.");
-  }
-}
 
 function orgAccessLabel(orgIds: string[] | "*", orgs: Organization[]): string {
   if (orgIds === "*") return "All organizations";
@@ -132,18 +116,6 @@ function PasswordField({ id, value, onChange, hint }: { id: string; value: strin
         <Button type="button" variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={() => onChange(generatePassword())}>Generate</Button>
       </div>
     </Field>
-  );
-}
-
-function TemporaryPasswordReveal({ password, note }: { password: string; note: string }) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Input readOnly value={password} className="font-mono" aria-label="Temporary password" onFocus={(e) => e.currentTarget.select()} />
-        <Button type="button" variant="outline" icon={<Copy className="h-4 w-4" />} onClick={() => copyToClipboard(password)} autoFocus>Copy</Button>
-      </div>
-      <p className="notice-warning" role="status">{note} It won't be shown again.</p>
-    </div>
   );
 }
 

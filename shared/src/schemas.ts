@@ -231,3 +231,8 @@ export const accessRequestApproveSchema = z.object({
   role: z.enum(["admin", "editor", "viewer"]).default("editor"),
   orgIds: z.union([z.literal("*"), z.array(z.string().min(1))]).default("*"),
 });
+export type MagicLinkRequestInput = z.infer<typeof magicLinkRequestSchema>;
+export type AllowedDomainInput = z.infer<typeof allowedDomainSchema>;
+export type AccessPolicyInput = z.infer<typeof accessPolicySchema>;
+export type AccessRequestCreateInput = z.infer<typeof accessRequestCreateSchema>;
+export type AccessRequestApproveInput = z.infer<typeof accessRequestApproveSchema>;

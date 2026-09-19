@@ -6,14 +6,14 @@ Errors: `{ error: string, details?: unknown }` with 400 (validation), 404, 409, 
 Types come from `@socmedia/shared` (`shared/src/types.ts`, zod schemas in `shared/src/schemas.ts`).
 
 ## Authentication & users
-All `/api` routes except `GET /health`, `GET /auth/status`, `GET /auth/me`, `POST /auth/setup`, `POST /auth/login`, `GET /connections/oauth/callback` and `GET`/`POST /quick/:token` (the phone quick-post link; see "Quick post from a phone" below — its own token secret is the credential, and `/quick/tokens*` link-management routes are *not* included in this exception) require a signed-in user. `/uploads/*` stays public because the platforms pull media from those URLs in live mode. (`GET /auth/me` is listed separately below as "never 401"; it is implemented as a public route so signed-out clients can poll it without special-casing.)
+All `/api` routes except `GET /health`, `GET /auth/status`, `GET /auth/me`, `POST /auth/setup`, `POST /auth/login`, `POST /auth/access-requests`, `GET/POST /auth/magic/*`, `GET /auth/google/*`, `GET /connections/oauth/callback` and `GET`/`POST /quick/:token` (the phone quick-post link; see "Quick post from a phone" below — its own token secret is the credential, and `/quick/tokens*` link-management routes are *not* included in this exception) require a signed-in user. `/uploads/*` stays public because the platforms pull media from those URLs in live mode. (`GET /auth/me` is listed separately below as "never 401"; it is implemented as a public route so signed-out clients can poll it without special-casing.)
 Sessions: `POST /auth/login` sets an httpOnly cookie `suprstar_session` (SameSite=Lax, Secure in production, 30 days). Unauthenticated requests get 401 `{ error: "Sign in required" }`; forbidden ones 403.
 Roles (`shared/src/types.ts` `ROLE_CAPABILITIES`): `owner` and `admin` manage users, organizations and workspace settings and can access every org; `editor` can create/edit/publish within their orgs; `viewer` is read-only (GET) within their orgs. Org-scoped routes check membership (`orgIds` includes the org, or `"*"`) → 403 otherwise. Mutating routes (POST/PATCH/PUT/DELETE) require `editor` or above; `/settings/*`, `/users/*`, org create/update/delete and connection create/delete/credentials require `admin`+. Owners cannot be demoted or deactivated by admins; the last active owner cannot be removed.
-- `GET /auth/status` (public) → `{ needsSetup: boolean, authenticated: boolean }`
+- `GET /auth/status` (public) → `{ needsSetup: boolean, authenticated: boolean, providers: AuthProviders, allowedDomains: string[] }`. `providers = { password: true, magicLink, google }`: `magicLink` is true when a real mailer (Resend/SMTP) is configured, or outside production where links fall back to the activity log; `google` is true when `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are set. `allowedDomains` lists the sign-in policy's domains (see "Access policy" below), for the sign-in page's hint text.
 - `POST /auth/setup` (public, only while no users exist, else 409) body `setupSchema` → creates the first `owner` with `orgIds: "*"`, signs them in, returns `AuthState`. Env `ADMIN_EMAIL` + `ADMIN_PASSWORD` (+ optional `ADMIN_NAME`) create this owner automatically on boot when no users exist.
 - `POST /auth/login` body `loginSchema` → `AuthState` (401 on bad credentials or inactive user; updates `lastLoginAt`)
 - `POST /auth/logout` → 204 (clears the cookie, deletes the session)
-- `GET /auth/me` → `AuthState` (`authenticated: false` when signed out; never 401)
+- `GET /auth/me` → `AuthState` (`authenticated: false` when signed out; never 401) — also carries `providers`/`allowedDomains` (same shape as `/auth/status`) so the client's single persisted session query has everything the sign-in page needs.
 - `POST /auth/password` body `changePasswordSchema` → 204 (clears `mustChangePassword`)
 - `GET /users` (admin+) → `User[]` (never includes password hashes)
 - `POST /users` (admin+) body `userCreateSchema` → `User` (201) with `mustChangePassword: true`; 409 on duplicate email; admins may not create owners.
@@ -21,12 +21,36 @@ Roles (`shared/src/types.ts` `ROLE_CAPABILITIES`): `owner` and `admin` manage us
 - `DELETE /users/:id` (admin+) → 204 (also ends their sessions). Cannot delete yourself or the last active owner.
 - Passwords are hashed with scrypt (`node:crypto`), sessions stored in a `sessions` table with an expiry and cleaned lazily.
 
+### Magic links (email sign-in)
+- `POST /auth/magic/request` (public) body `magicLinkRequestSchema` `{ email }` → 200 `MagicLinkRequestResult` `{ ok: true, delivered: "email" | "log", link? }`. `link` is only present when `delivered === "log"` outside production (developers click it instead of reading a real inbox). Requesting a link always "succeeds" for any syntactically valid email — whether the sign-in is actually allowed is decided on verify, so this endpoint never leaks which emails/domains are provisioned. Rate limited: 5 requests per email and 30 per IP per 15 minutes (in-memory) → 429 past that.
+- `GET /auth/magic/verify?token=...` (public) → creates a single-use token good for 15 minutes (sha256-hashed in the `login_tokens` table; a token can only ever succeed once). On success: resolves/auto-provisions the user (see "Access policy" below), signs them in exactly like `/auth/login`, and 302s to `${CLIENT_URL}/`. On failure, 302s to `${CLIENT_URL}/?auth=error&reason=<reason>` where `reason` is `invalid` (unknown/already-used token), `expired`, `domain` (not an existing user and not an allowed domain), or `inactive` (deactivated user).
+- The link itself points at `${CLIENT_URL}/api/auth/magic/verify?token=...` (not the API's own origin) because the client is served through a proxy that forwards `/api`, so the session cookie lands on the client's origin.
+
+### Google SSO
+- `GET /auth/google/start` (public) → sets a 10-minute httpOnly `suprstar_oauth_state` cookie (SameSite=Lax) and 302s to Google's OAuth consent screen (`scope=openid email profile`, `prompt=select_account`, `redirect_uri=${CLIENT_URL}/api/auth/google/callback`).
+- `GET /auth/google/callback?code&state` (public) → verifies `state` against the cookie, exchanges `code` for an access token, fetches the Google profile, requires `email_verified === true`, then applies the same access-policy/provisioning logic as magic links, stores `googleSub` on the user, sets `lastLoginAt`, signs in, and 302s to `${CLIENT_URL}/`. Failure reasons (same `?auth=error&reason=` redirect as magic links): `state` (missing/mismatched state or code), `google` (token exchange, userinfo, or unverified-email failure), `domain`, `inactive`.
+- Both routes return 404 `{ error: "Google sign-in is not configured" }` when `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are unset.
+
+### Access policy (self-serve sign-in allowlist)
+Stored in `app_settings` under key `access_policy`; default is `{ domains: [{ domain: "enelhealth.com", role: "editor", orgSlugs: ["enel-health"] }, { domain: "f3insights.com", role: "editor", orgSlugs: ["f3i"] }], allowInvitedUsersAnyDomain: true }`. Magic link and Google sign-in are allowed when (a) an active user with that email already exists and either `allowInvitedUsersAnyDomain` is true or their domain is itself allowed, or (b) the email's domain is in `domains`, in which case a user is auto-provisioned with that domain's `role` and `orgIds` (resolved from `orgSlugs`; `"*"` stays `"*"`), `mustChangePassword: false`, and a random unusable password. Deactivated users are always refused (`reason=inactive`).
+- `GET /settings/access-policy` (admin+) → `AccessPolicy`
+- `PUT /settings/access-policy` (admin+) body `accessPolicySchema` → `AccessPolicy`. Every `orgSlugs` entry must reference an existing organization or be `"*"` (400 otherwise); `role` can never be `owner` (rejected by the schema itself).
+
+### Access requests
+For anyone outside the allowed domains: `POST /auth/access-requests` (public) body `accessRequestCreateSchema` `{ name, email, organization?, message? }` → 201 `AccessRequest` (`status: "pending"`). 409 when an account with that email already exists, or another request for it is still pending. Rate limited: 5 per IP per hour. When a mailer is configured, every active `owner`/`admin` is emailed a short notice.
+- `GET /users/access-requests` (admin+) `?status=pending|approved|declined` → `AccessRequest[]`, newest first.
+- `POST /users/access-requests/:id/approve` (admin+) body `accessRequestApproveSchema` `{ role, orgIds }` → `{ request: AccessRequest, user: User, temporaryPassword?: string, magicLinkSent: boolean }`. Creates the user with `mustChangePassword: true`; when a mailer is configured, a magic link is emailed instead and `temporaryPassword` is omitted (`magicLinkSent: true`). 409 if the request isn't `pending`, or a user with that email already exists.
+- `POST /users/access-requests/:id/decline` (admin+) → `AccessRequest` (`status: "declined"`). 409 if the request isn't `pending`.
+
+### Mailer (`server/src/services/mailer.ts`)
+`sendMail({ to, subject, text, html? })` picks a provider by env `MAIL_PROVIDER`: `resend` (HTTPS to `api.resend.com/emails` with `RESEND_API_KEY` + `MAIL_FROM`), `smtp` (via `nodemailer`, `SMTP_URL` + `MAIL_FROM`), or `log` (default: writes the message, including any magic link, to the activity log at `info` level with source `auth` — this is what developers see in place of a real inbox). If the selected provider isn't fully configured, or the send itself throws, it falls back to the log so sign-in never hard-fails because mail is down. `mailerStatus()` reports `{ provider, configured }`.
+
 ## Health
 - `GET /health` → `{ ok: true, version, time, ai: { configured: boolean, model } }`
 
 ## Organizations (not org-scoped)
 Every mutating method under `/orgs` (POST/PATCH/DELETE, including the demo-seeding endpoints) requires `admin`+, same as org create/update/delete/logo; `GET` endpoints only require a signed-in user.
-- `GET /orgs` → `Organization[]`
+- `GET /orgs` → `Organization[]` (owners and admins see every organization; other users only the organizations in their `orgIds`, and `GET /orgs/:id` returns 404 for the rest)
 - `POST /orgs` body `organizationInputSchema` → `Organization` (201). Seeds 4 disconnected sandbox connections for the new org.
 - `POST /orgs/demo` also accepts identity overrides `{ profile, name?, slug?, handle?, brandColor?, timezone? }` so one content profile can seed several brands.
 - `GET /orgs/demo/profiles` → available demo content profiles `{ key, name, brandColor, posts }[]`
@@ -101,6 +125,7 @@ Background loop every `SCHEDULER_INTERVAL_MS` (default 30000) publishes posts wh
 
 ## Env
 `PORT=4000`, `DATA_DIR=./data`, `CLIENT_URL=http://localhost:5173`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL=claude-opus-5`, `SCHEDULER_INTERVAL_MS`, `SECRET_KEY` (encrypts stored secrets at rest with AES-256-GCM; default dev key).
+Sign-in: `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (Google SSO; both required, redirect URI `${CLIENT_URL}/api/auth/google/callback`), `MAIL_PROVIDER=resend|smtp|log` (default `log`), `MAIL_FROM` (resend/smtp), `RESEND_API_KEY` (resend), `SMTP_URL` (smtp, e.g. `smtps://user:pass@smtp.example.com`).
 
 ## Settings (workspace-wide, not org-scoped)
 - `GET /settings/ai` → `AiSettings` (API keys masked). `provider` is the chosen provider; `anthropicFromEnv` is true when the Anthropic key comes from `ANTHROPIC_API_KEY`.

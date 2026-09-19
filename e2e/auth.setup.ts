@@ -8,7 +8,10 @@ import { OWNER_EMAIL, OWNER_PASSWORD, OWNER_STORAGE_STATE } from "./constants";
  */
 setup("authenticate as owner", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Only authorized suprstars allowed" })).toBeVisible();
+  // The sign-in page defaults to the magic-link form; reveal the password form to sign in the
+  // bootstrap owner the same way the rest of the suite always has.
+  await page.getByRole("button", { name: "Use a password instead" }).click();
   await page.getByLabel("Email").fill(OWNER_EMAIL);
   await page.getByLabel("Password", { exact: true }).fill(OWNER_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();

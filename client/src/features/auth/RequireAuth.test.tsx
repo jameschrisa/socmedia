@@ -11,7 +11,7 @@ describe("RequireAuth", () => {
         <div>Secret dashboard</div>
       </RequireAuth>,
     );
-    expect(await screen.findByRole("heading", { name: /sign in/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /only authorized suprstars allowed/i })).toBeInTheDocument();
     expect(screen.queryByText("Secret dashboard")).not.toBeInTheDocument();
   });
 

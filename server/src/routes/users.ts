@@ -1,15 +1,22 @@
 import { Router } from "express";
-import { userCreateSchema, userUpdateSchema } from "@socmedia/shared";
+import { z } from "zod";
+import { accessRequestApproveSchema, userCreateSchema, userUpdateSchema } from "@socmedia/shared";
 import { nanoid } from "nanoid";
+import { config } from "../config";
 import type { Db } from "../db/database";
+import { AccessRequestsRepo } from "../db/repositories/accessRequests";
 import { SessionsRepo } from "../db/repositories/sessions";
 import type { UpdateUserPatch } from "../db/repositories/users";
 import { UsersRepo } from "../db/repositories/users";
 import { requireRole } from "../middleware/auth";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../middleware/errors";
-import { hashPassword } from "../services/auth";
+import { generateTemporaryPassword, hashPassword } from "../services/auth";
+import { createMagicLinkToken } from "../services/magicLink";
+import { mailerStatus, sendMail } from "../services/mailer";
 import { log } from "../services/logger";
 import { asyncHandler } from "../utils/asyncHandler";
+
+const accessRequestListQuerySchema = z.object({ status: z.enum(["pending", "approved", "declined"]).optional() });
 
 /** Admin+ only user management (not org-scoped: owners/admins manage every org's roster). */
 export function usersRouter(db: Db): Router {
@@ -18,6 +25,7 @@ export function usersRouter(db: Db): Router {
 
   const usersRepo = new UsersRepo(db);
   const sessionsRepo = new SessionsRepo(db);
+  const accessRequestsRepo = new AccessRequestsRepo(db);
 
   router.get(
     "/",
@@ -49,6 +57,82 @@ export function usersRouter(db: Db): Router {
       });
       log.info("auth", `User invited: ${created.email}`, { userId: req.user!.id, data: { invitedUserId: created.id, role: created.role } });
       res.status(201).json(created);
+    })
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /* Access requests (registered before /:id so "access-requests" is never  */
+  /* swallowed by the :id param route).                                     */
+  /* ---------------------------------------------------------------------- */
+
+  router.get(
+    "/access-requests",
+    asyncHandler(async (req, res) => {
+      const { status } = accessRequestListQuerySchema.parse(req.query);
+      res.json(accessRequestsRepo.list(status));
+    })
+  );
+
+  router.post(
+    "/access-requests/:id/approve",
+    asyncHandler(async (req, res) => {
+      const existing = accessRequestsRepo.get(req.params.id);
+      if (!existing) throw new NotFoundError(`Access request ${req.params.id} not found`);
+      if (existing.status !== "pending") throw new ConflictError("This request has already been decided");
+      const input = accessRequestApproveSchema.parse(req.body);
+      if (usersRepo.getByEmail(existing.email)) {
+        throw new ConflictError(`A user with email "${existing.email}" already exists`);
+      }
+
+      const now = new Date().toISOString();
+      const temporaryPassword = generateTemporaryPassword();
+      const created = usersRepo.create({
+        id: nanoid(),
+        email: existing.email,
+        name: existing.name,
+        role: input.role,
+        orgIds: input.orgIds,
+        passwordHash: hashPassword(temporaryPassword),
+        active: true,
+        mustChangePassword: true,
+        createdAt: now,
+        lastLoginAt: null,
+      });
+
+      const decided = accessRequestsRepo.decide(existing.id, "approved", req.user!.id, now)!;
+      log.info("auth", `Access request approved: ${existing.email}`, {
+        userId: req.user!.id,
+        data: { requestId: existing.id, newUserId: created.id, role: created.role },
+      });
+
+      let magicLinkSent = false;
+      let responseTemporaryPassword: string | undefined = temporaryPassword;
+      if (mailerStatus().configured) {
+        const { secret } = createMagicLinkToken(db, existing.email);
+        const link = `${config.clientUrl}/api/auth/magic/verify?token=${encodeURIComponent(secret)}`;
+        await sendMail({
+          to: existing.email,
+          subject: "Your suprstar access is ready",
+          text: `Your request to join suprstar was approved. Use this link to sign in (it expires in 15 minutes):\n\n${link}`,
+        });
+        magicLinkSent = true;
+        responseTemporaryPassword = undefined;
+      }
+
+      res.json({ request: decided, user: created, temporaryPassword: responseTemporaryPassword, magicLinkSent });
+    })
+  );
+
+  router.post(
+    "/access-requests/:id/decline",
+    asyncHandler(async (req, res) => {
+      const existing = accessRequestsRepo.get(req.params.id);
+      if (!existing) throw new NotFoundError(`Access request ${req.params.id} not found`);
+      if (existing.status !== "pending") throw new ConflictError("This request has already been decided");
+      const now = new Date().toISOString();
+      const decided = accessRequestsRepo.decide(existing.id, "declined", req.user!.id, now)!;
+      log.info("auth", `Access request declined: ${existing.email}`, { userId: req.user!.id, data: { requestId: existing.id } });
+      res.json(decided);
     })
   );
 

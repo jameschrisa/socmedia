@@ -18,7 +18,12 @@ describe("auth", () => {
     try {
       const before = await request(fresh.app).get("/api/auth/status");
       expect(before.status).toBe(200);
-      expect(before.body).toEqual({ needsSetup: true, authenticated: false });
+      expect(before.body).toEqual({
+        needsSetup: true,
+        authenticated: false,
+        providers: { password: true, magicLink: true, google: false },
+        allowedDomains: ["enelhealth.com", "f3insights.com"],
+      });
 
       const agent = request.agent(fresh.app);
       const setup = await agent.post("/api/auth/setup").send({ email: "root@test.local", name: "Root", password: "password123" });
@@ -154,6 +159,25 @@ describe("auth", () => {
     expect(created.status).toBe(201);
     const org = await editorAgent.post("/api/orgs").send({ name: "Nope", slug: "nope", brandColor: "#000000", timezone: "UTC" });
     expect(org.status).toBe(403);
+  });
+
+  it("scoped users only see the organizations they belong to", async () => {
+    ctx.disableAuthBypass();
+    const ownerAgent = request.agent(ctx.app);
+    await ownerAgent.post("/api/auth/login").send({ email: ctx.owner!.email, password: TEST_OWNER_PASSWORD });
+    const other = await ownerAgent.post("/api/orgs").send({ name: "Other Org", slug: "other-org", brandColor: "#123456", timezone: "UTC" });
+    expect(other.status).toBe(201);
+    await ownerAgent.post("/api/users").send({ email: "scoped@test.local", name: "Scoped", role: "editor", orgIds: [ctx.orgId], password: "password123" });
+
+    const scoped = request.agent(ctx.app);
+    await scoped.post("/api/auth/login").send({ email: "scoped@test.local", password: "password123" });
+    const list = await scoped.get("/api/orgs");
+    expect(list.status).toBe(200);
+    expect(list.body.map((o: { id: string }) => o.id)).toEqual([ctx.orgId]);
+    const hidden = await scoped.get(`/api/orgs/${other.body.id}`);
+    expect(hidden.status).toBe(404);
+    const all = await ownerAgent.get("/api/orgs");
+    expect(all.body.length).toBeGreaterThanOrEqual(2);
   });
 
   it("duplicate emails are rejected with 409", async () => {

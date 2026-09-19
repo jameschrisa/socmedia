@@ -1,19 +1,25 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders, mockFetch } from "@/test-utils";
 import { LoginPage } from "./LoginPage";
 
+const SIGNED_OUT = { authenticated: false, needsSetup: false, user: null };
+
 describe("LoginPage", () => {
-  it("renders the sign-in form and posts credentials to /api/auth/login", async () => {
+  afterEach(() => {
+    window.history.pushState({}, "", "/");
+  });
+
+  it("renders the sign-in heading and posts credentials to /api/auth/login", async () => {
     const { calls } = mockFetch({
-      "GET /api/auth/me": () => ({ authenticated: false, needsSetup: false, user: null }),
+      "GET /api/auth/me": () => SIGNED_OUT,
       "POST /api/auth/login": () => ({ authenticated: true, needsSetup: false, user: { id: "u1", email: "a@b.com", name: "Ada", role: "editor", orgIds: "*", active: true, mustChangePassword: false, createdAt: "", lastLoginAt: null } }),
     });
     const user = userEvent.setup();
     renderWithProviders(<LoginPage />);
 
-    expect(await screen.findByRole("heading", { name: /sign in/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /only authorized suprstars allowed/i })).toBeInTheDocument();
     await user.type(screen.getByLabelText("Email"), "a@b.com");
     await user.type(screen.getByLabelText("Password"), "hunter22");
     await user.click(screen.getByRole("button", { name: "Sign in" }));
@@ -34,13 +40,13 @@ describe("LoginPage", () => {
 
   it("shows the server error message on a failed sign-in", async () => {
     mockFetch({
-      "GET /api/auth/me": () => ({ authenticated: false, needsSetup: false, user: null }),
+      "GET /api/auth/me": () => SIGNED_OUT,
       "POST /api/auth/login": () => new Response(JSON.stringify({ error: "Invalid email or password" }), { status: 401, headers: { "Content-Type": "application/json" } }),
     });
     const user = userEvent.setup();
     renderWithProviders(<LoginPage />);
 
-    await screen.findByRole("heading", { name: /sign in/i });
+    await screen.findByRole("heading", { name: /only authorized suprstars allowed/i });
     await user.type(screen.getByLabelText("Email"), "a@b.com");
     await user.type(screen.getByLabelText("Password"), "wrongpass");
     await user.click(screen.getByRole("button", { name: "Sign in" }));
@@ -66,6 +72,68 @@ describe("LoginPage", () => {
     expect(post.body).toMatchObject({ currentPassword: "temp12345", newPassword: "brandnew123" });
   });
 
+  it("requests a magic link and shows the check-your-email state, including the dev-mode link", async () => {
+    mockFetch({
+      "GET /api/auth/me": () => ({ ...SIGNED_OUT, providers: { password: true, magicLink: true, google: false } }),
+      "POST /api/auth/magic/request": () => ({ ok: true, delivered: "log", link: "http://localhost/api/auth/magic/verify?token=abc123" }),
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<LoginPage />);
+
+    await screen.findByRole("heading", { name: /only authorized suprstars allowed/i });
+    await user.type(screen.getByLabelText("Email"), "ada@acme.com");
+    await user.click(screen.getByRole("button", { name: /email me a sign-in link/i }));
+
+    expect(await screen.findByText(/we sent a sign-in link to ada@acme\.com/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "http://localhost/api/auth/magic/verify?token=abc123" })).toHaveAttribute(
+      "href",
+      "http://localhost/api/auth/magic/verify?token=abc123",
+    );
+  });
+
+  it("shows the Google button only when the provider is enabled", async () => {
+    mockFetch({ "GET /api/auth/me": () => ({ ...SIGNED_OUT, providers: { password: true, magicLink: false, google: true } }) });
+    renderWithProviders(<LoginPage />);
+    expect(await screen.findByRole("link", { name: /continue with google/i })).toHaveAttribute("href", "/api/auth/google/start");
+  });
+
+  it("hides the Google button when the provider is disabled", async () => {
+    mockFetch({ "GET /api/auth/me": () => ({ ...SIGNED_OUT, providers: { password: true, magicLink: false, google: false } }) });
+    renderWithProviders(<LoginPage />);
+    await screen.findByRole("heading", { name: /only authorized suprstars allowed/i });
+    expect(screen.queryByRole("link", { name: /continue with google/i })).not.toBeInTheDocument();
+  });
+
+  it("reveals the password form via 'Use a password instead', reusing the typed email, within one click", async () => {
+    mockFetch({ "GET /api/auth/me": () => ({ ...SIGNED_OUT, providers: { password: true, magicLink: true, google: false } }) });
+    const user = userEvent.setup();
+    renderWithProviders(<LoginPage />);
+
+    await screen.findByRole("heading", { name: /only authorized suprstars allowed/i });
+    await user.type(screen.getByLabelText("Email"), "ada@acme.com");
+    await user.click(screen.getByRole("button", { name: /use a password instead/i }));
+
+    expect(screen.getByLabelText("Email")).toHaveValue("ada@acme.com");
+    expect(screen.getByLabelText("Password")).toBeInTheDocument();
+  });
+
+  it("shows the matching notice for a failed sign-in redirect and cleans the URL", async () => {
+    window.history.pushState({}, "", "/?auth=error&reason=expired");
+    mockFetch({ "GET /api/auth/me": () => SIGNED_OUT });
+    renderWithProviders(<LoginPage />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("That sign-in link has expired. Request a new one.");
+    expect(window.location.search).toBe("");
+  });
+
+  it("shows the allowed-domains footer hint and a link to request access", async () => {
+    mockFetch({ "GET /api/auth/me": () => ({ ...SIGNED_OUT, allowedDomains: ["acme.com", "beta.io"] }) });
+    renderWithProviders(<LoginPage />);
+
+    expect(await screen.findByText("Sign-in is limited to @acme.com and @beta.io")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /request access/i })).toHaveAttribute("href", "/request-access");
+  });
+
   function mockMatchMedia(reduceMotion: boolean) {
     const original = window.matchMedia;
     window.matchMedia = ((query: string) => ({
@@ -83,9 +151,9 @@ describe("LoginPage", () => {
 
   it("shows the background video with a poster when motion is allowed", async () => {
     const restore = mockMatchMedia(false);
-    mockFetch({ "GET /api/auth/me": () => ({ authenticated: false, needsSetup: false, user: null }) });
+    mockFetch({ "GET /api/auth/me": () => SIGNED_OUT });
     renderWithProviders(<LoginPage />);
-    await screen.findByRole("heading", { name: /sign in/i });
+    await screen.findByRole("heading", { name: /only authorized suprstars allowed/i });
 
     const video = document.querySelector("video");
     expect(video).toBeTruthy();
@@ -96,9 +164,9 @@ describe("LoginPage", () => {
 
   it("shows only the poster image, no video, under prefers-reduced-motion", async () => {
     const restore = mockMatchMedia(true);
-    mockFetch({ "GET /api/auth/me": () => ({ authenticated: false, needsSetup: false, user: null }) });
+    mockFetch({ "GET /api/auth/me": () => SIGNED_OUT });
     renderWithProviders(<LoginPage />);
-    await screen.findByRole("heading", { name: /sign in/i });
+    await screen.findByRole("heading", { name: /only authorized suprstars allowed/i });
 
     expect(document.querySelector("video")).toBeNull();
     const poster = document.querySelector("img[alt='']");

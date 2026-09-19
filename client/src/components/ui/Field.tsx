@@ -21,7 +21,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
 
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select({ className, children, ...props }, ref) {
   return (
-    <select ref={ref} className={cn("input appearance-none bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2216%22 height=%2216%22 fill=%22none%22 stroke=%22%236B7280%22 stroke-width=%222%22><path d=%22m4 6 4 4 4-4%22/></svg>')] bg-no-repeat bg-[right_0.6rem_center] pr-8", className)} {...props}>
+    <select ref={ref} className={cn("input select-chevron appearance-none pr-8", className)} {...props}>
       {children}
     </select>
   );

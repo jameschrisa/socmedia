@@ -28,8 +28,8 @@ Plan, publish and monitor TikTok, YouTube, LinkedIn and Instagram from one place
 
 ```bash
 npm install
-cp .env.example .env      # optionally add ANTHROPIC_API_KEY
-npm run dev               # API on :4000, web on :5173
+cp .env.example .env      # bootstrap owner, Google client, mail provider, optional ANTHROPIC_API_KEY
+npm run dev               # API on :4000, web on :5173; the API dev script loads the root .env
 ```
 
 The database is seeded on first start with F3i plus two demo organizations (Larkspur Health and Enel Health, each with its logo), sandbox connections, sample media, posts and 30 days of metrics.
@@ -68,7 +68,7 @@ Auto-deploy: Render only receives GitHub webhooks when the repository is connect
 
 One-click hosts: `render.yaml` (Render Blueprint with a 5 GB disk at `/data`), `fly.toml` (Fly.io with a volume) and `railway.json` (Railway; add a volume mounted at `/data` in the dashboard) are included. After the first deploy, set `PUBLIC_BASE_URL` to the service URL and put that same host into the `vercel.json` rewrites.
 
-Environment: `PORT`, `DATA_DIR`, `SECRET_KEY` (encrypts stored credentials and signs session cookies), `CLIENT_URL` (CORS and OAuth redirects), `PUBLIC_BASE_URL` (Instagram and TikTok fetch media from this URL in live mode), `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` (bootstrap owner), optional `ANTHROPIC_API_KEY`. Video processing uses the bundled `ffmpeg-static` and `ffprobe-static` binaries, so no system ffmpeg is needed. Register each platform's OAuth redirect URI as `<PUBLIC_BASE_URL>/api/connections/oauth/callback`.
+Environment: `PORT`, `DATA_DIR`, `SECRET_KEY` (encrypts stored credentials and signs session cookies), `CLIENT_URL` (CORS and OAuth redirects), `PUBLIC_BASE_URL` (Instagram and TikTok fetch media from this URL in live mode), `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` (bootstrap owner), optional `ANTHROPIC_API_KEY`. Sign-in: `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (Google SSO), `MAIL_PROVIDER` (`resend` | `smtp` | `log`, default `log`), `MAIL_FROM`, `RESEND_API_KEY`, `SMTP_URL` (see docs/API.md "Authentication & users" for magic links, Google SSO, the access policy and access requests). Video processing uses the bundled `ffmpeg-static` and `ffprobe-static` binaries, so no system ffmpeg is needed. Register each platform's OAuth redirect URI as `<PUBLIC_BASE_URL>/api/connections/oauth/callback`.
 
 ### Client (Vercel)
 

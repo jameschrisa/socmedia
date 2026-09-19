@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { Router } from "express";
+import { Router, type Request } from "express";
 import multer from "multer";
 import { config } from "../config";
 import { nanoid } from "nanoid";
@@ -103,10 +103,16 @@ export function orgsRouter(db: Db): Router {
     requireRole("admin")(req, res, next);
   });
 
+  /** True when the signed-in user may see this org (owners/admins see every org). */
+  const canSee = (req: Request, orgId: string) =>
+    !req.user || req.user.orgIds === "*" || req.user.orgIds.includes(orgId);
+
   router.get(
     "/orgs",
-    asyncHandler(async (_req, res) => {
-      res.json(repo.list());
+    asyncHandler(async (req, res) => {
+      // Scoped users only get the organizations they belong to, so the client's switcher and
+      // default org never point at something the org middleware would refuse anyway.
+      res.json(repo.list().filter((org) => canSee(req, org.id)));
     })
   );
 
@@ -177,7 +183,7 @@ export function orgsRouter(db: Db): Router {
     "/orgs/:id",
     asyncHandler(async (req, res) => {
       const org = repo.get(req.params.id);
-      if (!org) throw new NotFoundError(`Organization ${req.params.id} not found`);
+      if (!org || !canSee(req, org.id)) throw new NotFoundError(`Organization ${req.params.id} not found`);
       res.json(org);
     })
   );

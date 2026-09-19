@@ -9,6 +9,21 @@ export async function gotoApp(page: Page, path = "/"): Promise<void> {
   await expect(page.getByTestId("org-switcher")).toBeVisible();
 }
 
+/**
+ * Signs in through the real sign-in form as a signed-out visitor. The page defaults to the
+ * magic-link form (password is a secondary option), so this reveals the password form via
+ * "Use a password instead" first.
+ */
+export async function signInWithPassword(page: Page, email: string, password: string): Promise<void> {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Only authorized suprstars allowed" })).toBeVisible();
+  const usePassword = page.getByRole("button", { name: "Use a password instead" });
+  if (await usePassword.count()) await usePassword.click();
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+}
+
 /** Switches the active org via the org switcher dropdown to the one matching `orgName`. */
 export async function switchOrg(page: Page, orgName: string): Promise<void> {
   await page.getByTestId("org-switcher").click();

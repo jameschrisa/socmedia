@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { AuthState, ChangePasswordInput, LoginInput, SetupInput } from "@socmedia/shared";
+import type { AuthProviders, AuthState, ChangePasswordInput, LoginInput, SetupInput } from "@socmedia/shared";
 import { ROLE_CAPABILITIES } from "@socmedia/shared";
 import { api } from "@/lib/api";
 import { qk } from "@/lib/queryClient";
@@ -8,6 +8,9 @@ export type Capabilities = (typeof ROLE_CAPABILITIES)["owner"];
 export type Capability = keyof Capabilities;
 
 const NO_CAPABILITIES: Capabilities = { manageUsers: false, manageOrgs: false, manageSettings: false, write: false };
+
+/** Sign-in page renders before we know what the server offers, so default to the one method every deployment has. */
+const DEFAULT_PROVIDERS: AuthProviders = { password: true, magicLink: false, google: false };
 
 const SIGNED_OUT: AuthState = { authenticated: false, needsSetup: false, user: null };
 
@@ -35,6 +38,8 @@ export function useAuth() {
     needsSetup: !!state.needsSetup,
     isLoading: query.isLoading,
     can,
+    providers: state.providers ?? DEFAULT_PROVIDERS,
+    allowedDomains: state.allowedDomains ?? [],
   };
 }
 

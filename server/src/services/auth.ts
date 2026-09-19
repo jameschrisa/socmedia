@@ -23,6 +23,11 @@ export function hashPassword(password: string): string {
   return `scrypt:${salt.toString("hex")}:${hash.toString("hex")}`;
 }
 
+/** A random, URL-safe temporary password for accounts an admin creates without setting one (e.g. approved access requests). */
+export function generateTemporaryPassword(): string {
+  return crypto.randomBytes(12).toString("base64url");
+}
+
 /** Verifies a password against a stored hash using a constant-time comparison. */
 export function verifyPassword(password: string, stored: string): boolean {
   const parts = stored.split(":");

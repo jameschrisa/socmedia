@@ -10,6 +10,7 @@ import { ConnectionsPage } from "@/features/connections/ConnectionsPage";
 import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { QuickPostPage } from "@/features/quick/QuickPostPage";
+import { RequestAccessPage } from "@/features/auth/RequestAccessPage";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/go/:token" element={<QuickPostPage />} />
+          <Route path="/request-access" element={<RequestAccessPage />} />
           <Route element={<RequireAuth><AppShell /></RequireAuth>}>
             <Route index element={<OverviewPage />} />
             <Route path="calendar" element={<CalendarPage />} />

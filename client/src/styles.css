@@ -263,6 +263,26 @@
   .login-card .input { background: rgba(255,255,255,0.06); }
   .login-card .input:focus { background: rgba(255,255,255,0.09); }
   .login-caption { font-size: 11px; line-height: 1; letter-spacing: 0.08em; color: rgba(255,255,255,0.6); text-align: center; }
+  /* Filled cyan buttons on the dark card: a cyan ring is invisible against the cyan fill, so keyboard focus gets a
+     white ring with a dark gap (visible in both directions, meets the 3:1 focus-appearance contrast). */
+  .login-card button[type="submit"]:focus-visible {
+    --tw-ring-color: #ffffff;
+    --tw-ring-offset-width: 2px;
+    --tw-ring-offset-color: #0f1119;
+  }
+}
+
+/* ---- Sign-in surfaces on phones: 44px targets without changing the desktop rhythm. ---- */
+@media (max-width: 640px) {
+  .login-card .input { min-height: 44px; }
+  .login-card button[type="submit"],
+  .login-card .auth-tap { min-height: 44px; }
+  .login-card .auth-tap { display: inline-flex; align-items: center; justify-content: center; }
+  .login-card .auth-tap.block, .login-card .auth-tap.w-full { display: flex; width: 100%; }
+  /* Inline links inside a sentence: grow the hit area without moving the text. */
+  .login-card .auth-tap-inline { padding: 14px 4px; margin: -14px -4px; }
+  /* Show/hide password toggle sits inside the input; give it the full input height. */
+  .login-card .auth-eye { height: 40px; width: 40px; right: 2px; }
 }
 
 /* Mandatory fallbacks */
@@ -274,4 +294,16 @@
 @media (prefers-reduced-motion: reduce) {
   .drift-in, .drift-in > * { animation: none !important; }
   *, *::before, *::after { transition-duration: 0.01ms !important; }
+}
+
+/* Native select chevron drawn in the current text colour so it stays visible on dark and light surfaces. */
+.select-chevron {
+  background-image: none;
+  position: relative;
+}
+.select-chevron {
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 0.95rem) 50%, calc(100% - 0.65rem) 50%;
+  background-size: 0.3rem 0.3rem, 0.3rem 0.3rem;
+  background-repeat: no-repeat;
 }

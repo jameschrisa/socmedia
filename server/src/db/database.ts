@@ -182,6 +182,40 @@ export function runIncrementalMigrations(db: Db): void {
   if (!hasColumn(db, "posts", "queueSpacingMinutes")) db.exec("ALTER TABLE posts ADD COLUMN queueSpacingMinutes INTEGER NOT NULL DEFAULT 10");
   if (!hasColumn(db, "publish_jobs", "runAt")) db.exec("ALTER TABLE publish_jobs ADD COLUMN runAt TEXT");
 
+  if (!hasColumn(db, "users", "googleSub")) db.exec("ALTER TABLE users ADD COLUMN googleSub TEXT");
+
+  if (!hasTable(db, "login_tokens")) {
+    db.exec(`
+      CREATE TABLE login_tokens (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        tokenHash TEXT NOT NULL UNIQUE,
+        purpose TEXT NOT NULL,
+        expiresAt TEXT NOT NULL,
+        usedAt TEXT,
+        createdAt TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_login_tokens_email ON login_tokens(email);
+    `);
+  }
+
+  if (!hasTable(db, "access_requests")) {
+    db.exec(`
+      CREATE TABLE access_requests (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        name TEXT NOT NULL,
+        organization TEXT,
+        message TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        createdAt TEXT NOT NULL,
+        decidedAt TEXT,
+        decidedBy TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status);
+    `);
+  }
+
   if (!hasTable(db, "quick_post_tokens")) {
     db.exec(`
       CREATE TABLE quick_post_tokens (

@@ -12,6 +12,8 @@ import { OrgFormModal } from "./OrgFormModal";
 import { AiProviderSettings } from "./AiProviderSettings";
 import { PublishingSettingsCard } from "./PublishingSettingsCard";
 import { UsersCard } from "./UsersCard";
+import { SignInPolicyCard } from "./SignInPolicyCard";
+import { AccessRequestsCard } from "./AccessRequestsCard";
 import { QuickPostSection } from "./QuickPostSection";
 
 function errorMessage(e: unknown): string {
@@ -151,6 +153,8 @@ export function SettingsPage() {
         <section id="users" className="space-y-3">
           <SectionTitle>Users & access</SectionTitle>
           <UsersCard />
+          <SignInPolicyCard />
+          <AccessRequestsCard />
         </section>
       )}
 
