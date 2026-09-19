@@ -46,9 +46,9 @@ describe("demo organizations", () => {
     const created = (await request(ctx.app).post("/api/orgs").send({ name: "Blank Co", brandColor: "#123456", timezone: "UTC" })).body;
     const bad = await request(ctx.app).post(`/api/orgs/${created.id}/demo`).send({ profile: "nope" });
     expect(bad.status).toBe(400);
-    const ok = await request(ctx.app).post(`/api/orgs/${created.id}/demo`).send({ profile: "holistiplan" });
+    const ok = await request(ctx.app).post(`/api/orgs/${created.id}/demo`).send({ profile: "larkspur" });
     expect(ok.status).toBe(200);
     const posts = (await request(ctx.app).get("/api/posts?includeUnscheduled=1").set("X-Org-Id", created.id)).body;
-    expect(posts.length).toBe(DEMO_PROFILES.holistiplan!.posts.length);
+    expect(posts.length).toBe(DEMO_PROFILES.larkspur!.posts.length);
   });
 });

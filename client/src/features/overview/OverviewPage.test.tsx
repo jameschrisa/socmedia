@@ -9,7 +9,7 @@ import { useAppStore } from "@/store/appStore";
 import { OverviewPage } from "./OverviewPage";
 
 function makeOrg(): Organization {
-  return { id: "org1", name: "Holistiplan", slug: "holistiplan", brandColor: "#7C5CFC", timezone: "UTC", logoUrl: null, createdAt: new Date().toISOString() };
+  return { id: "org1", name: "Meridian Labs", slug: "meridian-labs", brandColor: "#7C5CFC", timezone: "UTC", logoUrl: null, createdAt: new Date().toISOString() };
 }
 
 function makeConnection(platform: (typeof PLATFORMS)[number], overrides: Partial<PlatformConnection> = {}): PlatformConnection {
@@ -104,7 +104,7 @@ describe("OverviewPage", () => {
   it("greets the user with the current org name", async () => {
     setup();
     renderWithProviders(<OverviewPage />);
-    expect(await screen.findByText(/Holistiplan/)).toBeInTheDocument();
+    expect(await screen.findByText(/Meridian Labs/)).toBeInTheDocument();
   });
 
   it("renders 4 platform cards with connected handles", async () => {

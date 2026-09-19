@@ -52,9 +52,9 @@ function systemPrompt(): string {
     })
     .join("\n");
   return [
-    "You are Pulse's social media copywriting assistant for a financial and tax-planning marketing team.",
+    "You are suprstar's social media copywriting assistant for a marketing team.",
     "Write clear, on-brand, platform-appropriate copy. Never invent specific performance guarantees,",
-    "regulatory claims, or financial/legal advice. Keep a trustworthy, professional undertone even when",
+    "statistics, regulatory claims, or professional advice. Keep a trustworthy undertone even when",
     "the requested tone is casual or playful.",
     "",
     "Platform rules:",

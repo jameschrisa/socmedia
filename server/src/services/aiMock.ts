@@ -31,10 +31,10 @@ const CTAS: Record<Platform, string> = {
 };
 
 const HASHTAG_POOL: Record<Platform, string[]> = {
-  tiktok: ["fintok", "moneytips", "taxplanning", "financialfreedom", "wealthbuilding"],
-  youtube: ["financialplanning", "taxseason", "wealthmanagement", "retirementplanning", "moneymatters"],
-  linkedin: ["financialplanning", "wealthmanagement", "taxstrategy", "financialadvisor", "cpa"],
-  instagram: ["financialplanning", "moneytips", "taxplanning", "wealthmanagement", "financialfreedom"],
+  tiktok: ["fyp", "behindthescenes", "howto", "smallbusiness", "newdrop"],
+  youtube: ["tutorial", "explained", "behindthescenes", "weeklyupdate", "community"],
+  linkedin: ["leadership", "growth", "teamculture", "industryinsights", "b2b"],
+  instagram: ["newarrivals", "behindthescenes", "community", "smallbusiness", "inspiration"],
 };
 
 const STOPWORDS = new Set([

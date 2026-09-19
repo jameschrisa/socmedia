@@ -109,84 +109,6 @@ export interface DemoProfile {
   posts: SamplePostSpec[];
 }
 
-const HOLISTIPLAN_POSTS: SamplePostSpec[] = [
-  {
-    title: "Your 2026 tax season checklist",
-    caption:
-      "Tax season doesn't have to be stressful. Here's the exact checklist our advisors use to make sure clients never miss a deduction.\n\nSave this and share it with someone who needs it.",
-    hashtags: ["taxseason", "taxplanning", "financialplanning", "cpa"],
-    status: "published",
-    offsetDays: -14,
-    platforms: ["linkedin", "instagram"],
-    jobs: { linkedin: "succeeded", instagram: "succeeded" },
-  },
-  {
-    title: "5 last-minute tax deductions people forget",
-    caption:
-      "Still filing? These 5 deductions get missed every single year — and they could put real money back in your pocket.",
-    hashtags: ["taxtips", "moneytips", "fintok", "taxseason"],
-    status: "published",
-    offsetDays: -7,
-    platforms: ["tiktok"],
-    jobs: { tiktok: "succeeded" },
-  },
-  {
-    title: "RMD deadline reminder",
-    caption:
-      "If you turned 73 this year, your Required Minimum Distribution deadline is closer than you think. Here's what happens if you miss it — and how to avoid the penalty.",
-    hashtags: ["retirementplanning", "rmd", "wealthmanagement"],
-    status: "partially_published",
-    offsetDays: -3,
-    platforms: ["tiktok", "youtube"],
-    jobs: { tiktok: "succeeded", youtube: "failed" },
-  },
-  {
-    title: "Roth conversion mistakes to avoid",
-    caption:
-      "A Roth conversion can be a powerful move — or an expensive mistake. In this video we walk through the 3 most common errors we see and how our clients avoid them.",
-    hashtags: ["rothconversion", "retirementplanning", "taxstrategy"],
-    status: "scheduled",
-    offsetDays: 3,
-    platforms: ["youtube"],
-  },
-  {
-    title: "Estate planning myths, debunked",
-    caption:
-      "\"I don't need an estate plan, I don't have that much.\" We hear this constantly — and it's one of the costliest myths in financial planning. Let's set the record straight.",
-    hashtags: ["estateplanning", "financialplanning", "wealthmanagement"],
-    status: "scheduled",
-    offsetDays: 7,
-    platforms: ["linkedin"],
-  },
-  {
-    title: "Quarterly estimated tax tips for business owners",
-    caption:
-      "Running a business means quarterly estimated taxes are non-negotiable. Here's how to calculate yours without the guesswork (and avoid an underpayment penalty).",
-    hashtags: ["smallbusiness", "taxplanning", "selfemployed"],
-    status: "needs_approval",
-    offsetDays: 10,
-    platforms: ["instagram", "tiktok"],
-  },
-  {
-    title: "Year-end charitable giving strategies",
-    caption:
-      "Giving season is also tax-planning season. Donor-advised funds, appreciated stock gifts, and QCDs can all stretch your generosity further — here's how.",
-    hashtags: ["charitablegiving", "taxstrategy", "financialplanning"],
-    status: "scheduled",
-    offsetDays: 14,
-    platforms: ["instagram"],
-  },
-  {
-    title: "Meet the team: our CFP spotlight",
-    caption:
-      "This week we're spotlighting one of our Certified Financial Planners and the client story that reminded her why she does this work.",
-    hashtags: ["meettheteam", "cfp", "financialadvisor"],
-    status: "draft",
-    offsetDays: null,
-    platforms: ["linkedin"],
-  },
-];
-
 const LARKSPUR_POSTS: SamplePostSpec[] = [
   {
     title: "Ethiopia Guji, washed: back on the shelf",
@@ -283,17 +205,6 @@ const LARKSPUR_POSTS: SamplePostSpec[] = [
 ];
 
 export const DEMO_PROFILES: Record<string, DemoProfile> = {
-  holistiplan: {
-    key: "holistiplan",
-    name: "Holistiplan",
-    slug: "holistiplan",
-    brandColor: "#6C5CE7",
-    timezone: "America/Chicago",
-    displayName: "Holistiplan",
-    handle: "@holistiplan",
-    followers: { tiktok: 18400, youtube: 6200, linkedin: 9800, instagram: 14200 },
-    posts: HOLISTIPLAN_POSTS,
-  },
   larkspur: {
     key: "larkspur",
     name: "Larkspur Coffee Roasters",
@@ -502,18 +413,7 @@ export async function seedIfEmpty(db: Db): Promise<void> {
   const orgsRepo = new OrganizationsRepo(db);
   if (orgsRepo.count() > 0) return;
 
-  const org1 = orgsRepo.create({
-    id: nanoid(),
-    name: "Holistiplan",
-    slug: "holistiplan",
-    brandColor: "#6C5CE7",
-    timezone: "America/Chicago",
-    logoUrl: null,
-    createdAt: now(),
-  });
-  ensureConnectionsForOrg(db, org1.id);
-
-  const org2 = orgsRepo.create({
+  const org = orgsRepo.create({
     id: nanoid(),
     name: "F3i",
     slug: "f3i",
@@ -522,9 +422,8 @@ export async function seedIfEmpty(db: Db): Promise<void> {
     logoUrl: null,
     createdAt: now(),
   });
-  ensureConnectionsForOrg(db, org2.id);
-  seedBundledLogo(db, org2.id, "f3i-mark.svg");
+  ensureConnectionsForOrg(db, org.id);
+  seedBundledLogo(db, org.id, "f3i-mark.svg");
 
-  await seedDemoContent(db, org1.id, DEMO_PROFILES.holistiplan!);
   await createDemoOrg(db, DEMO_PROFILES.larkspur!);
 }

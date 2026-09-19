@@ -6,7 +6,7 @@ import { useAppStore } from "@/store/appStore";
 import type { Organization } from "@socmedia/shared";
 
 const orgs: Organization[] = [
-  { id: "org1", name: "Holistiplan", slug: "holistiplan", brandColor: "#6C5CE7", timezone: "America/Chicago", createdAt: "" },
+  { id: "org1", name: "Meridian Labs", slug: "meridian-labs", brandColor: "#6C5CE7", timezone: "America/Chicago", createdAt: "" },
   { id: "org2", name: "Northstar Advisors", slug: "northstar", brandColor: "#0EA5E9", timezone: "America/New_York", createdAt: "" },
 ];
 
@@ -16,7 +16,7 @@ describe("OrgSwitcher", () => {
   it("shows the current organization and switches on selection", async () => {
     mockFetch({ "GET /api/orgs": () => orgs });
     renderWithProviders(<OrgSwitcher />);
-    await waitFor(() => expect(screen.getByTestId("org-switcher")).toHaveTextContent("Holistiplan"));
+    await waitFor(() => expect(screen.getByTestId("org-switcher")).toHaveTextContent("Meridian Labs"));
     fireEvent.click(screen.getByTestId("org-switcher"));
     fireEvent.click(await screen.findByRole("option", { name: /Northstar Advisors/ }));
     expect(useAppStore.getState().currentOrgId).toBe("org2");
@@ -36,7 +36,7 @@ describe("OrgSwitcher", () => {
       "POST /api/orgs": () => created,
     });
     renderWithProviders(<OrgSwitcher />);
-    await screen.findByText("Holistiplan");
+    await screen.findByText("Meridian Labs");
     fireEvent.click(screen.getByTestId("org-switcher"));
     fireEvent.click(await screen.findByText("New organization"));
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Acme Wealth" } });
