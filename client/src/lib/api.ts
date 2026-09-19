@@ -3,6 +3,7 @@ import type {
   MediaAsset, MetricSnapshot, Organization, Platform, PlatformConnection, Post, PublishJob, ValidationIssue,
   ConnectionUpdateInput, PostInput, PostUpdateInput, OrganizationInput, ImproveRequestInput,
   AiSettings, AiSettingsUpdateInput, AiProviderTestResult, ConnectionCreateInput, PublishingSettings, PublishingSettingsInput,
+  AuthState, User, LoginInput, SetupInput, UserCreateInput, UserUpdateInput, ChangePasswordInput, ClipRequestInput,
 } from "@socmedia/shared";
 import { useAppStore } from "@/store/appStore";
 
@@ -45,6 +46,22 @@ function safeJson(text: string): unknown {
 const json = (body: unknown) => JSON.stringify(body);
 
 export const api = {
+  auth: {
+    status: () => request<{ needsSetup: boolean; authenticated: boolean }>("/auth/status", {}, { org: false }),
+    me: () => request<AuthState>("/auth/me", {}, { org: false }),
+    login: (input: LoginInput) => request<AuthState>("/auth/login", { method: "POST", body: json(input) }, { org: false }),
+    setup: (input: SetupInput) => request<AuthState>("/auth/setup", { method: "POST", body: json(input) }, { org: false }),
+    logout: () => request<void>("/auth/logout", { method: "POST" }, { org: false }),
+    changePassword: (input: ChangePasswordInput) => request<void>("/auth/password", { method: "POST", body: json(input) }, { org: false }),
+  },
+
+  users: {
+    list: () => request<User[]>("/users", {}, { org: false }),
+    create: (input: UserCreateInput) => request<User>("/users", { method: "POST", body: json(input) }, { org: false }),
+    update: (id: string, input: UserUpdateInput) => request<User>(`/users/${id}`, { method: "PATCH", body: json(input) }, { org: false }),
+    remove: (id: string) => request<void>(`/users/${id}`, { method: "DELETE" }, { org: false }),
+  },
+
   health: () => request<{ ok: boolean; version: string; time: string; ai: { configured: boolean; provider: "anthropic" | "moonshot" | "mock"; model: string } }>("/health", {}, { org: false }),
 
   settings: {
@@ -94,6 +111,7 @@ export const api = {
     },
     exportDataUrl: (input: { dataUrl: string; filename: string; sourceAssetId?: string; format?: string; tags?: string[] }) =>
       request<MediaAsset>("/media/export", { method: "POST", body: json(input) }),
+    clip: (id: string, input: ClipRequestInput) => request<MediaAsset>(`/media/${id}/clip`, { method: "POST", body: json(input) }),
     replace: (id: string, input: { dataUrl: string; format?: string }) => request<MediaAsset>(`/media/${id}/replace`, { method: "PUT", body: json(input) }),
     duplicate: (id: string) => request<MediaAsset>(`/media/${id}/duplicate`, { method: "POST" }),
     update: (id: string, input: { tags?: string[] }) => request<MediaAsset>(`/media/${id}`, { method: "PATCH", body: json(input) }),

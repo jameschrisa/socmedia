@@ -117,7 +117,14 @@ export function orgsRouter(db: Db): Router {
     })
   );
 
-  const demoBody = z.object({ profile: z.string().min(1) });
+  const demoBody = z.object({
+    profile: z.string().min(1),
+    name: z.string().min(1).max(80).optional(),
+    slug: z.string().min(1).max(60).regex(/^[a-z0-9-]+$/).optional(),
+    handle: z.string().min(1).max(60).optional(),
+    brandColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    timezone: z.string().min(1).optional(),
+  });
   const resolveProfile = (key: string) => {
     const profile = DEMO_PROFILES[key];
     if (!profile) throw new BadRequestError(`Unknown demo profile "${key}". Available: ${Object.keys(DEMO_PROFILES).join(", ")}`);
@@ -133,8 +140,8 @@ export function orgsRouter(db: Db): Router {
   router.post(
     "/orgs/demo",
     asyncHandler(async (req, res) => {
-      const { profile } = demoBody.parse(req.body);
-      const org = await createDemoOrg(db, resolveProfile(profile));
+      const { profile, ...overrides } = demoBody.parse(req.body);
+      const org = await createDemoOrg(db, resolveProfile(profile), overrides);
       res.status(201).json(org);
     })
   );

@@ -5,12 +5,29 @@ All org-scoped routes require header `X-Org-Id: <orgId>` (or `?orgId=`). Missing
 Errors: `{ error: string, details?: unknown }` with 400 (validation), 404, 409, 500.
 Types come from `@socmedia/shared` (`shared/src/types.ts`, zod schemas in `shared/src/schemas.ts`).
 
+## Authentication & users
+All `/api` routes except `GET /health`, `GET /auth/status`, `POST /auth/setup`, `POST /auth/login` and `GET /connections/oauth/callback` require a signed-in user. `/uploads/*` stays public because the platforms pull media from those URLs in live mode.
+Sessions: `POST /auth/login` sets an httpOnly cookie `suprstar_session` (SameSite=Lax, Secure in production, 30 days). Unauthenticated requests get 401 `{ error: "Sign in required" }`; forbidden ones 403.
+Roles (`shared/src/types.ts` `ROLE_CAPABILITIES`): `owner` and `admin` manage users, organizations and workspace settings and can access every org; `editor` can create/edit/publish within their orgs; `viewer` is read-only (GET) within their orgs. Org-scoped routes check membership (`orgIds` includes the org, or `"*"`) → 403 otherwise. Mutating routes (POST/PATCH/PUT/DELETE) require `editor` or above; `/settings/*`, `/users/*`, org create/update/delete and connection create/delete/credentials require `admin`+. Owners cannot be demoted or deactivated by admins; the last active owner cannot be removed.
+- `GET /auth/status` (public) → `{ needsSetup: boolean, authenticated: boolean }`
+- `POST /auth/setup` (public, only while no users exist, else 409) body `setupSchema` → creates the first `owner` with `orgIds: "*"`, signs them in, returns `AuthState`. Env `ADMIN_EMAIL` + `ADMIN_PASSWORD` (+ optional `ADMIN_NAME`) create this owner automatically on boot when no users exist.
+- `POST /auth/login` body `loginSchema` → `AuthState` (401 on bad credentials or inactive user; updates `lastLoginAt`)
+- `POST /auth/logout` → 204 (clears the cookie, deletes the session)
+- `GET /auth/me` → `AuthState` (`authenticated: false` when signed out; never 401)
+- `POST /auth/password` body `changePasswordSchema` → 204 (clears `mustChangePassword`)
+- `GET /users` (admin+) → `User[]` (never includes password hashes)
+- `POST /users` (admin+) body `userCreateSchema` → `User` (201) with `mustChangePassword: true`; 409 on duplicate email; admins may not create owners.
+- `PATCH /users/:id` (admin+) body `userUpdateSchema` → `User`; setting `password` marks `mustChangePassword`. Rules above apply.
+- `DELETE /users/:id` (admin+) → 204 (also ends their sessions). Cannot delete yourself or the last active owner.
+- Passwords are hashed with scrypt (`node:crypto`), sessions stored in a `sessions` table with an expiry and cleaned lazily.
+
 ## Health
 - `GET /health` → `{ ok: true, version, time, ai: { configured: boolean, model } }`
 
 ## Organizations (not org-scoped)
 - `GET /orgs` → `Organization[]`
 - `POST /orgs` body `organizationInputSchema` → `Organization` (201). Seeds 4 disconnected sandbox connections for the new org.
+- `POST /orgs/demo` also accepts identity overrides `{ profile, name?, slug?, handle?, brandColor?, timezone? }` so one content profile can seed several brands.
 - `GET /orgs/demo/profiles` → available demo content profiles `{ key, name, brandColor, posts }[]`
 - `POST /orgs/demo` `{ profile }` → creates a new organization filled with that profile's demo content (201)
 - `POST /orgs/:id/demo` `{ profile }` → fills an existing organization with demo content
@@ -36,6 +53,8 @@ Types come from `@socmedia/shared` (`shared/src/types.ts`, zod schemas in `share
 - `GET /media` → `MediaAsset[]` newest first
 - `POST /media` multipart field `file` (image/* or video/*), optional fields `tags` (comma list), `sourceAssetId`, `format` → `MediaAsset` (201). Images: width/height detected with sharp; a 480px thumbnail is generated. Files stored under `data/uploads/<orgId>/` and served at `/uploads/<orgId>/<file>`.
 - `POST /media/export` JSON `{ dataUrl: "data:image/png;base64,...", filename, sourceAssetId?, format?, tags? }` → `MediaAsset` (201). Used by the image editor to save an edited/cropped export.
+- Video uploads are probed with ffprobe (`ffprobe-static`); duration, width and height are stored and a poster frame at 1s is saved as `thumbnailUrl`. Uploads longer than `VIDEO_MAX_SECONDS` (300s) are rejected with 400 `Videos must be 5 minutes or shorter (this one is M:SS)`.
+- `POST /media/:id/clip` (video assets only) JSON `clipRequestSchema` `{ start, end, format?, mode: "new"|"replace", muted? }` → `MediaAsset` (201 for `new`, 200 for `replace`). Trims with ffmpeg (`ffmpeg-static`, H.264/AAC, `-movflags +faststart`), optionally scales and centre-crops to `FORMAT_SPECS[format]` (e.g. 1080×1920 for 9:16), strips audio when `muted`. New clips get `sourceAssetId` = original, tags include `clip`, filename `<base>-clip-<start>s-<end>s.mp4`. Replace keeps the id and deletes old files. Clips are validated to ≤ 300s and ≥ 0.5s and must lie within the source duration (400 otherwise).
 - `PUT /media/:id/replace` JSON `{ dataUrl, format? }` → `MediaAsset`: overwrites the asset's file in place (same id); used by the image editor's Save. Old files are deleted.
 - `POST /media/:id/duplicate` → `MediaAsset` (201): clones the asset with copied files and `sourceAssetId` set to the original.
 - `PATCH /media/:id` `{ tags?: string[] }` → `MediaAsset`

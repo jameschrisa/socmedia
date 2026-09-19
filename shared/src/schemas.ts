@@ -138,3 +138,44 @@ export const publishingSettingsSchema = z.object({
 });
 export type ConnectionCreateInput = z.infer<typeof connectionCreateSchema>;
 export type PublishingSettingsInput = z.infer<typeof publishingSettingsSchema>;
+
+/* ---------- Auth & users ---------- */
+export const userRoleSchema = z.enum(["owner", "admin", "editor", "viewer"]);
+export const loginSchema = z.object({ email: z.string().email(), password: z.string().min(1).max(200) });
+export const setupSchema = z.object({ email: z.string().email(), name: z.string().min(1).max(80), password: z.string().min(8).max(200) });
+export const userCreateSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1).max(80),
+  role: userRoleSchema.default("editor"),
+  orgIds: z.union([z.literal("*"), z.array(z.string())]).default([]),
+  /** Temporary password; the user is asked to change it on first login. */
+  password: z.string().min(8).max(200),
+});
+export const userUpdateSchema = z.object({
+  name: z.string().min(1).max(80).optional(),
+  role: userRoleSchema.optional(),
+  orgIds: z.union([z.literal("*"), z.array(z.string())]).optional(),
+  active: z.boolean().optional(),
+  /** Admin-set temporary password. */
+  password: z.string().min(8).max(200).optional(),
+});
+export const changePasswordSchema = z.object({ currentPassword: z.string().min(1), newPassword: z.string().min(8).max(200) });
+export type LoginInput = z.infer<typeof loginSchema>;
+export type SetupInput = z.infer<typeof setupSchema>;
+export type UserCreateInput = z.infer<typeof userCreateSchema>;
+export type UserUpdateInput = z.infer<typeof userUpdateSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
+/* ---------- Video clips ---------- */
+export const clipRequestSchema = z
+  .object({
+    start: z.number().min(0),
+    end: z.number().positive(),
+    format: postFormatSchema.nullable().optional(),
+    mode: z.enum(["new", "replace"]).default("new"),
+    muted: z.boolean().default(false),
+  })
+  .refine((c) => c.end > c.start, { message: "end must be after start" })
+  .refine((c) => c.end - c.start <= 300, { message: "Clips must be 5 minutes or shorter" })
+  .refine((c) => c.end - c.start >= 0.5, { message: "Clips must be at least half a second" });
+export type ClipRequestInput = z.infer<typeof clipRequestSchema>;

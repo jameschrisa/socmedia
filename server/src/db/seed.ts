@@ -378,7 +378,8 @@ export async function seedDemoContent(db: Db, orgId: string, profile: DemoProfil
 }
 
 /** Create a new organization from a demo profile (unique slug) and fill it with content. */
-export async function createDemoOrg(db: Db, profile: DemoProfile) {
+export async function createDemoOrg(db: Db, base: DemoProfile, overrides: Partial<Pick<DemoProfile, "name" | "slug" | "handle" | "displayName" | "brandColor" | "timezone">> = {}) {
+  const profile: DemoProfile = { ...base, ...overrides, displayName: overrides.displayName ?? overrides.name ?? base.displayName };
   const orgsRepo = new OrganizationsRepo(db);
   let slug = profile.slug;
   let i = 2;

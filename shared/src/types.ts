@@ -281,3 +281,47 @@ export interface PublishingSettings {
   /** Warn (validation) when the same caption goes to several accounts on one platform at once. */
   warnOnDuplicateCaptions: boolean;
 }
+
+/* ---------- Users & authentication ---------- */
+export type UserRole = "owner" | "admin" | "editor" | "viewer";
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  /** Organizations this user may access; `"*"` means every organization (owners/admins). */
+  orgIds: string[] | "*";
+  active: boolean;
+  /** Set when the user must change a temporary password on next login. */
+  mustChangePassword: boolean;
+  createdAt: string;
+  lastLoginAt?: string | null;
+}
+
+export interface AuthState {
+  authenticated: boolean;
+  /** True when no user exists yet: the login page offers to create the first owner. */
+  needsSetup: boolean;
+  user?: User | null;
+}
+
+/** Permissions derived from a role. Servers enforce these; clients use them to hide controls. */
+export const ROLE_CAPABILITIES: Record<UserRole, { manageUsers: boolean; manageOrgs: boolean; manageSettings: boolean; write: boolean }> = {
+  owner: { manageUsers: true, manageOrgs: true, manageSettings: true, write: true },
+  admin: { manageUsers: true, manageOrgs: true, manageSettings: true, write: true },
+  editor: { manageUsers: false, manageOrgs: false, manageSettings: false, write: true },
+  viewer: { manageUsers: false, manageOrgs: false, manageSettings: false, write: false },
+};
+
+/* ---------- Video ---------- */
+/** Longest video (upload or clip) the platform accepts, in seconds. */
+export const VIDEO_MAX_SECONDS = 300;
+
+export interface ClipRequest {
+  start: number;          // seconds
+  end: number;            // seconds, > start, end - start <= VIDEO_MAX_SECONDS
+  format?: PostFormat | null; // crop/scale to a platform format
+  mode: "new" | "replace";
+  muted?: boolean;
+}
