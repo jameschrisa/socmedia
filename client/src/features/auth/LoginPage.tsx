@@ -38,7 +38,7 @@ function LoginBackground() {
   }, [reducedMotion]);
 
   return (
-    <div className="fixed inset-0 -z-10 overflow-hidden" aria-hidden>
+    <div className="fixed inset-0 z-0 overflow-hidden" aria-hidden>
       {reducedMotion ? (
         <img src="/media/login-bg.jpg" alt="" className="h-full w-full object-cover" />
       ) : (
@@ -74,7 +74,7 @@ function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="relative min-h-screen flex items-center justify-center p-4">
       <LoginBackground />
-      <div className="card glass-sheet w-full max-w-sm p-8 space-y-6 drift-in">
+      <div className="card glass-sheet relative z-10 w-full max-w-sm p-8 space-y-6 drift-in">
         <div className="flex items-center justify-center gap-2">
           <SparkMark size={26} />
           <Wordmark size="lg" />
