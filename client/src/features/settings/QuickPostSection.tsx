@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { toast } from "sonner";
 import { Copy, Plus, QrCode, Smartphone, Trash2 } from "lucide-react";
-import { PLATFORM_SPECS, type Platform, type PublishMode, type QuickPostToken } from "@socmedia/shared";
+import { PLATFORM_SPECS, type Platform, type PlatformConnection, type PublishMode, type QuickPostToken } from "@socmedia/shared";
 import { Badge, Button, Card, CardBody, CardHeader, Field, Input, Modal, SegmentedTabs, Toggle } from "@/components/ui";
 import { PlatformIcon } from "@/components/ui/PlatformIcon";
 import { useConnections } from "@/hooks/useConnections";
@@ -12,6 +12,11 @@ import { relativeTime } from "@/lib/utils";
 
 function errorMessage(e: unknown): string {
   return e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Something went wrong";
+}
+
+/** A readable name for an account even when it has no nickname or profile name yet (fresh sandbox connections). */
+function connectionName(c: PlatformConnection): string {
+  return c.label || c.displayName || c.handle || `${PLATFORM_SPECS[c.platform].name} account`;
 }
 
 function TokenRow({ token, accountLabels, onToggle, onRevoke, busy }: {
@@ -30,8 +35,8 @@ function TokenRow({ token, accountLabels, onToggle, onRevoke, busy }: {
       <td className="py-2.5 pr-3 text-sm text-ink-600">{token.lastUsedAt ? relativeTime(token.lastUsedAt) : "Never"}</td>
       <td className="py-2.5 pr-3"><Toggle checked={token.active} onChange={onToggle} disabled={busy} label={`${token.label} active`} size="sm" /></td>
       <td className="py-2.5 text-right">
-        <Button variant="ghost" size="xs" onClick={onRevoke} disabled={busy} aria-label={`Revoke ${token.label}`}>
-          <Trash2 className="h-3.5 w-3.5 text-red-500" />
+        <Button variant="ghost" size="sm" onClick={onRevoke} disabled={busy} aria-label={`Revoke ${token.label}`} className="text-red-600 hover:bg-red-50" icon={<Trash2 className="h-3.5 w-3.5" />}>
+          <span className="hidden sm:inline">Revoke</span>
         </Button>
       </td>
     </tr>
@@ -103,8 +108,8 @@ function CreateLinkModal({ open, onClose }: { open: boolean; onClose: () => void
           <div className="notice-warning">Copy this link or scan the QR code now. For security, suprstar won't show the full token again.</div>
           <Field label="Quick post link">
             <div className="flex items-center gap-2">
-              <Input readOnly value={url} data-testid="quick-link-url" />
-              <Button type="button" variant="outline" size="sm" icon={<Copy className="h-3.5 w-3.5" />} onClick={copy}>{copied ? "Copied" : "Copy"}</Button>
+              <Input readOnly value={url} data-testid="quick-link-url" onFocus={(e) => e.currentTarget.select()} className="font-mono text-xs" />
+              <Button type="button" size="md" className="shrink-0" icon={<Copy className="h-3.5 w-3.5" />} onClick={copy}>{copied ? "Copied" : "Copy"}</Button>
             </div>
           </Field>
           <div className="flex justify-center">
@@ -120,7 +125,7 @@ function CreateLinkModal({ open, onClose }: { open: boolean; onClose: () => void
             <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-all bg-ink-100 p-2 text-[11px]">{`curl -F "image=@IMG_0001.jpg" -F "caption=Your caption" "${window.location.origin}/api/quick/${created.token}"`}</pre>
           </div>
         </div>
-        <div className="mt-5 flex justify-end"><Button onClick={close}>Done</Button></div>
+        <div className="mt-5 flex justify-end"><Button variant="outline" onClick={close}>Done</Button></div>
       </Modal>
     );
   }
@@ -138,17 +143,17 @@ function CreateLinkModal({ open, onClose }: { open: boolean; onClose: () => void
                 <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-500">
                   <PlatformIcon platform={platform} size={16} /> {PLATFORM_SPECS[platform].name}
                 </div>
-                <div className="space-y-1.5">
+                <div className="-mx-2 space-y-0.5">
                   {conns.map((c) => (
-                    <label key={c.id} className="flex items-center gap-2 text-sm text-ink-700">
-                      <input type="checkbox" className="control-accent" checked={connectionIds.includes(c.id)} onChange={() => toggleConnection(c.id)} />
-                      {c.label || c.displayName}
+                    <label key={c.id} className="flex min-h-9 cursor-pointer items-center gap-2.5 px-2 text-sm text-ink-700 hover:bg-ink-50">
+                      <input type="checkbox" className="control-accent h-4 w-4" checked={connectionIds.includes(c.id)} onChange={() => toggleConnection(c.id)} />
+                      {connectionName(c)}
                     </label>
                   ))}
                 </div>
               </div>
             ))}
-            {grouped.length === 0 && <p className="text-sm text-ink-500">No accounts connected yet.</p>}
+            {grouped.length === 0 && <p className="text-sm text-ink-500">No accounts connected yet. The link will post to any account you connect later.</p>}
           </div>
         </Field>
         <Field label="Publish mode">
@@ -181,7 +186,7 @@ export function QuickPostSection() {
     const labels = token.connectionIds
       .map((id) => connections.find((c) => c.id === id))
       .filter(Boolean)
-      .map((c) => c!.label || c!.displayName);
+      .map((c) => connectionName(c!));
     return labels.length ? labels.join(", ") : `${token.connectionIds.length} account(s)`;
   };
 
@@ -196,15 +201,22 @@ export function QuickPostSection() {
             chosen accounts and shows the live links.
           </>
         }
-        action={<Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setModalOpen(true)}>Create link</Button>}
+        action={<Button size="sm" className="shrink-0 whitespace-nowrap" icon={<Plus className="h-4 w-4" />} onClick={() => setModalOpen(true)}>Create link</Button>}
       />
       <CardBody>
         {isLoading ? (
-          <p className="text-sm text-ink-500">Loading links…</p>
+          <div className="space-y-2 py-1" aria-busy="true" aria-label="Loading links">
+            <div className="h-4 w-1/3 animate-pulse bg-ink-100" />
+            <div className="h-4 w-2/3 animate-pulse bg-ink-100" />
+          </div>
         ) : tokens.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-ink-500">
-            <Smartphone className="h-6 w-6 text-ink-300" />
-            No quick post links yet. Create one to post from your phone in seconds.
+          <div className="flex flex-col items-center gap-3 py-8 text-center">
+            <span className="flex h-11 w-11 items-center justify-center bg-brand-50 text-brand-600"><Smartphone className="h-5 w-5" aria-hidden /></span>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-ink-800">No quick post links yet</p>
+              <p className="max-w-sm text-sm text-ink-500">Each link is a page you open on a phone. Snap, caption, post. Revoke it here whenever you like.</p>
+            </div>
+            <Button variant="outline" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setModalOpen(true)}>Create your first link</Button>
           </div>
         ) : (
           <div className="overflow-x-auto">

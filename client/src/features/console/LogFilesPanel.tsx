@@ -29,17 +29,23 @@ export function LogFilesPanel() {
 
   return (
     <div className="flex min-h-0 flex-1">
-      <div className="w-56 shrink-0 overflow-y-auto scrollbar-thin border-r" style={{ borderColor: "var(--c-edge)" }}>
+      <div className="w-40 shrink-0 overflow-y-auto scrollbar-thin border-r sm:w-56" style={{ borderColor: "var(--c-edge)" }}>
         {filesQuery.isLoading && <p className="p-3 text-xs text-ink-500">Loading files…</p>}
-        {filesQuery.isError && <p className="p-3 text-xs text-red-500">Couldn't load log files.</p>}
-        {!filesQuery.isLoading && files.length === 0 && <p className="p-3 text-xs text-ink-500">No log files yet.</p>}
+        {filesQuery.isError && (
+          <div className="p-3 text-xs text-red-500">
+            <p>Couldn't load log files.</p>
+            <button type="button" onClick={() => filesQuery.refetch()} className="focus-ring mt-1.5 underline underline-offset-2 text-ink-700 hover:text-ink-900">Try again</button>
+          </div>
+        )}
+        {!filesQuery.isLoading && !filesQuery.isError && files.length === 0 && <p className="p-3 text-xs text-ink-500">No log files yet. Files appear here once the server writes its first rotated log.</p>}
         {files.map((f) => (
           <button
             key={f.name}
             type="button"
             onClick={() => setSelected(f.name)}
+            aria-current={selected === f.name ? "true" : undefined}
             className={cn(
-              "flex w-full items-start gap-2 border-b px-3 py-2 text-left text-xs",
+              "focus-ring flex w-full items-start gap-2 border-b px-3 py-2 text-left text-xs focus-visible:ring-inset",
               selected === f.name ? "bg-glass-strong text-ink-900" : "text-ink-600 hover:bg-glass-veil",
             )}
             style={{ borderColor: "var(--c-edge)" }}
@@ -65,11 +71,16 @@ export function LogFilesPanel() {
               </label>
             </div>
             <pre className="min-h-0 flex-1 overflow-auto scrollbar-thin whitespace-pre-wrap break-words px-3 py-2 text-[11.5px] text-ink-700">
-              {fileQuery.isLoading ? "Loading…" : fileQuery.isError ? "Couldn't load this file." : (fileQuery.data?.lines.join("\n") || "(empty)")}
+              {fileQuery.isLoading ? "Loading…" : fileQuery.isError ? "Couldn't load this file." : (fileQuery.data?.lines.join("\n") || "This file is empty.")}
             </pre>
+            {fileQuery.isError && (
+              <div className="border-t px-3 py-1.5" style={{ borderColor: "var(--c-edge)" }}>
+                <button type="button" onClick={() => fileQuery.refetch()} className="focus-ring text-xs underline underline-offset-2 text-ink-700 hover:text-ink-900">Try again</button>
+              </div>
+            )}
           </>
         ) : (
-          <p className="p-4 text-sm text-ink-500">Choose a file to view its tail.</p>
+          <p className="p-4 text-xs leading-relaxed text-ink-500">Pick a file on the left to read its last lines. Newest files sit at the top.</p>
         )}
       </div>
     </div>

@@ -9,6 +9,13 @@ export async function gotoApp(page: Page, path = "/"): Promise<void> {
   await expect(page.getByTestId("org-switcher")).toBeVisible();
 }
 
+/** Switches the active org via the org switcher dropdown to the one matching `orgName`. */
+export async function switchOrg(page: Page, orgName: string): Promise<void> {
+  await page.getByTestId("org-switcher").click();
+  await page.getByRole("option", { name: orgName }).click();
+  await expect(page.getByTestId("org-switcher")).toContainText(orgName);
+}
+
 export interface InvitedUser {
   name: string;
   email: string;

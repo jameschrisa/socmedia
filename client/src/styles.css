@@ -226,11 +226,49 @@
   }
   .terminal .term-link { color: var(--term-url); text-decoration: underline; text-underline-offset: 2px; }
   .terminal .term-link:hover { color: var(--c-brand-300); }
+  /* Console line treatments: the echoed command sits on a faint brand wash, the agent reply hangs off a brand rule
+     so multi-line replies (/help, /posts) read as one block instead of blending into the log stream. */
+  .terminal .term-cmd { background: rgba(89,216,230,0.06); }
+  .terminal .term-reply { border-left: 2px solid var(--c-brand-500); margin: 2px 0 2px 12px; background: rgba(255,255,255,0.03); }
+  .terminal .term-reply .term-line { padding-left: 10px; }
+  /* Drag handle: a 16px strip so it is grabbable, with a visible pill; keyboard users get a focus ring. */
+  .terminal .term-grip { height: 16px; touch-action: none; }
+  .terminal .term-grip:hover > span, .terminal .term-grip:focus-visible > span { background: var(--c-brand-400); }
+  .terminal .term-grip:focus-visible { outline: none; }
+
+  /* ---- Sign-in card: the one rounded surface in the product. Dark glass in both themes because it sits over footage. ----
+     Re-pins the dark token set on this element so the shared Input, Field, Button and notice styles render for a dark surface
+     even when the app theme is light. */
+  .login-card {
+    --c-canvas: #0a0c14; --c-surface: #11131c;
+    --c-ink-900: #f0eef3; --c-ink-800: #dcdae6; --c-ink-700: #d3d1dd; --c-ink-600: #bdbbc9; --c-ink-500: #aeacbb; --c-ink-400: #8a8897;
+    --c-ink-300: rgba(255,255,255,0.22); --c-ink-200: rgba(255,255,255,0.16); --c-ink-100: rgba(255,255,255,0.08); --c-ink-50: rgba(255,255,255,0.05);
+    --c-glass-veil: rgba(255,255,255,0.07); --c-glass-panel: rgba(255,255,255,0.08); --c-glass-sheet: rgba(255,255,255,0.10); --c-glass-strong: rgba(255,255,255,0.16);
+    --c-edge: rgba(255,255,255,0.14); --c-edge-strong: rgba(255,255,255,0.18);
+    --c-brand-50: rgba(89,216,230,0.10); --c-brand-100: rgba(89,216,230,0.18); --c-brand-200: rgba(89,216,230,0.32);
+    --c-brand-300: #8ae4ee; --c-brand-400: #6fdeea; --c-brand-500: #59d8e6; --c-brand-600: #3fc6d6; --c-brand-700: #b0edf4; --c-on-brand: #0d0f16;
+    --c-red-50: rgba(255,59,78,0.16); --c-red-200: rgba(255,59,78,0.45); --c-red-fg: #ffa3ac;
+    --c-amber-50: rgba(232,154,69,0.14); --c-amber-200: rgba(232,154,69,0.35); --c-amber-fg: #f0b46f;
+    border-radius: 20px;
+    background: rgba(10, 12, 20, 0.62);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 24px 64px rgba(5, 6, 12, 0.55);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    backdrop-filter: blur(18px) saturate(140%);
+    color: var(--c-ink-900);
+    color-scheme: dark;
+  }
+  /* Logo lockup on the sign-in card only: pure white for contrast against the footage. */
+  .login-card .wordmark, .login-card .login-mark { color: #ffffff; }
+  .login-card .input { background: rgba(255,255,255,0.06); }
+  .login-card .input:focus { background: rgba(255,255,255,0.09); }
+  .login-caption { font-size: 11px; line-height: 1; letter-spacing: 0.08em; color: rgba(255,255,255,0.6); text-align: center; }
 }
 
 /* Mandatory fallbacks */
 @media (prefers-reduced-transparency: reduce) {
   .card, .glass-sheet, .glass-veil { background: var(--c-glass-menu); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .login-card { background: rgba(10,12,20,0.94); -webkit-backdrop-filter: none; backdrop-filter: none; }
   body::before { filter: none; opacity: 0.5; }
 }
 @media (prefers-reduced-motion: reduce) {

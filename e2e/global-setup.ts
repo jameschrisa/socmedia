@@ -1,7 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { DATA_DIR, OVERLONG_VIDEO_FIXTURE, VIDEO_FIXTURE } from "./constants";
+import { createRequire } from "node:module";
+import { DATA_DIR, OVERLONG_VIDEO_FIXTURE, QUICK_PHOTO_FIXTURE, VIDEO_FIXTURE } from "./constants";
+
+const root = process.cwd();
 
 /**
  * Runs once before any webServer starts / test runs:
@@ -23,6 +26,20 @@ export default async function globalSetup(): Promise<void> {
       "-c:a", "aac",
       VIDEO_FIXTURE,
     ], { stdio: "inherit" });
+  }
+
+  fs.mkdirSync(path.dirname(QUICK_PHOTO_FIXTURE), { recursive: true });
+  if (!fs.existsSync(QUICK_PHOTO_FIXTURE)) {
+    // Resolved from the server workspace (where the "sharp" dependency is actually declared)
+    // rather than a bare `require("sharp")` from this file's own location, so this keeps working
+    // regardless of whether npm's hoisting happens to also put a copy at the repo root.
+    const requireFromServer = createRequire(path.join(root, "server/package.json"));
+    const sharp = requireFromServer("sharp") as typeof import("sharp");
+    await sharp({
+      create: { width: 1080, height: 1080, channels: 3, background: { r: 90, g: 140, b: 200 } },
+    })
+      .jpeg()
+      .toFile(QUICK_PHOTO_FIXTURE);
   }
 
   if (!fs.existsSync(OVERLONG_VIDEO_FIXTURE)) {

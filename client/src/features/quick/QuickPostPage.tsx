@@ -150,8 +150,8 @@ export function QuickPostPage() {
     return (
       <Shell>
         <div className="mx-auto flex max-w-sm flex-col items-center justify-center gap-3 py-24 text-ink-500">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <p className="text-sm">Loading…</p>
+          <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
+          <p className="text-sm">Opening your quick post link…</p>
         </div>
       </Shell>
     );
@@ -163,10 +163,17 @@ export function QuickPostPage() {
       <Shell>
         <div className="mx-auto max-w-sm py-24">
           <div className="card p-6 text-center">
-            <h1 className="font-display text-xl text-ink-900">{notFound ? "Link no longer valid" : "Something went wrong"}</h1>
+            <h1 className="font-display text-xl text-ink-900">{notFound ? "Link no longer valid" : "Couldn't open this link"}</h1>
             <p className="notice-danger mt-3" role="alert">
               {notFound ? "This quick post link was revoked or never existed." : errorMessage(info.error)}
             </p>
+            {notFound ? (
+              <p className="mt-3 text-sm text-ink-500">Ask whoever set up the link to create a new one from Settings and share it again.</p>
+            ) : (
+              <button type="button" onClick={() => info.refetch()} className="focus-ring mt-4 h-11 w-full border border-ink-200 text-sm font-medium text-ink-700">
+                Try again
+              </button>
+            )}
           </div>
         </div>
       </Shell>
@@ -192,26 +199,25 @@ export function QuickPostPage() {
             )}
             <ul className="space-y-2">
               {result.links.map((link) => (
-                <li key={link.connectionId} className="flex items-center justify-between gap-3 border-b border-ink-100 pb-2 last:border-0 last:pb-0">
+                <li key={link.connectionId} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-ink-100 pb-2 last:border-0 last:pb-0">
                   <span className="flex min-w-0 items-center gap-2">
                     <PlatformIcon platform={link.platform} size={28} />
                     <span className="min-w-0 truncate text-sm text-ink-800">{link.label || PLATFORM_SPECS[link.platform].name}</span>
                   </span>
-                  <span className="flex shrink-0 items-center gap-2">
+                  <span className="flex shrink-0 items-center gap-1">
                     <StatusBadge status={link.status} />
                     {link.url ? (
-                      <a href={link.url} target="_blank" rel="noreferrer" className="link inline-flex items-center gap-1 text-xs">
-                        Open <ExternalLink className="h-3 w-3" />
+                      <a href={link.url} target="_blank" rel="noreferrer" className="link inline-flex min-h-11 items-center gap-1 px-2 text-sm">
+                        Open <ExternalLink className="h-3.5 w-3.5" aria-hidden />
                       </a>
-                    ) : link.error ? (
-                      <span className="text-xs text-red-500">{link.error}</span>
                     ) : null}
                   </span>
+                  {!link.url && link.error && <span className="basis-full text-xs text-red-600">{link.error}</span>}
                 </li>
               ))}
             </ul>
           </div>
-          <button type="button" onClick={reset} className="h-11 w-full text-sm font-semibold text-brand-300 focus-ring">
+          <button type="button" onClick={reset} className="focus-ring h-12 w-full border border-ink-200 text-sm font-semibold text-ink-800">
             Post another
           </button>
         </div>
@@ -233,15 +239,15 @@ export function QuickPostPage() {
           <div className="flex flex-wrap gap-1.5">
             {data.targets.map((t) => (
               <span key={t.connectionId} className="chip chip-inactive">
-                <PlatformIcon platform={t.platform} size={16} /> {t.label || t.handle}
+                <PlatformIcon platform={t.platform} size={16} /> {t.label || t.handle || PLATFORM_SPECS[t.platform].name}
               </span>
             ))}
           </div>
         </header>
 
         <label className="block">
-          <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={onPhotoChange} className="sr-only" data-testid="photo-input" />
-          <div className="flex min-h-[220px] cursor-pointer flex-col items-center justify-center gap-2 border-2 border-dashed border-ink-300 bg-glass-veil text-center">
+          <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={onPhotoChange} className="sr-only" data-testid="photo-input" disabled={stage === "uploading"} />
+          <div className={`flex min-h-[220px] cursor-pointer flex-col items-center justify-center gap-2 border-2 border-dashed text-center transition-colors focus-within:ring-2 focus-within:ring-brand-300 ${validationError && !photoFile ? "border-red-500 bg-red-50" : "border-ink-300 bg-glass-veil"}`}>
             {photoUrl ? (
               <img src={photoUrl} alt="Selected photo preview" className="h-[220px] w-full object-cover" />
             ) : (
@@ -254,7 +260,7 @@ export function QuickPostPage() {
           </div>
         </label>
         {photoUrl && (
-          <button type="button" onClick={() => fileInputRef.current?.click()} className="h-11 w-full border border-ink-200 text-sm font-medium text-ink-700 focus-ring">
+          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={stage === "uploading"} className="focus-ring h-11 w-full border border-ink-200 text-sm font-medium text-ink-700 disabled:opacity-50">
             Retake photo
           </button>
         )}
@@ -263,9 +269,10 @@ export function QuickPostPage() {
           <label htmlFor="quick-caption" className="label">Caption {!canTranscribe && <span className="text-red-500">*</span>}</label>
           <textarea
             id="quick-caption"
-            className="input min-h-[88px]"
+            className="input min-h-[96px] text-base"
             placeholder="What's happening?"
             value={caption}
+            disabled={stage === "uploading"}
             onChange={(e) => setCaption(e.target.value)}
           />
         </div>
@@ -275,7 +282,9 @@ export function QuickPostPage() {
             <button
               type="button"
               onClick={recording ? stopRecording : startRecording}
-              className={`flex h-11 w-full items-center justify-center gap-2 text-sm font-semibold focus-ring ${recording ? "bg-red-500 text-white" : "border border-ink-200 text-ink-700"}`}
+              disabled={stage === "uploading"}
+              aria-pressed={recording}
+              className={`focus-ring flex h-11 w-full items-center justify-center gap-2 text-sm font-semibold disabled:opacity-50 ${recording ? "bg-red-500 text-white" : "border border-ink-200 text-ink-700"}`}
               data-testid="record-toggle"
             >
               {recording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
@@ -292,19 +301,21 @@ export function QuickPostPage() {
             )}
           </div>
         ) : (
-          <p className="notice-info">Voice memos aren't supported in this browser.</p>
+          <p className="notice-info">Voice memos aren't supported in this browser. Type a caption instead, or open the link in Safari or Chrome.</p>
         )}
 
-        <label className="flex items-center gap-2 text-sm text-ink-700">
+        <label className={`flex min-h-11 items-center gap-3 text-sm text-ink-700 ${data.aiAvailable ? "cursor-pointer" : "cursor-not-allowed"}`}>
           <input
             type="checkbox"
-            className="control-accent"
+            className="control-accent h-5 w-5 shrink-0"
             checked={polish && !!data.aiAvailable}
-            disabled={!data.aiAvailable}
+            disabled={!data.aiAvailable || stage === "uploading"}
             onChange={(e) => setPolish(e.target.checked)}
           />
-          Polish with AI
-          {!data.aiAvailable && <span className="text-xs text-ink-500">(unavailable right now)</span>}
+          <span>
+            Polish with AI
+            {!data.aiAvailable && <span className="ml-1.5 text-xs text-ink-500">(unavailable right now)</span>}
+          </span>
         </label>
 
         {validationError && <p className="notice-danger" role="alert">{validationError}</p>}
@@ -314,9 +325,10 @@ export function QuickPostPage() {
           type="button"
           onClick={submit}
           disabled={stage === "uploading"}
-          className="flex h-12 w-full items-center justify-center gap-2 bg-brand-500 text-[color:var(--c-on-brand)] text-base font-semibold focus-ring disabled:opacity-60"
+          aria-busy={stage === "uploading"}
+          className="focus-ring flex h-12 w-full items-center justify-center gap-2 bg-brand-500 text-[color:var(--c-on-brand)] text-base font-semibold hover:bg-brand-600 disabled:opacity-60"
         >
-          {stage === "uploading" ? <><Loader2 className="h-4 w-4 animate-spin" /> Posting…</> : "Post now"}
+          {stage === "uploading" ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Posting…</> : "Post now"}
         </button>
       </div>
     </Shell>

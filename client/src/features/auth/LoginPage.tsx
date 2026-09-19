@@ -74,10 +74,14 @@ function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="relative min-h-screen flex items-center justify-center p-4">
       <LoginBackground />
-      <div className="card glass-sheet relative z-10 w-full max-w-sm p-8 space-y-6 drift-in">
-        <div className="flex items-center justify-center gap-2">
-          <SparkMark size={26} />
-          <Wordmark size="lg" />
+      {/* The one rounded surface in the product: dark glass in both themes because it sits over footage (see .login-card). */}
+      <div className="login-card relative z-10 w-full max-w-sm p-8 space-y-6 drift-in" data-testid="login-card">
+        <div className="space-y-2">
+          <div className="flex items-center justify-center gap-2">
+            <SparkMark size={26} className="login-mark" />
+            <Wordmark size="lg" />
+          </div>
+          <p className="login-caption">powered by F3i</p>
         </div>
         {children}
       </div>

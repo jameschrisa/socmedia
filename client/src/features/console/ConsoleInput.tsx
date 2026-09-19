@@ -51,7 +51,7 @@ export function ConsoleInput({ history, pending, onSubmit }: ConsoleInputProps) 
   };
 
   return (
-    <div className="border-t px-3 py-2" style={{ borderColor: "var(--c-edge-strong)" }}>
+    <div className="border-t px-3 py-2" style={{ borderColor: "var(--c-edge-strong)", paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}>
       {hints.length > 0 && (
         <div className="mb-1.5 flex flex-wrap gap-x-4 gap-y-1 px-1 text-[11px] text-ink-500" data-testid="console-hints">
           {hints.map((h) => (
@@ -64,7 +64,7 @@ export function ConsoleInput({ history, pending, onSubmit }: ConsoleInputProps) 
           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Waiting for a reply…
         </div>
       )}
-      <div className="flex items-center gap-2">
+      <div className="flex min-h-[36px] items-center gap-2 sm:min-h-0">
         <span className="text-brand-400" aria-hidden>&#10095;</span>
         <label htmlFor="console-command-input" className="sr-only">Console command</label>
         <input
@@ -77,7 +77,8 @@ export function ConsoleInput({ history, pending, onSubmit }: ConsoleInputProps) 
           placeholder="Type a command or ask the agent anything…"
           autoComplete="off"
           spellCheck={false}
-          className="min-w-0 flex-1 bg-transparent text-[13px] text-ink-900 placeholder:text-ink-500 focus:outline-none disabled:opacity-60"
+          enterKeyHint="send"
+          className="min-w-0 flex-1 bg-transparent py-1 text-[16px] text-ink-900 placeholder:text-ink-500 focus:outline-none disabled:opacity-60 sm:py-0 sm:text-[13px]"
         />
       </div>
     </div>

@@ -20,4 +20,6 @@ export const OWNER_STORAGE_STATE = path.resolve(e2eDir, ".auth/owner.json");
 export const VIDEO_FIXTURE = path.resolve(e2eDir, "fixtures/clip-6s.mp4");
 /** Deliberately over the 300s server/client cap, to exercise the "too long" rejection path. */
 export const OVERLONG_VIDEO_FIXTURE = path.resolve(e2eDir, "fixtures/too-long-302s.mp4");
+/** A real 1080x1080 JPEG used to drive the quick-post-from-a-phone upload flow. */
+export const QUICK_PHOTO_FIXTURE = path.resolve(e2eDir, "fixtures/quick-photo.jpg");
 export const DATA_DIR = path.resolve(root, "data/e2e");

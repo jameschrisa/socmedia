@@ -86,6 +86,14 @@ export function ConsoleDrawer() {
     return () => window.removeEventListener("keydown", onKey);
   }, [toggleConsole]);
 
+  // Reserve room under the page so content never hides behind the fixed drawer.
+  useEffect(() => {
+    if (!consoleOpen) return;
+    const prev = document.body.style.paddingBottom;
+    document.body.style.paddingBottom = `${consoleHeight}px`;
+    return () => { document.body.style.paddingBottom = prev; };
+  }, [consoleOpen, consoleHeight]);
+
   const items = useMemo(() => {
     const logItems = entries
       .filter((e) => matchesTextFilter(e.message, filters.q))
@@ -151,6 +159,14 @@ export function ConsoleDrawer() {
     setConsoleHeight(next);
   };
   const endDrag = () => { dragRef.current = null; };
+  const onHandleKey = (e: React.KeyboardEvent) => {
+    const step = e.shiftKey ? 80 : 24;
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      e.preventDefault();
+      const delta = e.key === "ArrowUp" ? step : -step;
+      setConsoleHeight(Math.min(window.innerHeight - 80, Math.max(CONSOLE_MIN_HEIGHT, consoleHeight + delta)));
+    }
+  };
 
   const dotClass = status === "open" ? "bg-green-500" : status === "paused" ? "bg-amber-500" : status === "error" ? "bg-red-500" : "bg-ink-400 animate-pulse";
   const dotLabel = status === "open" ? "Connected" : status === "paused" ? "Paused" : status === "error" ? "Reconnecting…" : "Connecting…";
@@ -172,26 +188,36 @@ export function ConsoleDrawer() {
           >
             {/* Drag handle */}
             <div
-              className="flex h-2.5 shrink-0 cursor-row-resize items-center justify-center"
+              role="separator"
+              aria-orientation="horizontal"
+              aria-label="Resize console"
+              aria-valuenow={consoleHeight}
+              aria-valuemin={CONSOLE_MIN_HEIGHT}
+              tabIndex={0}
+              title="Drag to resize. Arrow keys resize from the keyboard."
+              className="term-grip flex shrink-0 cursor-row-resize items-center justify-center"
               onPointerDown={startDrag}
               onPointerMove={onDrag}
               onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              onKeyDown={onHandleKey}
               data-testid="console-drag-handle"
             >
-              <span className="h-1 w-10 rounded-full bg-ink-300" aria-hidden />
+              <span className="h-1 w-10 rounded-full bg-ink-300 transition-colors" aria-hidden />
             </div>
 
             {/* Header */}
-            <div className="flex shrink-0 items-center justify-between gap-3 border-b px-3 py-1.5" style={{ borderColor: "var(--c-edge)" }}>
-              <div className="flex items-center gap-2">
-                <TerminalIcon className="h-4 w-4 text-brand-300" aria-hidden />
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b px-3 py-1.5" style={{ borderColor: "var(--c-edge)" }}>
+              <div className="flex min-w-0 items-center gap-2">
+                <TerminalIcon className="h-4 w-4 shrink-0 text-brand-300" aria-hidden />
                 <span className="text-sm font-semibold text-ink-900">Console</span>
                 <span className="flex items-center gap-1.5 text-[11px] text-ink-500" title={dotLabel}>
-                  <span className={cn("h-1.5 w-1.5 rounded-full", dotClass)} data-testid="console-connection-dot" />
-                  {dotLabel}
+                  <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dotClass)} data-testid="console-connection-dot" />
+                  <span className="hidden sm:inline">{dotLabel}</span>
+                  <span className="sr-only sm:hidden">{dotLabel}</span>
                 </span>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="ml-auto flex items-center gap-1.5">
                 {can.manageSettings && (
                   <SegmentedTabs
                     size="sm"
@@ -205,7 +231,7 @@ export function ConsoleDrawer() {
                   onClick={() => setPaused((p) => !p)}
                   aria-label={paused ? "Resume stream" : "Pause stream"}
                   title={paused ? "Resume stream" : "Pause stream"}
-                  className="focus-ring flex h-7 w-7 items-center justify-center text-ink-500 hover:bg-glass-veil hover:text-ink-900"
+                  className="focus-ring flex h-9 w-9 items-center justify-center text-ink-500 hover:bg-glass-veil hover:text-ink-900 sm:h-7 sm:w-7"
                 >
                   {paused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
                 </button>
@@ -214,7 +240,7 @@ export function ConsoleDrawer() {
                   onClick={clearAll}
                   aria-label="Clear console"
                   title="Clear console"
-                  className="focus-ring flex h-7 w-7 items-center justify-center text-ink-500 hover:bg-glass-veil hover:text-ink-900"
+                  className="focus-ring flex h-9 w-9 items-center justify-center text-ink-500 hover:bg-glass-veil hover:text-ink-900 sm:h-7 sm:w-7"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -222,7 +248,7 @@ export function ConsoleDrawer() {
                   type="button"
                   onClick={() => setConsoleOpen(false)}
                   aria-label="Close console"
-                  className="focus-ring flex h-7 w-7 items-center justify-center text-ink-500 hover:bg-glass-veil hover:text-ink-900"
+                  className="focus-ring flex h-9 w-9 items-center justify-center text-ink-500 hover:bg-glass-veil hover:text-ink-900 sm:h-7 sm:w-7"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -263,14 +289,23 @@ export function ConsoleDrawer() {
                 {/* Log lines */}
                 <div className="relative min-h-0 flex-1">
                   <div ref={scrollRef} onScroll={onScroll} className="h-full overflow-y-auto scrollbar-thin py-1" data-testid="console-scroll">
-                    {items.length === 0 && <p className="px-3 py-2 text-xs text-ink-500">No log entries yet.</p>}
+                    {items.length === 0 && (
+                      <div className="px-3 py-3 text-xs leading-relaxed text-ink-500" data-testid="console-empty">
+                        <p>{filters.q || filters.level || filters.source ? "Nothing matches these filters." : "Console is clear."}</p>
+                        <p className="mt-1">
+                          {filters.q || filters.level || filters.source
+                            ? "Widen the level or source filter, or clear the text filter."
+                            : <>Server log lines stream in here as they happen. Type <span className="text-brand-300">/help</span> below to see what the agent can do.</>}
+                        </p>
+                      </div>
+                    )}
                     {items.map((item) => {
                       if (item.kind === "log") return <LogLine key={item.id} entry={item.entry} />;
-                      if (item.kind === "command") return <SimpleLine key={item.id} prefix="you ❯" text={item.text} />;
+                      if (item.kind === "command") return <div key={item.id} className="term-cmd"><SimpleLine prefix="you ❯" text={item.text} /></div>;
                       if (item.kind === "error") return <SimpleLine key={item.id} prefix="agent ❯" text={item.text} tone="error" />;
                       if (item.kind === "system") return <SimpleLine key={item.id} text={item.text} tone="muted" />;
                       return (
-                        <div key={item.id}>
+                        <div key={item.id} className="term-reply">
                           <SimpleLine prefix="agent ❯" text={item.result.reply} />
                           {item.result.actions.map((a, i) => (
                             <SimpleLine key={`${item.id}-action-${i}`} text={`↳ ${a.tool}: ${a.summary}`} tone="muted" />

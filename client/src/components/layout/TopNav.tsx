@@ -38,16 +38,16 @@ export function TopNav() {
   return (
     <header className="sticky top-0 z-30 glass-sheet border-x-0 border-t-0 rounded-none">
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6">
-        <div className="flex h-14 items-center justify-between gap-4">
+        <div className="flex h-14 items-center justify-between gap-2 sm:gap-4">
           <Logo />
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
             <button
               type="button"
               onClick={() => setTheme(nextTheme)}
               aria-label={`Theme: ${theme}. Switch to ${nextTheme}`}
               title={`Theme: ${theme} (click for ${nextTheme})`}
               data-testid="theme-toggle"
-              className="inline-flex h-8 w-8 items-center justify-center glass-veil text-ink-800 hover:bg-glass-strong"
+              className="hidden h-8 w-8 items-center justify-center glass-veil text-ink-800 hover:bg-glass-strong sm:inline-flex"
             >
               <ThemeIcon className="h-4 w-4" />
             </button>
@@ -63,8 +63,12 @@ export function TopNav() {
             </button>
             {can.write && (
               <>
-                <Button variant="outline" size="sm" icon={<Sparkles className="h-4 w-4 text-brand-500" />} onClick={toggleAi} data-testid="ai-toggle">AI Assistant</Button>
-                <Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openComposer(null)} data-testid="new-post">New post</Button>
+                <Button variant="outline" size="sm" icon={<Sparkles className="h-4 w-4 text-brand-500" />} onClick={toggleAi} data-testid="ai-toggle" aria-label="AI Assistant" title="AI Assistant">
+                  <span className="hidden sm:inline">AI Assistant</span>
+                </Button>
+                <Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openComposer(null)} data-testid="new-post" aria-label="New post" title="New post">
+                  <span className="hidden sm:inline">New post</span>
+                </Button>
               </>
             )}
             <OrgSwitcher />
