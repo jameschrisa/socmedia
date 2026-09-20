@@ -3,7 +3,7 @@
 Everything a new session needs to pick this project up. No secrets live in this file; it points at
 where each one is kept.
 
-Last updated 2026-09-20.
+Last updated 2026-09-20 (second session).
 
 ---
 
@@ -34,8 +34,9 @@ connection to live requires real OAuth credentials for that platform (see sectio
 renews automatically. Vercel rewrites `/api` and `/uploads` through to Render, so the browser only
 ever talks to one origin and the session cookie works.
 
-**Both hosts auto-deploy from `main` today.** A push goes straight to production with nothing
-checking it first. Fixing that is the top punchlist item.
+**CI now runs on every push to `main`**, but **both hosts still auto-deploy from `main`**, so a
+push reaches production whether or not CI goes green. Closing that gap (deploy hooks plus turning
+off auto-deploy on both hosts) is the top punchlist item.
 
 ---
 
@@ -44,12 +45,13 @@ checking it first. Fixing that is the top punchlist item.
 npm workspaces, Node 24, TypeScript throughout.
 
 ```
+.github/    workflows/ci.yml (typecheck, tests, build, e2e, then a gated deploy)
 shared/     types, zod schemas, platform specs, post validation  (the contract both sides import)
 server/     Express 4, node:sqlite, tsx runtime, platform adapters, scheduler, services, routes
 client/     Vite + React 18 + Tailwind 3, TanStack Query, Zustand, Framer Motion, Konva
 e2e/        Playwright suite (15 spec files) + QA-REPORT.md
-docs/       API.md (the API contract), CI.md, ci-workflow.yml, platforms/ (offline dev docs)
-ops/        operator credential template and checker
+docs/       API.md (the API contract), CI.md, platforms/ (offline dev docs)
+ops/        operator credential template, checker, and set-signin-env.sh (pushes sign-in env to Render)
 scripts/    font fetcher, backup restore and fetch helpers
 ```
 
@@ -73,7 +75,11 @@ npm run dev                   # API on :4000, web on :5173
 
 The API dev script loads the root `.env`. A useful local `.env` sets `ADMIN_EMAIL`,
 `ADMIN_PASSWORD` and `ADMIN_NAME` to bootstrap an owner on first run, plus `GOOGLE_CLIENT_ID` and
-`GOOGLE_CLIENT_SECRET` if you want to exercise Google sign-in.
+`GOOGLE_CLIENT_SECRET` if you want to exercise Google sign-in, or `ENTRA_CLIENT_ID`,
+`ENTRA_TENANT_ID` and `ENTRA_CLIENT_SECRET` (copy them out of `ops/.env.ops`) for Microsoft. The
+registered app already accepts `http://localhost:5173/api/auth/entra/callback`, so Microsoft
+sign-in works against the real tenant from a dev server with no extra setup. With `MAIL_PROVIDER`
+unset, magic links come back in the response body and land in the Console instead of an inbox.
 
 Checks:
 
@@ -97,8 +103,12 @@ The checker prints only `ok`, `not set` or `FAILED`, never a value, so its outpu
 anywhere. Read `ops/README.md` first.
 
 **The GitHub token** lives in the macOS keychain, not in that file, and can be read back
-programmatically without being displayed. It currently **lacks `workflow` scope**, which is why
-the CI workflow cannot be pushed yet.
+programmatically without being displayed. It now **carries `workflow` scope**, which is what let
+the CI workflow move into `.github/workflows/ci.yml`.
+
+**The Entra app's client id, tenant id and client secret are in `ops/.env.ops`**, written there
+directly by the tooling so they never passed through a conversation. `bash ops/set-signin-env.sh`
+reads them from that file and pushes them onto Render without printing a value.
 
 **Application secrets** live only as environment variables on Render and are never copied into the
 repository: `SECRET_KEY`, the Google client secret, AI provider keys, and (once configured) the
@@ -139,7 +149,7 @@ Analytics, Settings, plus a full-page Console at `/console`.
   files, an agent command line (slash commands plus natural language with tools), and an optional
   OS terminal over WebSocket, restricted to owners and admins and disabled in production unless
   `OS_TERMINAL=on`.
-- **Authentication**: password, Google, magic links, and Microsoft Entra (in flight). Roles are
+- **Authentication**: password, Google, magic links, and Microsoft Entra. Roles are
   owner, admin, editor and viewer. A sign-in policy maps email domains to a role and organizations:
   `enelhealth.com` to editor on Enel Health, `f3insights.com` to editor on F3i. Users an admin
   invited can sign in from any domain. Everyone else is refused and pointed at a request-access
@@ -149,29 +159,44 @@ Analytics, Settings, plus a full-page Console at `/console`.
 - **Platform documentation** under `docs/platforms/` is indexed and searchable by the agent through
   `/docs` and `/diagnose`, and from the Documentation rail.
 
-Test counts at handoff: shared 14, server 223, client 265, Playwright 87 passing with one
-environment-dependent skip.
+Test counts at handoff: shared 14, server 226, client 265, Playwright 88, all passing.
 
 ---
 
 ## 7. Where we left off
 
-**Microsoft Entra sign-in is built on both sides and merged.** The client shows a "Continue with
-Microsoft" button whenever the server reports `providers.entra`, and the server has
-`/api/auth/entra/start` and `/api/auth/entra/callback`, an `entraSub` column, and full id token
-validation: RS256 signature against the tenant's JWKS, plus `aud`, `iss`, `tid`, `exp` and `nonce`
-checks. It is inert until three environment variables are set on Render, which is punchlist item 5.
+**The Entra app registration exists and its credentials are verified.** An app named `suprstar`
+was registered in the F3 Insights tenant (`1bc7d4b2-f419-43c5-8563-143103cdee41`), single tenant,
+with both redirect URIs (`https://suprstar.social/api/auth/entra/callback` and the localhost one),
+a service principal, `email` and `upn` added as optional id-token claims, and a client secret that
+expires **2028-09-20**. The client id, tenant id and secret went straight into `ops/.env.ops`
+without ever being displayed. The secret was confirmed working against Microsoft's token endpoint.
 
-**The mail self-test is built.** Settings has an Email delivery card showing the provider, the from
-address, whether magic links can be delivered, and a Send a test email button backed by
-`GET /api/settings/mail` and `POST /api/settings/mail/test`. Magic links stay dark in production
-until a provider is configured, which is punchlist item 4.
+Run locally against that app, the server reports `providers.entra: true` and
+`/api/auth/entra/start` redirects to the tenant's real authorize endpoint with the right client id,
+redirect URI, scope, state and nonce. **What has not been exercised is a human completing the
+Microsoft consent screen**, because the Chrome extension driving the browser has no permission for
+`localhost`. That is one click: `npm run dev`, open http://localhost:5173, press Continue with
+Microsoft. Everything either side of that click is covered by tests or was verified live.
 
-**A trap was removed along the way.** Any account an admin creates carries a temporary password and
-a "must change it" flag, which would have demanded a password from someone signing in through
-Microsoft, Google or an emailed link who never had one. Federated sign-in now clears that flag and
-preserves the account's existing role, so an owner signing in with Microsoft stays an owner rather
-than being downgraded to the domain default.
+**The magic-link flow was exercised end to end locally**: requested, delivered (log mode), followed,
+a session cookie issued, the existing owner matched rather than a new editor provisioned, and the
+same link correctly refused on replay.
+
+**Token validation was tightened.** The `iss` check was a prefix match on
+`https://login.microsoftonline.com/`, which in the default multi-tenant mode would accept a token
+whose issuer disagreed with its own `tid`. It now requires `iss` to be exactly
+`https://login.microsoftonline.com/{tenant}/v2.0`, where `tenant` is the configured tenant or, in
+multi-tenant mode, the token's own `tid`, which must itself be a GUID. Three tests cover it.
+
+**The CI workflow is installed** at `.github/workflows/ci.yml`. The GitHub token now has `workflow`
+scope, which was the only thing blocking it.
+
+**Two test-environment fixes landed** so the suites run on a clean machine: `shared/vitest.config.ts`
+(without it vitest walks up past the repo root and can pick up an unrelated config from the
+developer's home directory) and a Storage shim in `client/vitest.setup.ts` (Node 24+ defines its own
+`localStorage` global, which wins over jsdom's and arrives without the Storage methods, so Zustand's
+persist middleware died on `storage.setItem` in 111 client tests).
 
 **The operator's Microsoft identity is `james@f3insights.com`**, and they administer that tenant.
 That address sits on a domain the sign-in policy already maps to editor on F3i, so an account was
@@ -179,39 +204,50 @@ pre-created for it as an **owner with access to every organization**. Because th
 exists, the first Microsoft sign-in will match it and keep owner rights instead of provisioning a
 fresh editor. The separate `james.christopher@holistiplan.com` owner account still works.
 
+**A trap was removed in the previous session.** Any account an admin creates carries a temporary
+password and a "must change it" flag, which would have demanded a password from someone signing in
+through Microsoft, Google or an emailed link who never had one. Federated sign-in now clears that
+flag and preserves the account's existing role.
+
 ## 8. Punchlist
 
-Ordered by value. The first three are the ones that make this reliable for someone else to run.
+Ordered by value.
 
-1. **Install the CI workflow.** It is parked at `docs/ci-workflow.yml` because the GitHub token
-   cannot push anything under `.github/workflows` and a rejected workflow file fails the whole push.
-   Give the token `workflow` scope (classic) or Workflows set to read and write (fine-grained), then
-   `git mv docs/ci-workflow.yml .github/workflows/ci.yml` and push. Full steps in `docs/CI.md`.
-2. **Gate deploys on CI.** Create a deploy hook in each dashboard, add them as the repository
-   secrets `RENDER_DEPLOY_HOOK` and `VERCEL_DEPLOY_HOOK`, then turn off auto-deploy on both hosts.
-   Until this is done, CI only reports after a bad commit has already shipped.
-3. **Configure offsite backups.** Backups already run nightly onto the Render disk, which does not
+1. **Switch Entra on in production.** One command: fill `RENDER_API_KEY` into `ops/.env.ops`, then
+   `bash ops/set-signin-env.sh`. It reads the Entra values already in that file and pushes them to
+   Render without printing any of them (`--dry-run` shows what it would push). Render restarts the
+   service itself. Confirm with `curl -s https://suprstar.social/api/auth/status`, which should
+   report `"entra":true`, then sign in with Microsoft at https://suprstar.social.
+2. **Gate deploys on CI.** CI runs now, but both hosts still deploy on their own, so a red build
+   still ships. Create a deploy hook in each dashboard, add them as the repository secrets
+   `RENDER_DEPLOY_HOOK` and `VERCEL_DEPLOY_HOOK`, then turn off auto-deploy on both hosts. Full
+   steps in `docs/CI.md`, step 2.
+3. **Turn on mail so magic links work in production.** The only part nobody else can do for you:
+   create a Resend account, add `suprstar.social` as a sending domain, and add the DKIM records at
+   the registrar. Then put `MAIL_PROVIDER=resend`, `MAIL_FROM` and `RESEND_API_KEY` into
+   `ops/.env.ops` and run `bash ops/set-signin-env.sh` again. An SMTP URL works instead
+   (`MAIL_PROVIDER=smtp` plus `SMTP_URL`). Verify with the Send a test email button in Settings.
+   Until this is done, magic links stay hidden on the production sign-in page: `magicLinkAvailable()`
+   is false in production without a configured provider, which is deliberate, because the fallback
+   writes the link to the activity log rather than delivering it.
+4. **Configure offsite backups.** Backups already run nightly onto the Render disk, which does not
    protect against losing that disk. Set `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`,
    `BACKUP_S3_SECRET_ACCESS_KEY` and, for Cloudflare R2 or Backblaze B2, `BACKUP_S3_ENDPOINT`. Then
    rehearse a restore with `node scripts/restore-backup.mjs <archive> <dataDir> --dry-run`.
-4. **Turn on mail so magic links work.** Create a Resend account, add `suprstar.social` as a sending
-   domain, add the DKIM records at the registrar, and set `MAIL_PROVIDER=resend`, `RESEND_API_KEY`
-   and `MAIL_FROM` on Render. An SMTP URL works instead. Verify with the Send a test email button.
-5. **Switch Entra on.** The code is done; this is configuration only. In the Entra admin center
-   register an app: single tenant, redirect URI `https://suprstar.social/api/auth/entra/callback`
-   (add `http://localhost:5173/api/auth/entra/callback` for development). Copy the Application
-   (client) ID and Directory (tenant) ID, create a client secret, then set `ENTRA_CLIENT_ID`,
-   `ENTRA_TENANT_ID` and `ENTRA_CLIENT_SECRET` on Render. No API permissions need adding; the
-   delegated `openid`, `profile` and `email` scopes are the defaults.
-6. **Replace the GitHub token** and, optionally, the Render and Vercel keys. All three were shared
+5. **Replace the GitHub token** and, optionally, the Render and Vercel keys. All three were shared
    in a conversation. None are used by the running application, so revoking them breaks nothing;
    the GitHub one matters most because write access reaches production through the deploy path.
-7. **Change the owner password** in the app (user menu, Change password), then remove `ADMIN_EMAIL`,
+   Note the replacement also needs `workflow` scope, or pushes touching `.github/workflows` fail.
+6. **Change the owner password** in the app (user menu, Change password), then remove `ADMIN_EMAIL`,
    `ADMIN_PASSWORD` and `ADMIN_NAME` from Render so no standing credential remains. Those variables
    only create an owner when the database has no users, so removing them cannot lock anyone out.
-8. **Add monitoring.** Nothing alerts today. Point an uptime check at `/api/health`, which reports
+7. **Add monitoring.** Nothing alerts today. Point an uptime check at `/api/health`, which reports
    scheduler and backup health, and add an exception tracker. A silently dead scheduler currently
    looks exactly like a quiet week.
+8. **Diarise the Entra secret.** It expires 2028-09-20. When it does, Microsoft sign-in stops with
+   `reason=entra` and nothing else breaks. Roll it with
+   `az ad app credential reset --id <client id> --display-name suprstar-render --years 2`, put the
+   new value in `ops/.env.ops`, and run `bash ops/set-signin-env.sh`.
 9. **Go live on real platforms.** Each needs its own developer app and review: TikTok requires an
    audit before public posts, Instagram and Facebook need app review, YouTube has a per-upload quota
    cost, LinkedIn needs partner access, and X requires a paid tier for useful volume. What each one
@@ -259,6 +295,13 @@ Ordered by value. The first three are the ones that make this reliable for someo
   returns 502 for a few seconds during the swap. Retry rather than assuming a failed deploy.
 - **Konva cannot load in jsdom**, so client tests that touch the image editor mock `react-konva`,
   `konva` and `use-image`.
+- **Every workspace that runs vitest needs its own config.** Without one, vitest searches upward
+  past the repo root and can load a stray `vite.config.js` from the developer's home directory,
+  failing with a module-not-found error that has nothing to do with this project.
+- **Node 24+ ships its own `localStorage` global**, which takes precedence over jsdom's and has
+  none of the Storage methods. `client/vitest.setup.ts` installs a real in-memory Storage when the
+  ambient one is unusable; remove that and anything using Zustand's persist middleware dies with
+  `storage.setItem is not a function`.
 - **The Anthropic SDK's `zodOutputFormat` requires zod v4 schemas**, so `server/src/services/ai.ts`
   imports from `zod/v4` for its response schemas only.
 - **Adding a platform** touches `shared/src/platforms.ts` plus every `Record<Platform, ...>` map the

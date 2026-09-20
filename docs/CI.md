@@ -10,37 +10,23 @@
 
 Actions minutes are free on this repository because it is public.
 
-## Step 1: let the token push workflow files
+## Step 1: install the workflow (done)
 
-The stored GitHub token cannot create or update anything under `.github/workflows`, so the
-workflow file has to arrive another way. Pick one:
+The workflow is installed at `.github/workflows/ci.yml`. It was parked at `docs/ci-workflow.yml`
+for a while because the stored GitHub token lacked `workflow` scope, and a push containing a
+workflow file is rejected whole, which blocked every other change with it. The token now carries
+that scope, so the file lives in its proper place and the next push shows a green or red check
+next to the commit.
 
-The workflow itself lives in this repository as **`docs/ci-workflow.yml`**. It is parked there
-rather than at `.github/workflows/ci.yml` because a push containing a workflow file is rejected
-whole, which would block every other change too. Install it one of two ways:
+If a future token loses the scope, the symptom is a push rejected with "refusing to allow a
+Personal Access Token to create or update workflow". Fix it at GitHub → Settings → Developer
+settings → Personal access tokens: for a classic token tick `workflow`, for a fine-grained token
+set the repository permission **Workflows** to *Read and write*. Then store it again:
 
-- **Widen the token, then move the file.** GitHub → Settings → Developer settings → Personal
-  access tokens. For a classic token, tick `workflow`. For a fine-grained token, set the
-  repository permission **Workflows** to *Read and write*. Store it again:
-
-  ```
-  printf "protocol=https\nhost=github.com\n" | git credential-osxkeychain erase
-  printf "protocol=https\nhost=github.com\nusername=jameschrisa\npassword=<TOKEN>\n\n" | git credential-osxkeychain store
-  ```
-
-  Then move it into place and push:
-
-  ```
-  mkdir -p .github/workflows
-  git mv docs/ci-workflow.yml .github/workflows/ci.yml
-  git commit -m "Add CI workflow" && git push
-  ```
-
-- **Or paste it in the browser.** GitHub → the repository → Add file → Create new file → name it
-  `.github/workflows/ci.yml`, paste the contents of `docs/ci-workflow.yml`, and commit. Delete
-  `docs/ci-workflow.yml` afterwards so there is only one copy.
-
-Once the file is on `main`, the next push shows a green or red check next to the commit.
+```
+printf "protocol=https\nhost=github.com\n" | git credential-osxkeychain erase
+printf "protocol=https\nhost=github.com\nusername=jameschrisa\npassword=<TOKEN>\n\n" | git credential-osxkeychain store
+```
 
 ## Step 2: stop the hosts from deploying on their own
 
