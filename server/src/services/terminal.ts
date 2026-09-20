@@ -47,7 +47,10 @@ let ptyUsable: boolean | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function loadPty(): Promise<any> {
   if (!ptyModulePromise) {
-    ptyModulePromise = import("node-pty").catch(() => null);
+    // Non-literal specifier: the optional native module may be absent at build time (Docker installs with
+    // --omit=optional), so the import must not be resolved by the type checker, only attempted at runtime.
+    const specifier = "node-pty";
+    ptyModulePromise = import(specifier).catch(() => null);
   }
   return ptyModulePromise;
 }
