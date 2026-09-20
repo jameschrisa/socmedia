@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Sparkles, Plus, Sun, Moon, Monitor, Terminal } from "lucide-react";
+import { Plus, Sun, Moon, Monitor, Terminal } from "lucide-react";
 import { OrgSwitcher } from "./OrgSwitcher";
 import { Button, SparkMark, Wordmark } from "@/components/ui";
 import { useAppStore } from "@/store/appStore";
@@ -29,7 +29,6 @@ export function Logo() {
 
 export function TopNav() {
   const openComposer = useAppStore((s) => s.openComposer);
-  const toggleAi = useAppStore((s) => s.toggleAiPanel);
   const openConsole = useOpenConsole();
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
@@ -64,9 +63,6 @@ export function TopNav() {
             </button>
             {can.write && (
               <>
-                <Button variant="outline" size="sm" icon={<Sparkles className="h-4 w-4 text-brand-500" />} onClick={toggleAi} data-testid="ai-toggle" aria-label="AI Assistant" title="AI Assistant">
-                  <span className="hidden sm:inline">AI Assistant</span>
-                </Button>
                 <Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openComposer(null)} data-testid="new-post" aria-label="New post" title="New post">
                   <span className="hidden sm:inline">New post</span>
                 </Button>

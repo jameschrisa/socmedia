@@ -330,3 +330,49 @@
   background-size: 0.3rem 0.3rem, 0.3rem 0.3rem;
   background-repeat: no-repeat;
 }
+
+/* ---- Post from chat (Settings → Inbound): additive rules for the monitor, bindings table and setup wizard. ---- */
+/* Below `sm` the two data tables stack each row into a card: channel icon, sender and status on the first
+   line, the message or details underneath, actions on the right. Keeps one DOM for desktop and phone. */
+@media (max-width: 639px) {
+  .inbound-stack-table thead { display: none; }
+  .inbound-stack-table, .inbound-stack-table tbody { display: block; }
+  .inbound-stack-table tr {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    grid-template-areas:
+      "channel from status toggle"
+      "message message message message"
+      "org org accounts accounts"
+      "mode mode confirm confirm"
+      "received received received received";
+    align-items: center;
+    column-gap: 0.5rem;
+    padding: 0.625rem 0;
+  }
+  .inbound-stack-table tr.details-row { display: block; padding: 0; }
+  .inbound-stack-table tr.details-row td { display: block; padding: 0.75rem 0.25rem 1rem; }
+  .inbound-stack-table td { padding: 0; }
+  .inbound-stack-table .cell-channel { grid-area: channel; }
+  .inbound-stack-table .cell-from { grid-area: from; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .inbound-stack-table .cell-status { grid-area: status; }
+  .inbound-stack-table .cell-toggle { grid-area: toggle; text-align: right; }
+  .inbound-stack-table .cell-message { grid-area: message; max-width: none; margin-top: 0.25rem; }
+  .inbound-stack-table .cell-media { display: none; }
+  .inbound-stack-table .cell-received { grid-area: received; font-size: 0.75rem; margin-top: 0.125rem; }
+  /* Bindings: the label sits under the sender; org, accounts, mode and confirm pair up on two captioned lines. */
+  .inbound-stack-table .cell-label { grid-area: message; margin-top: 0.125rem; font-size: 0.8125rem; }
+  .inbound-stack-table .cell-meta { font-size: 0.75rem; color: var(--c-ink-500); margin-top: 0.25rem; align-self: start; }
+  .inbound-stack-table .cell-meta::before { content: attr(data-label) ": "; color: var(--c-ink-400); }
+  .inbound-stack-table .cell-org { grid-area: org; }
+  .inbound-stack-table .cell-accounts { grid-area: accounts; }
+  .inbound-stack-table .cell-mode { grid-area: mode; }
+  .inbound-stack-table .cell-confirm { grid-area: confirm; }
+}
+/* 44px targets on phones for every inline control in the section and wizard (buttons keep their desktop height above `sm`). */
+@media (max-width: 640px) {
+  .inbound-tap { min-height: 44px; }
+  button.inbound-tap.h-7, button.inbound-tap.h-8, button.inbound-tap.h-9 { height: 44px; }
+  .inbound-tap-inline { padding: 12px 6px; margin: -12px -6px; }
+  .inbound-wizard .inbound-tap { min-height: 44px; }
+}

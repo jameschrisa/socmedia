@@ -31,4 +31,10 @@ export const qk = {
   accessRequests: (status: AccessRequestStatus) => ["accessRequests", status] as const,
   terminalStatus: ["terminal", "status"] as const,
   docsSearch: (params: { platform?: string; q: string }) => ["docs", "platforms", params] as const,
+  inboundStatus: ["inbound", "status"] as const,
+  inboundChannels: ["inbound", "channels"] as const,
+  inboundBindings: ["inbound", "bindings"] as const,
+  inboundMessages: (params?: Record<string, unknown>) => ["inbound", "messages", params ?? {}] as const,
+  inboundMessage: (id: string) => ["inbound", "message", id] as const,
+  inboundTranscription: ["inbound", "transcription"] as const,
 };

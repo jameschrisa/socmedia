@@ -211,6 +211,47 @@ async function handleSlashCommand(ctx: AgentToolContext, raw: string): Promise<{
   }
 }
 
+/**
+ * Runs one agent command (slash command or free-text AI request) for `ctx` and returns the reply.
+ * Shared by the console's `POST /api/agent/commands` route and inbound chat messaging's "/" commands
+ * (services/inbound.ts), so both surfaces stay behind the exact same command handling.
+ */
+export async function executeAgentCommand(
+  ctx: AgentToolContext,
+  rawInput: string
+): Promise<{ reply: string; actions: AgentAction[]; model: string; mock: boolean }> {
+  const trimmed = rawInput.trim();
+  let reply: string;
+  let actions: AgentAction[];
+  let model = "slash-command";
+  let mock = false;
+
+  if (trimmed.startsWith("/")) {
+    const result = await handleSlashCommand(ctx, trimmed);
+    reply = result.reply;
+    actions = result.actions;
+  } else {
+    const active = activeProvider(ctx.db);
+    model = active.model;
+    mock = active.provider === "mock";
+    if (active.provider === "anthropic") {
+      const result = await runAnthropicAgent(active.apiKey, active.model, systemPrompt(ctx), trimmed, ctx);
+      reply = result.reply;
+      actions = result.actions;
+    } else if (active.provider === "moonshot") {
+      const result = await runMoonshotAgent(active.apiKey, active.baseUrl!, active.model, systemPrompt(ctx), trimmed, ctx);
+      reply = result.reply;
+      actions = result.actions;
+    } else {
+      const result = await runMockAgent(ctx, trimmed);
+      reply = result.reply;
+      actions = result.actions;
+    }
+  }
+
+  return { reply, actions, model, mock };
+}
+
 /** Org-scoped console command endpoint: fast built-in slash commands, or a tool-using AI agent. */
 export function agentRouter(db: Db): Router {
   const router = Router();
@@ -222,33 +263,7 @@ export function agentRouter(db: Db): Router {
       const trimmed = input.trim();
       const ctx: AgentToolContext = { db, org: req.org!, user: req.user! };
 
-      let reply: string;
-      let actions: AgentAction[];
-      let model = "slash-command";
-      let mock = false;
-
-      if (trimmed.startsWith("/")) {
-        const result = await handleSlashCommand(ctx, trimmed);
-        reply = result.reply;
-        actions = result.actions;
-      } else {
-        const active = activeProvider(db);
-        model = active.model;
-        mock = active.provider === "mock";
-        if (active.provider === "anthropic") {
-          const result = await runAnthropicAgent(active.apiKey, active.model, systemPrompt(ctx), trimmed, ctx);
-          reply = result.reply;
-          actions = result.actions;
-        } else if (active.provider === "moonshot") {
-          const result = await runMoonshotAgent(active.apiKey, active.baseUrl!, active.model, systemPrompt(ctx), trimmed, ctx);
-          reply = result.reply;
-          actions = result.actions;
-        } else {
-          const result = await runMockAgent(ctx, trimmed);
-          reply = result.reply;
-          actions = result.actions;
-        }
-      }
+      const { reply, actions, model, mock } = await executeAgentCommand(ctx, trimmed);
 
       const result: AgentCommandResult = {
         id: nanoid(),

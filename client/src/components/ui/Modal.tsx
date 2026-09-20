@@ -13,11 +13,12 @@ interface ModalProps {
   footer?: React.ReactNode;
   size?: "sm" | "md" | "lg" | "xl" | "full";
   className?: string;
+  "data-testid"?: string;
 }
 
 const sizes = { sm: "max-w-md", md: "max-w-lg", lg: "max-w-2xl", xl: "max-w-4xl", full: "max-w-[96vw]" };
 
-export function Modal({ open, onClose, title, description, children, footer, size = "md", className }: ModalProps) {
+export function Modal({ open, onClose, title, description, children, footer, size = "md", className, "data-testid": testId }: ModalProps) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -29,7 +30,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
     <Portal>
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4" role="dialog" aria-modal="true" data-testid={testId}>
           <motion.div
             className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}

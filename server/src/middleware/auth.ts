@@ -82,7 +82,13 @@ export function requireWrite(req: Request, res: Response, next: NextFunction): v
 
 /** Paths that never require a signed-in user (see docs/API.md "Authentication & users"). */
 const PUBLIC_GET_PATHS = new Set(["/api/health", "/api/auth/status", "/api/auth/me", "/api/connections/oauth/callback"]);
-const PUBLIC_POST_PATHS = new Set(["/api/auth/setup", "/api/auth/login", "/api/auth/access-requests"]);
+const PUBLIC_POST_PATHS = new Set(["/api/auth/setup", "/api/auth/login", "/api/auth/access-requests", "/api/inbound/twilio"]);
+
+/**
+ * Telegram's webhook path carries a per-install secret in the URL (`/api/inbound/telegram/:secret`);
+ * the route itself checks the `X-Telegram-Bot-Api-Secret-Token` header and returns 403 on a mismatch.
+ */
+const INBOUND_TELEGRAM_PATH_RE = /^\/api\/inbound\/telegram\/[^/]+\/?$/;
 
 /** Magic-link and Google SSO endpoints: by definition unauthenticated (they establish the session). */
 const AUTH_SELF_SERVE_PATH_RE = /^\/api\/auth\/(magic|google)\/[^/]+\/?$/;
@@ -109,6 +115,10 @@ export function authGate(req: Request, res: Response, next: NextFunction): void 
     return;
   }
   if ((req.method === "GET" || req.method === "POST") && QUICK_PUBLIC_PATH_RE.test(req.path)) {
+    next();
+    return;
+  }
+  if (req.method === "POST" && INBOUND_TELEGRAM_PATH_RE.test(req.path)) {
     next();
     return;
   }

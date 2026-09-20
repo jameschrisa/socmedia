@@ -182,7 +182,7 @@ export type ClipRequestInput = z.infer<typeof clipRequestSchema>;
 
 /* ---------- Console, agent and quick post ---------- */
 export const logLevelSchema = z.enum(["debug", "info", "warn", "error"]);
-export const logSourceSchema = z.enum(["http", "auth", "scheduler", "publisher", "media", "agent", "quick", "system"]);
+export const logSourceSchema = z.enum(["http", "auth", "scheduler", "publisher", "media", "agent", "quick", "inbound", "system"]);
 export const logQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(2000).default(200),
   level: logLevelSchema.optional(),
@@ -266,3 +266,8 @@ export const transcriptionSettingsSchema = z.object({
   provider: z.enum(["none", "openai", "deepgram"]),
   apiKey: z.string().max(500).optional(),
 });
+export type InboundChannelConfigUpdateInput = z.infer<typeof inboundChannelConfigUpdateSchema>;
+export type InboundBindingCreateInput = z.infer<typeof inboundBindingCreateSchema>;
+export type InboundBindingUpdateInput = z.infer<typeof inboundBindingUpdateSchema>;
+export type InboundTestMessageInput = z.infer<typeof inboundTestMessageSchema>;
+export type TranscriptionSettingsInput = z.infer<typeof transcriptionSettingsSchema>;

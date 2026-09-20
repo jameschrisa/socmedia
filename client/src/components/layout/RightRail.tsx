@@ -1,16 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { BookOpen, CalendarCheck2, Sparkles, HeartHandshake, ExternalLink, Search, Terminal, X } from "lucide-react";
+import { BookOpen, CalendarCheck2, Sparkles, HeartHandshake, ExternalLink, MessageSquare, Search, Terminal, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { PLATFORMS, PLATFORM_SPECS, type Platform } from "@socmedia/shared";
-import { Button, Portal, useAnchorPosition } from "@/components/ui";
+import { Badge, Button, Portal, useAnchorPosition } from "@/components/ui";
 import { useAppStore } from "@/store/appStore";
+import { useAuth } from "@/hooks/useAuth";
+import { useInboundMessages, useInboundStatus } from "@/hooks/useInbound";
+import { CHANNEL_LABEL, CHANNEL_STATE_DOT, CHANNEL_STATE_LABEL, MESSAGE_STATUS_DOT, maskSenderId, mediaCountLabel } from "@/features/settings/inbound/inboundUtils";
 import { useOpenConsole } from "@/features/console/useConsoleNav";
 import { api } from "@/lib/api";
 import { qk } from "@/lib/queryClient";
-import { cn } from "@/lib/utils";
+import { cn, relativeTime } from "@/lib/utils";
 
-type PanelId = "docs" | "scheduler" | "approvals";
+type PanelId = "docs" | "scheduler" | "approvals" | "inbound";
 
 /** Support-facing search over the bundled platform developer docs, reachable outside the console too. */
 function PlatformDocsSearch() {
@@ -87,20 +91,28 @@ function PlatformDocsSearch() {
 export function RightRail() {
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen);
   const openConsole = useOpenConsole();
+  const { can } = useAuth();
   const [open, setOpen] = useState<PanelId | null>(null);
   const railRef = useRef<HTMLElement>(null);
   const PANEL_W = 288;
   const pos = useAnchorPosition(railRef, !!open, { side: "left", offset: 8, width: PANEL_W });
   const health = useQuery({ queryKey: qk.health, queryFn: api.health, staleTime: 60_000, enabled: open === "scheduler" });
+  const inboundStatus = useInboundStatus({ enabled: open === "inbound" });
+  const inboundMessages = useInboundMessages({ limit: 3 }, { enabled: open === "inbound" });
 
   const toggle = (id: PanelId) => setOpen((cur) => (cur === id ? null : id));
 
   const items: { id: PanelId | "ai" | "console"; label: string; icon: React.ReactNode; tone: string; onClick: () => void }[] = [
-    { id: "ai", label: "AI Assistant", icon: <Sparkles className="h-4 w-4" />, tone: "text-brand-600 bg-brand-50 hover:bg-brand-100", onClick: () => { setOpen(null); setAiPanelOpen(true); } },
+    ...(can.write
+      ? [{ id: "ai" as const, label: "AI Assistant", icon: <Sparkles className="h-4 w-4" />, tone: "text-brand-600 bg-brand-50 hover:bg-brand-100", onClick: () => { setOpen(null); setAiPanelOpen(true); } }]
+      : []),
     { id: "console", label: "Console", icon: <Terminal className="h-4 w-4" />, tone: "text-ink-600 bg-ink-50 hover:bg-ink-100", onClick: () => { setOpen(null); openConsole(); } },
     { id: "docs", label: "Documentation", icon: <BookOpen className="h-4 w-4" />, tone: "text-ink-600 bg-ink-50 hover:bg-ink-100", onClick: () => toggle("docs") },
     { id: "scheduler", label: "Scheduler status", icon: <CalendarCheck2 className="h-4 w-4" />, tone: "text-green-600 bg-green-50 hover:bg-green-100", onClick: () => toggle("scheduler") },
     { id: "approvals", label: "Approvals", icon: <HeartHandshake className="h-4 w-4" />, tone: "text-pink-600 bg-pink-50 hover:bg-pink-100", onClick: () => toggle("approvals") },
+    ...(can.manageSettings
+      ? [{ id: "inbound" as const, label: "Inbound", icon: <MessageSquare className="h-4 w-4" />, tone: "text-brand-600 bg-brand-50 hover:bg-brand-100", onClick: () => toggle("inbound") }]
+      : []),
   ];
 
   return (
@@ -160,6 +172,43 @@ export function RightRail() {
                   <h3 className="mt-3 text-sm font-semibold">Approvals</h3>
                   <p className="mt-1 text-sm text-ink-500">Posts marked “needs approval” show on the calendar in amber until a reviewer approves them from the Overview or the post peek.</p>
                   <Button className="mt-4" size="sm" variant="secondary" icon={<Sparkles className="h-4 w-4" />} onClick={() => { setOpen(null); setAiPanelOpen(true); }}>Plan a week with AI</Button>
+                </>
+              )}
+              {open === "inbound" && (
+                <>
+                  <div className="flex h-9 w-9 items-center justify-center bg-brand-50 text-brand-600"><MessageSquare className="h-4 w-4" /></div>
+                  <h3 className="mt-3 text-sm font-semibold">Post from chat</h3>
+                  <ul className="mt-2 space-y-1.5" aria-label="Channels">
+                    {inboundStatus.isLoading && <li className="text-xs text-ink-500">Checking channels…</li>}
+                    {inboundStatus.isError && <li className="text-xs text-ink-500">Could not load channel status.</li>}
+                    {(inboundStatus.data?.channels ?? []).map((c) => (
+                      <li key={c.channel} className="flex flex-wrap items-center gap-x-1.5 text-xs text-ink-600" data-testid={`rail-inbound-chip-${c.channel}`} title={c.detail ?? undefined}>
+                        <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", CHANNEL_STATE_DOT[c.state])} aria-hidden />
+                        {CHANNEL_LABEL[c.channel]} <span className={c.state === "error" ? "text-red-600" : "text-ink-400"}>· {CHANNEL_STATE_LABEL[c.state]}</span>
+                        {c.state === "listening" && c.counts.today > 0 && <span className="text-ink-400">· {c.counts.today} today</span>}
+                        {c.state === "error" && c.detail && <span className="basis-full pl-3 text-[11px] text-ink-500">{c.detail}</span>}
+                      </li>
+                    ))}
+                    {inboundStatus.data && inboundStatus.data.channels.length === 0 && <li className="text-xs text-ink-500">No channels configured yet.</li>}
+                  </ul>
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-ink-500">Last messages</p>
+                  <ul className="mt-1.5 space-y-2" aria-label="Last messages">
+                    {inboundMessages.isLoading && <li className="text-xs text-ink-500">Loading…</li>}
+                    {(inboundMessages.data ?? []).slice(0, 3).map((m) => (
+                      <li key={m.id} className="text-xs text-ink-600">
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="min-w-0 truncate font-medium text-ink-800">{maskSenderId(m.senderId)}</span>
+                          <span className="shrink-0 text-ink-400">{relativeTime(m.receivedAt)}</span>
+                        </span>
+                        <span className="mt-0.5 flex items-center gap-1.5">
+                          <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", MESSAGE_STATUS_DOT[m.status])} aria-hidden />
+                          <span className="min-w-0 truncate text-ink-500">{m.text || mediaCountLabel(m.mediaCount)}</span>
+                        </span>
+                      </li>
+                    ))}
+                    {inboundMessages.data && inboundMessages.data.length === 0 && <li className="text-xs text-ink-500">No messages yet.</li>}
+                  </ul>
+                  <Link className="link mt-3 inline-flex items-center gap-1 text-sm" to="/settings#inbound" onClick={() => setOpen(null)}>Open settings <ExternalLink className="h-3.5 w-3.5" /></Link>
                 </>
               )}
             </motion.div>

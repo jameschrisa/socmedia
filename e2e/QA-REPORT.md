@@ -2,8 +2,8 @@
 
 Run with `npx playwright test` from the repo root. Config: `playwright.config.ts` (root) + helpers/specs under `e2e/`.
 
-- Total: **74 tests**, **73 passing**, **1 skipped (environment-dependent, not a defect — see "Round 4" below)**, **0 failing**. Verified deterministic across multiple full-suite runs, on top of the determinism already established in Rounds 1-3.
-- **Both Round 1 defects and the Round 3 defect are now fixed in the application code** and their tests pass unmodified — see "Round 1 defects: now fixed" and "Round 3 defect: now fixed" below. Round 2 (console, agent, quick post, sign-in video) found no new defects. **Round 4 (X platform, full-page console, terminal, platform docs) found no new hard-failing defects** — one test is conditionally skipped for an environment-dependent reason explained below, and one pre-existing test needed a small update for the intentional addition of a 5th platform (not a defect) — see "Round 4: X platform, full-page console, terminal, platform docs" below.
+- Total: **82 tests**, **81 passing**, **1 skipped (environment-dependent, not a defect — see "Round 4" below)**, **0 failing**. Verified deterministic across multiple full-suite runs, on top of the determinism already established in Rounds 1-4.
+- **Both Round 1 defects and the Round 3 defect are now fixed in the application code** and their tests pass unmodified — see "Round 1 defects: now fixed" and "Round 3 defect: now fixed" below. Round 2 (console, agent, quick post, sign-in video) found no new defects. **Round 4 (X platform, full-page console, terminal, platform docs) found no new hard-failing defects** — one test is conditionally skipped for an environment-dependent reason explained below, and one pre-existing test needed a small update for the intentional addition of a 5th platform (not a defect) — see "Round 4: X platform, full-page console, terminal, platform docs" below. **Round 5 (inbound messaging) found one real defect, fixed live in the app code while this round was in progress** — see "Round 5: inbound messaging" below.
 - Environment: API on `:4100`, web on `:5174` (own Vite dev server instance, HMR disabled for that instance — see "Environment notes" below), isolated `DATA_DIR=./data/e2e` wiped by `globalSetup` on every run. Bootstrap owner: `qa@suprstar.test` / `qa-password-123` (from `ADMIN_EMAIL`/`ADMIN_PASSWORD`), storage state cached at `e2e/.auth/owner.json` after `auth.setup.ts`. As of Round 3, the API's `CLIENT_URL` is also pinned to the e2e web port (`:5174`) — see "Round 3" for why.
 
 ## Pass/fail table
@@ -42,50 +42,58 @@ Order matches an actual `npx playwright test` run (files execute roughly alphabe
 | 28 | console.spec.ts | Documentation rail search finds a YouTube/Google hit for redirect_uri_mismatch | ✅ pass |
 | 29 | console.spec.ts | owner sees a Log files tab listing rotated app logs with viewable content | ✅ pass |
 | 30 | console.spec.ts | a viewer has no Log files tab, is 403'd from the files API, and gets a refusal (not a publish) from a write slash command | ✅ pass |
-| 31 | login.spec.ts | a signed-out visit renders the looping background video with a poster and an mp4 source | ✅ pass |
-| 32 | login.spec.ts | prefers-reduced-motion renders the poster image instead of a video | ✅ pass |
-| 33 | login.spec.ts | both background media files are served as the right content type | ✅ pass |
-| 34 | orgs.spec.ts | Enel Health is seeded on a fresh database and shows its handle everywhere | ✅ pass |
-| 35 | orgs.spec.ts | a new demo organization can be seeded from the larkspur profile with identity overrides | ✅ pass |
-| 36 | quick.spec.ts | Settings -> Quick post from your phone: creating a link shows the reveal dialog and lists the new link | ✅ pass |
-| 37 | quick.spec.ts | the public phone page shows the org and an Instagram chip, and refuses to post without a photo | ✅ pass |
-| 38 | quick.spec.ts | uploading a photo and a caption posts immediately and shows a live link | ✅ pass |
-| 39 | quick.spec.ts | multipart edge cases: missing caption needs a caption, a transcript is used as-is, unknown tokens 404 | ✅ pass |
-| 40 | quick.spec.ts | a deactivated token shows the invalid-link message on the phone page | ✅ pass |
-| 41 | quick.spec.ts | revoking the link removes it from the table | ✅ pass |
-| 42 | signin.spec.ts | shows the heading, the magic-link form, no Google button, the domains footer and a Request access link | ✅ pass |
-| 43 | signin.spec.ts | "Use a password instead" reveals the password form (Email + Password) | ✅ pass |
-| 44 | signin.spec.ts | ?auth=error&reason=expired shows the expired notice and the query string is stripped from the URL | ✅ pass |
-| 45 | signin.spec.ts | nurse@enelhealth.com signs in via a magic link, is auto-provisioned editor scoped to Enel Health, and the link is single-use | ✅ pass (was ❌ Defect 3 in Round 3 — now fixed; the `expect.soft` org-switcher/current-org assertion left in the test now genuinely holds) |
-| 46 | signin.spec.ts | someone@gmail.com gets an inline 403 naming the allowed domains | ✅ pass |
-| 47 | signin.spec.ts | API: a disallowed domain gets 403 reason domain; an invited user (any domain) gets 200 | ✅ pass |
-| 48 | signin.spec.ts | a deactivated user's magic-link request is refused with reason inactive | ✅ pass |
-| 49 | smoke.spec.ts | API health and seeded organizations (authenticated) | ✅ pass (updated in Round 4 — see below) |
-| 50 | smoke.spec.ts | navigates between primary tabs | ✅ pass |
-| 51 | smoke.spec.ts | switches organization and scopes data | ✅ pass |
-| 52 | smoke.spec.ts | social profile cards flip to reveal configuration | ✅ pass |
-| 53 | smoke.spec.ts | connection test returns a result in sandbox mode | ✅ pass |
-| 54 | smoke.spec.ts | calendar renders the month grid with scheduled posts and a week view | ✅ pass |
-| 55 | smoke.spec.ts | new post opens the composer with platform targets and time scroller | ✅ pass |
-| 56 | smoke.spec.ts | AI assistant generates captions (mock or live) | ✅ pass |
-| 57 | smoke.spec.ts | analytics page shows KPIs after sync | ✅ pass |
-| 58 | terminal.spec.ts | owner: the Terminal tab shows the host line with the shell path and an xterm container | ✅ pass |
-| 59 | terminal.spec.ts | typing 'echo suprstar-e2e' into the xterm produces it in the rendered output | ⚠️ **skipped** — this host's `node-pty` silently falls back to a plain-pipe shell per session even though `GET /api/terminal/status` reports `pty: true`; see "Round 4" below |
-| 60 | terminal.spec.ts | Disconnect and Restart shell work | ✅ pass |
-| 61 | terminal.spec.ts | a viewer sees the disabled explanation and GET /api/terminal/status reports enabled: false with a reason | ✅ pass |
-| 62 | terminal.spec.ts | an unauthenticated WebSocket to /api/terminal is refused | ✅ pass |
-| 63 | users.spec.ts | owner invited an editor and a viewer with temporary passwords shown | ✅ pass |
-| 64 | users.spec.ts | invited users appear in the Users & access table with their roles | ✅ pass |
-| 65 | users.spec.ts | viewer cannot see New post and the API rejects a viewer's post creation with 403 | ✅ pass |
-| 66 | users.spec.ts | editor can save a draft post from the composer but has no Users section in Settings | ✅ pass (was ❌ Defect 2 in Round 1 — now fixed) |
-| 67 | video.spec.ts | shows the upload size hint and refuses a video over 5:00 client-side | ✅ pass |
-| 68 | video.spec.ts | uploads a video, shows its duration, and trims a vertical clip via the scissors editor | ✅ pass |
-| 69 | x.spec.ts | Social Profiles shows an X card per org, among all 5 platform groups | ✅ pass |
-| 70 | x.spec.ts | Connect on X in sandbox mode marks it connected with a handle, and the authorize URL uses PKCE (S256) | ✅ pass |
-| 71 | x.spec.ts | composer: an X-only 281-char caption trips the 280 limit and blocks Publish now; trimming to 280 clears it | ✅ pass |
-| 72 | x.spec.ts | publish now on X succeeds and the job's URL is on x.com (API) | ✅ pass |
-| 73 | x.spec.ts | the calendar platform filter includes X | ✅ pass |
-| 74 | x.spec.ts | Analytics renders an X series in the Engagement-by-platform chart after syncing a connected X account | ✅ pass |
+| 31 | inbound.spec.ts | wizard: set up the test channel, link qa-phone, send a test message end to end | ✅ pass (was ❌ Defect 4 in Round 5 — now fixed; the `expect.soft` verification-code assertion left in the test now genuinely holds) |
+| 32 | inbound.spec.ts | Twilio wizard: credentials save, webhook URL, listening chip, masked on reopen | ✅ pass |
+| 33 | inbound.spec.ts | Twilio webhook: valid signature accepted, wrong signature rejected, duplicate MessageSid ignored | ✅ pass |
+| 34 | inbound.spec.ts | confirm-before-posting: awaiting confirmation, a YES publishes it, Discard ignores another | ✅ pass |
+| 35 | inbound.spec.ts | slash commands from a linked sender: /status and /whoami run through the agent | ✅ pass |
+| 36 | inbound.spec.ts | voice transcription: status reports unconfigured, then configured with a masked key once saved, then back off | ✅ pass |
+| 37 | inbound.spec.ts | live status: the right-rail popover and the Console activity log both reflect inbound activity | ✅ pass |
+| 38 | inbound.spec.ts | a viewer gets 403 from GET /api/inbound/status and sees no Post from chat section | ✅ pass |
+| 39 | login.spec.ts | a signed-out visit renders the looping background video with a poster and an mp4 source | ✅ pass |
+| 40 | login.spec.ts | prefers-reduced-motion renders the poster image instead of a video | ✅ pass |
+| 41 | login.spec.ts | both background media files are served as the right content type | ✅ pass |
+| 42 | orgs.spec.ts | Enel Health is seeded on a fresh database and shows its handle everywhere | ✅ pass |
+| 43 | orgs.spec.ts | a new demo organization can be seeded from the larkspur profile with identity overrides | ✅ pass |
+| 44 | quick.spec.ts | Settings -> Quick post from your phone: creating a link shows the reveal dialog and lists the new link | ✅ pass |
+| 45 | quick.spec.ts | the public phone page shows the org and an Instagram chip, and refuses to post without a photo | ✅ pass |
+| 46 | quick.spec.ts | uploading a photo and a caption posts immediately and shows a live link | ✅ pass |
+| 47 | quick.spec.ts | multipart edge cases: missing caption needs a caption, a transcript is used as-is, unknown tokens 404 | ✅ pass |
+| 48 | quick.spec.ts | a deactivated token shows the invalid-link message on the phone page | ✅ pass |
+| 49 | quick.spec.ts | revoking the link removes it from the table | ✅ pass |
+| 50 | signin.spec.ts | shows the heading, the magic-link form, no Google button, the domains footer and a Request access link | ✅ pass |
+| 51 | signin.spec.ts | "Use a password instead" reveals the password form (Email + Password) | ✅ pass |
+| 52 | signin.spec.ts | ?auth=error&reason=expired shows the expired notice and the query string is stripped from the URL | ✅ pass |
+| 53 | signin.spec.ts | nurse@enelhealth.com signs in via a magic link, is auto-provisioned editor scoped to Enel Health, and the link is single-use | ✅ pass (was ❌ Defect 3 in Round 3 — now fixed; the `expect.soft` org-switcher/current-org assertion left in the test now genuinely holds) |
+| 54 | signin.spec.ts | someone@gmail.com gets an inline 403 naming the allowed domains | ✅ pass |
+| 55 | signin.spec.ts | API: a disallowed domain gets 403 reason domain; an invited user (any domain) gets 200 | ✅ pass |
+| 56 | signin.spec.ts | a deactivated user's magic-link request is refused with reason inactive | ✅ pass |
+| 57 | smoke.spec.ts | API health and seeded organizations (authenticated) | ✅ pass (updated in Round 4 — see below) |
+| 58 | smoke.spec.ts | navigates between primary tabs | ✅ pass |
+| 59 | smoke.spec.ts | switches organization and scopes data | ✅ pass |
+| 60 | smoke.spec.ts | social profile cards flip to reveal configuration | ✅ pass |
+| 61 | smoke.spec.ts | connection test returns a result in sandbox mode | ✅ pass |
+| 62 | smoke.spec.ts | calendar renders the month grid with scheduled posts and a week view | ✅ pass |
+| 63 | smoke.spec.ts | new post opens the composer with platform targets and time scroller | ✅ pass |
+| 64 | smoke.spec.ts | AI assistant generates captions (mock or live) | ✅ pass |
+| 65 | smoke.spec.ts | analytics page shows KPIs after sync | ✅ pass |
+| 66 | terminal.spec.ts | owner: the Terminal tab shows the host line with the shell path and an xterm container | ✅ pass |
+| 67 | terminal.spec.ts | typing 'echo suprstar-e2e' into the xterm produces it in the rendered output | ⚠️ **skipped** — this host's `node-pty` silently falls back to a plain-pipe shell per session even though `GET /api/terminal/status` reports `pty: true`; see "Round 4" below |
+| 68 | terminal.spec.ts | Disconnect and Restart shell work | ✅ pass |
+| 69 | terminal.spec.ts | a viewer sees the disabled explanation and GET /api/terminal/status reports enabled: false with a reason | ✅ pass |
+| 70 | terminal.spec.ts | an unauthenticated WebSocket to /api/terminal is refused | ✅ pass |
+| 71 | users.spec.ts | owner invited an editor and a viewer with temporary passwords shown | ✅ pass |
+| 72 | users.spec.ts | invited users appear in the Users & access table with their roles | ✅ pass |
+| 73 | users.spec.ts | viewer cannot see New post and the API rejects a viewer's post creation with 403 | ✅ pass |
+| 74 | users.spec.ts | editor can save a draft post from the composer but has no Users section in Settings | ✅ pass (was ❌ Defect 2 in Round 1 — now fixed) |
+| 75 | video.spec.ts | shows the upload size hint and refuses a video over 5:00 client-side | ✅ pass |
+| 76 | video.spec.ts | uploads a video, shows its duration, and trims a vertical clip via the scissors editor | ✅ pass |
+| 77 | x.spec.ts | Social Profiles shows an X card per org, among all 5 platform groups | ✅ pass |
+| 78 | x.spec.ts | Connect on X in sandbox mode marks it connected with a handle, and the authorize URL uses PKCE (S256) | ✅ pass |
+| 79 | x.spec.ts | composer: an X-only 281-char caption trips the 280 limit and blocks Publish now; trimming to 280 clears it | ✅ pass |
+| 80 | x.spec.ts | publish now on X succeeds and the job's URL is on x.com (API) | ✅ pass |
+| 81 | x.spec.ts | the calendar platform filter includes X | ✅ pass |
+| 82 | x.spec.ts | Analytics renders an X series in the Engagement-by-platform chart after syncing a connected X account | ✅ pass |
 
 ## Round 1 defects: now fixed
 
@@ -343,6 +351,107 @@ with PKCE S256, the 280-character composer limit and its X preview, a real sandb
    that; a more honest `pty` status would come from actually probing pty allocation (spawn-and-kill) rather
    than only checking that the module imported.
 
+## Round 5: inbound messaging
+
+Scope: "post from chat" — Settings → "Post from chat" (`InboundSection`, owner/admin-only), the "Set up
+a channel" wizard (`InboundWizard`, all five steps: channel → credentials → link a sender → send a test
+→ done) for the test channel and for Twilio credentials, the inbound monitor (`InboundMonitor`, live via
+SSE) and bindings table (`InboundBindingsTable`), the transcription provider/key row, the right-rail
+`rail-inbound` popover, and the server side: `PUT /api/inbound/channels/:channel`, `POST
+/api/inbound/bindings` (+ `PATCH .../:id`), `POST /api/inbound/test`, the public `POST
+/api/inbound/twilio` webhook (HMAC-SHA1 signature verification, idempotent on `MessageSid`), the
+confirm-before-posting flow (`awaiting_confirmation` → `yes`/Discard), slash commands routed through the
+same agent as the Console, and role gating (`GET /api/inbound/status` admin+, no "Post from chat" section
+or `rail-inbound` button for a viewer). Read against `docs/API.md`'s "Inbound messaging" section and the
+corresponding client/server code before writing tests. New spec: `e2e/inbound.spec.ts` (8 tests).
+
+**Test-harness fix (not an app defect):** `playwright.config.ts`'s API `webServer` command did not set
+`PUBLIC_BASE_URL`, so `twilioWebhookUrl()` (`server/src/inbound/twilio.ts`) fell back to `CLIENT_URL`
+(the e2e *web* server, `:5174`) to build both the webhook URL it shows in the UI and the URL its HMAC
+signature check is computed against — one origin removed from the API port (`:4100`) the webhook route
+actually lives on and the one a real Twilio signature would be validated against. Cosmetically harmless
+(the path suffix still matched), but it meant a test signing a request against the API's own origin
+(the only sane thing to sign against, and the same origin `docs/API.md` describes for live-mode platform
+adapters) would have needed to duplicate the `CLIENT_URL` guess instead of asserting against the real,
+intended base. Fixed by adding `PUBLIC_BASE_URL=${API_BASE_URL}` to that `webServer` command
+(`playwright.config.ts`, API `webServer` entry, same pattern as Round 3's `CLIENT_URL` fix) so the
+signed webhook URL is pinned, deterministic, and correct.
+
+**Result: one real defect found, fixed live in the application code while this round was in progress**
+(see "Defect 4" below — a moving target while this round was being written; a background process was
+actively developing this exact feature in `client/src/features/settings/inbound/*` for the length of
+this round, similar in kind to the "Concurrent development" note from Round 2 but touching the feature
+under test directly this time). Everything else specified matched documented behavior across all 8
+tests: the full test-channel wizard flow (channel → auto-configured credentials → link a sender with a
+6-digit code → "Mark as linked" → send a test with a real generated image → timeline `received` →
+`published` → `reply sent` → at least one live publish link → a system reply → Done) with the monitor
+and bindings table reflecting it afterward; the Twilio credentials step (save, webhook URL, `Listening`
+chip, masked auth token on reopen); the public Twilio webhook (valid signature accepted with `200
+<Response/>`, wrong signature 403, a duplicate `MessageSid` re-delivery not double-processed); the
+confirm-before-posting flow end to end (awaiting confirmation with "Reply YES..." → a `yes` publishing
+the original message → a second message discarded from the monitor UI); slash commands (`/status`,
+`/whoami`) routed through the same agent as the Console, replying as `agent`; the transcription row
+(status starts `configured: false`, flips to `true` with a masked key on save, back to `false` when the
+provider is set back to `none`); the right-rail `rail-inbound` popover and the Console's Activity log
+`inbound`-source filter both reflecting live inbound activity; and the viewer role guard (403 from `GET
+/api/inbound/status`, no "Post from chat" section, no `rail-inbound` button at all).
+
+## Defect 4 (Round 5, fixed) — A freshly created binding's one-time verification code disappears almost immediately, before a user could realistically read it out to send it from their phone
+
+**Severity:** Medium (the wizard step exists specifically to show this code so someone can text it back;
+if it's gone before it's readable, the "link a sender" step of the whole feature is unusable through the
+UI, though the binding itself is still created correctly and can still be verified other ways, e.g. via
+"Mark as linked" on the test channel or by an admin `PATCH`).
+
+**Where:** `client/src/features/settings/inbound/InboundWizard.tsx`, the `useEffect` that merges the
+polled bindings list into `liveBinding` (at the time this was filed, around line 373):
+
+```ts
+useEffect(() => {
+  if (!binding) return;
+  const found = bindingsQuery.data?.find((b) => b.id === binding.id);
+  if (found) setLiveBinding(found);
+}, [bindingsQuery.data, binding?.id]);
+```
+
+**Repro steps (confirmed twice, deterministically, via a temporary debug spec before this was filed):**
+1. Open Settings → "Post from chat" → "Set up a channel" → the test channel → Next past credentials →
+   fill a sender name/label → click "Link sender".
+2. Read `POST /api/inbound/bindings`'s own response: it correctly includes a 6-digit `verificationCode`.
+3. Look at the wizard's own "Verification code" panel (`binding-code`) immediately afterward.
+
+**Expected:** The 6-digit code from the creation response stays visible until the binding is verified
+(per `docs/API.md`: `verificationCode` is "returned only once, at creation" specifically so the wizard
+can display it).
+
+**Actual:** The code area showed the empty placeholder (`······`) essentially immediately, not the real
+digits — confirmed via a direct `textContent` read right after the create call resolved, not a timing
+fluke caught mid-animation. **Root cause:** `createBinding`'s `onSuccess` correctly seeds both `binding`
+and `liveBinding` from the create response (which has the code). But `bindingsQuery` (`GET
+/api/inbound/bindings`, used to detect verification since the create response can't be re-polled) is
+`enabled: !!binding` and starts fetching the instant `binding` is set — and that list endpoint
+*deliberately* never includes `verificationCode` (`toPublicBinding(b, false)` in both `GET /bindings`
+handlers, `server/src/routes/inbound.ts`, exactly as `docs/API.md` documents: "never includes
+`verificationCode`"). The merge effect above replaces `liveBinding` wholesale with whatever that poll
+returns the moment it resolves (which, on localhost, is well under a second), so `displayBinding =
+liveBinding ?? binding` loses access to the one field that was only ever present in the original
+creation response — even though the binding is still `pending` and nothing has actually verified it yet.
+
+**Test:** `e2e/inbound.spec.ts` → "wizard: set up the test channel, link qa-phone, send a test message
+end to end", `expect.soft(code, ...).toHaveText(/^\d{6}$/)` right after "Link sender" — soft specifically
+so a regression here is reported without taking down every other assertion in the same end-to-end flow
+(mirroring Round 3's Defect 3 precedent for the same situation: a confirmed-real defect this task's scope
+doesn't allow fixing, encountered partway through an otherwise-useful long-form test).
+
+**Now fixed:** re-reading the same file partway through this round (the concurrent development mentioned
+above) showed both places that populate `liveBinding` — the bindings-poll merge effect and
+`markAsLinked`'s own `onSuccess` — now explicitly preserve the original code:
+`setLiveBinding({ ...found, verificationCode: found.verificationCode ?? binding.verificationCode })`.
+Re-running the test unmodified (still `expect.soft`, left in place as a regression guard rather than
+reverted to a plain `expect`) now shows a genuine `123456`-shaped code staying on screen instead of
+`······`. Left here for the historical record; the pass/fail table above reflects the current, passing
+result.
+
 ## Notes / minor observations (not blocking, not filed as defects)
 
 - **Login page fields aren't associated for `getByLabel` in a couple of spots that matter for testability:** the composer's Title/Caption fields (`client/src/features/studio/ComposerDrawer.tsx`) render their `<label>` via the shared `Field` component without passing `htmlFor`/`id`, so the label has no programmatic association with the input (not even implicit nesting). Not a functional bug — sighted users see the label fine — but it's an accessibility gap (screen readers won't associate the label with the field) and it forced the e2e suite to fall back to `getByPlaceholder(...)` for those two fields instead of `getByLabel(...)`.
@@ -351,10 +460,11 @@ with PKCE S256, the 280-character composer limit and its X preview, a real sandb
 - **The default organization ("F3i") ships with all 4 connections disconnected**, so `smoke.spec.ts`'s "analytics page shows KPIs after sync" test now explicitly switches to "Larkspur Health" (pre-connected demo data) before syncing — syncing disconnected sandbox accounts legitimately produces `{ synced: 0 }` and no KPI text, which isn't a bug, just not what that test needs.
 - **The 5:00 overlong-upload rejection is exercised for real**, not skipped: a 302s fixture renders in well under a second (`ffmpeg -f lavfi -i testsrc=size=64x64:rate=8 ... -t 302 ...`, ~0.2s locally), so there was no need to fall back to only asserting the "Videos up to 5:00" hint text.
 - **Concurrent development on the same working tree:** another process was actively editing `client/src` (and, briefly, seed data) while this suite ran against its own dedicated dev server on `:5174`. Because both dev servers watch the same source tree, unrelated saves were triggering HMR pushes into this suite's browser sessions and intermittently aborting in-flight requests mid-test. Disabled HMR for the e2e Vite instance only (`client/vite.config.ts`, gated on the `VITE_API_PROXY` env var that only this suite's `webServer` sets — the other dev server on `:5173` is unaffected) so each test navigation still picks up whatever's currently on disk, but an in-progress test no longer gets yanked mid-flight by someone else's save.
+- **Round 5's concurrent development was more extensive than earlier rounds':** the entire `client/src/features/settings/inbound/` directory was untracked (`git status` shows `??`, not a modified-tracked-file diff) and visibly being polished throughout the round — copy tweaks, new `inboundUtils.ts` helpers (`senderDisplayName`, `mediaCountLabel`, `timelineMessageIsRedundant`, a client-side `isChannelConfigured`), a rewritten `canNext`/`saved` gate in `InboundWizard.tsx`'s credentials step, and the `verificationCode`-preserving fix behind Defect 4 above, among other changes — right up through the last full-suite run before this report was finalized. HMR being off for this instance meant no single test got yanked mid-navigation by it, but two things did require accounting for a moving target rather than a static one: (1) the `getByLabel("Auth token")` locator started matching both the input and its "Show auth token" reveal-button (`aria-label="Show auth token"` substring-matches "Auth token" case-insensitively) once the reveal button was refactored into a shared `RevealButton` component — fixed with `{ exact: true }`; (2) the timeline's status labels became genuinely capitalized ("Received", "Published", "Reply sent" via a new `TIMELINE_STATUS_LABEL` map) partway through writing the wizard's end-to-end test — fixed by matching case-insensitively (`/received/i` etc.) rather than depending on a casing convention the app code was still settling on.
 
 ## Files
 
-- `playwright.config.ts` — ports 4100/5174, single worker, `setup` project (owner login) + `chromium` project depending on it, `globalSetup` wipes `data/e2e` and renders the video and photo fixtures. Round 3 added `CLIENT_URL=${WEB_BASE_URL}` to the API `webServer` command (see "Round 3" above).
+- `playwright.config.ts` — ports 4100/5174, single worker, `setup` project (owner login) + `chromium` project depending on it, `globalSetup` wipes `data/e2e` and renders the video and photo fixtures. Round 3 added `CLIENT_URL=${WEB_BASE_URL}` to the API `webServer` command (see "Round 3" above). Round 5 added `PUBLIC_BASE_URL=${API_BASE_URL}` to the same command so the Twilio webhook URL (and the signature `e2e/inbound.spec.ts` computes against it) is pinned to the API's own origin (see "Round 5" above).
 - `e2e/global-setup.ts` — also generates `e2e/fixtures/quick-photo.jpg` (a real 1080x1080 JPEG via `sharp`, resolved from the `server` workspace with `createRequire` so it works regardless of npm's hoisting) for the quick-post upload test.
 - `e2e/constants.ts` — added `QUICK_PHOTO_FIXTURE`.
 - `e2e/helpers.ts` — added `switchOrg(page, orgName)`, used by `quick.spec.ts` to select the pre-connected "Larkspur Health" demo org. Round 3 added `signInWithPassword(page, email, password)`, the shared "reveal the password form via 'Use a password instead', then sign in" helper used by `auth.spec.ts` and the new specs.
@@ -366,5 +476,6 @@ with PKCE S256, the 280-character composer limit and its X preview, a real sandb
 - `e2e/console.spec.ts` — Round 2, **fully rewritten in Round 4** for the Console's move from a drawer to a full page at `/console`: `rail-console`/`rail-console-mobile` navigation, Ctrl+\` open/close, `console-close`, the `console-split-handle` (keyboard-resizable, persisted `consoleSplit`), the Agent pane (`agent-scroll`, `agent-empty`, slash commands including the new `/docs` and `/diagnose`) now separate from the Activity log pane (`console-scroll`, filters, streaming, Log files), plus a Documentation-rail platform-docs search test.
 - `e2e/terminal.spec.ts` — **new in Round 4**: the OS terminal tab (status line, `xterm-container`), a real typed-echo round trip through the rendered `.xterm-rows` (with a documented, evidence-based skip condition for the plain-pipe fallback — see "Round 4" above), Disconnect/Restart, a viewer's disabled explanation, and an unauthenticated WebSocket rejection (via `ws`, resolved from the `server` workspace with `createRequire`, the same trick `global-setup.ts` uses for `sharp`).
 - `e2e/x.spec.ts` — **new in Round 4**: X as the fifth platform across Social Profiles, sandbox Connect (PKCE `code_challenge_method=S256`), the composer's 280-character limit and `preview-x`, a real sandbox publish job with an `x.com` URL, the calendar platform filter, and an Analytics series after sync.
+- `e2e/inbound.spec.ts` — **new in Round 5**: the full "post from chat" feature — the setup wizard for the test channel and Twilio credentials, the public Twilio webhook (real HMAC-SHA1 signature verification, wrong-signature 403, idempotent duplicate `MessageSid`), confirm-before-posting (stage → `yes` → publish, and a UI Discard), slash commands via the shared agent, the transcription provider/key row, the right-rail `rail-inbound` popover, the Console's `inbound`-source Activity log filter, and the viewer role guard. Deliberately not `mode: "serial"` (see the comment at the top of the file) so the one test carrying an `expect.soft`-guarded regression check (Defect 4, now fixed) can't skip the rest of the file's coverage if it ever fails again.
 - `e2e/fixtures/*.mp4`, `e2e/fixtures/quick-photo.jpg` — generated, gitignored.
 - `client/vite.config.ts` — reads `VITE_API_PROXY` for the dev proxy target and disables HMR only for that instance.

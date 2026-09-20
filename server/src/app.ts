@@ -14,6 +14,7 @@ import { analyticsRouter } from "./routes/analytics";
 import { authRouter } from "./routes/auth";
 import { connectionsOAuthCallback, connectionsRouter } from "./routes/connections";
 import { healthRouter } from "./routes/health";
+import { inboundRouter } from "./routes/inbound";
 import { jobsRouter } from "./routes/jobs";
 import { logsRouter } from "./routes/logs";
 import { mediaRouter } from "./routes/media";
@@ -47,6 +48,9 @@ export function createApp(db: Db): express.Express {
   app.use("/api/settings", requireRole("admin"), settingsRouter(db));
   app.use("/api", orgsRouter(db));
   app.use("/api/logs", logsRouter(db));
+  // Not org-scoped: carries its own public webhooks (Twilio/Telegram) plus per-route role/org checks
+  // (see routes/inbound.ts) because admins can see every organization's bindings/messages.
+  app.use("/api/inbound", inboundRouter(db));
   app.use("/api/terminal", terminalRouter(db));
   app.use("/api/docs/platforms", platformDocsRouter(db));
 

@@ -83,7 +83,7 @@ test.describe("suprstar smoke", () => {
 
   test("AI assistant generates captions (mock or live)", async ({ page }) => {
     await gotoApp(page);
-    await page.getByTestId("ai-toggle").click();
+    await page.getByTestId("rail-ai").click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     const brief = dialog.getByRole("textbox").first();

@@ -38,7 +38,7 @@ test.describe("users & roles", () => {
     try {
       await gotoApp(page);
       await expect(page.getByTestId("new-post")).not.toBeVisible();
-      await expect(page.getByTestId("ai-toggle")).not.toBeVisible();
+      await expect(page.getByTestId("rail-ai")).not.toBeVisible();
 
       const orgsRes = await context.request.get("/api/orgs");
       expect(orgsRes.ok()).toBeTruthy();

@@ -9,6 +9,9 @@ import type {
   AccessPolicy, AccessRequest, AccessRequestStatus, MagicLinkRequestResult,
   MagicLinkRequestInput, AccessRequestCreateInput, AccessRequestApproveInput,
   TerminalStatus, PlatformDocHit,
+  InboundChannel, InboundChannelConfig, InboundChannelConfigUpdateInput, InboundBinding, InboundBindingCreateInput,
+  InboundBindingUpdateInput, InboundMessage, InboundMessageStatus, InboundStatus, InboundTestMessageInput,
+  InboundTranscriptionSettings, TranscriptionSettingsInput,
 } from "@socmedia/shared";
 import { useAppStore } from "@/store/appStore";
 
@@ -250,6 +253,43 @@ export const api = {
     removeToken: (id: string) => request<void>(`/quick/tokens/${id}`, { method: "DELETE" }),
     info: (token: string) => request<QuickPostPublicInfo>(`/quick/${token}`, {}, { org: false }),
     post: (token: string, form: FormData) => request<QuickPostResult>(`/quick/${token}`, { method: "POST", body: form }, { org: false }),
+  },
+
+  inbound: {
+    status: () => request<InboundStatus>("/inbound/status"),
+    channels: {
+      list: () => request<InboundChannelConfig[]>("/inbound/channels"),
+      save: (channel: InboundChannel, input: InboundChannelConfigUpdateInput) =>
+        request<InboundChannelConfig>(`/inbound/channels/${channel}`, { method: "PUT", body: json(input) }),
+      remove: (channel: InboundChannel) => request<void>(`/inbound/channels/${channel}`, { method: "DELETE" }),
+      registerTelegram: () => request<InboundChannelConfig>("/inbound/channels/telegram/register", { method: "POST" }),
+    },
+    bindings: {
+      list: () => request<InboundBinding[]>("/inbound/bindings"),
+      create: (input: InboundBindingCreateInput) => request<InboundBinding>("/inbound/bindings", { method: "POST", body: json(input) }),
+      update: (id: string, input: InboundBindingUpdateInput) => request<InboundBinding>(`/inbound/bindings/${id}`, { method: "PATCH", body: json(input) }),
+      remove: (id: string) => request<void>(`/inbound/bindings/${id}`, { method: "DELETE" }),
+    },
+    messages: {
+      list: (params: { limit?: number; status?: InboundMessageStatus; channel?: InboundChannel } = {}) => {
+        const q = new URLSearchParams();
+        if (params.limit) q.set("limit", String(params.limit));
+        if (params.status) q.set("status", params.status);
+        if (params.channel) q.set("channel", params.channel);
+        const qs = q.toString();
+        return request<InboundMessage[]>(`/inbound/messages${qs ? `?${qs}` : ""}`);
+      },
+      get: (id: string) => request<InboundMessage>(`/inbound/messages/${id}`),
+      confirm: (id: string) => request<InboundMessage>(`/inbound/messages/${id}/confirm`, { method: "POST" }),
+      discard: (id: string) => request<InboundMessage>(`/inbound/messages/${id}/discard`, { method: "POST" }),
+    },
+    transcription: {
+      get: () => request<InboundTranscriptionSettings>("/inbound/transcription"),
+      update: (input: TranscriptionSettingsInput) => request<InboundTranscriptionSettings>("/inbound/transcription", { method: "PUT", body: json(input) }),
+    },
+    test: (input: InboundTestMessageInput) => request<InboundMessage>("/inbound/test", { method: "POST", body: json(input) }),
+    /** Same-origin SSE URL; the browser can't attach the X-Org-Id header to EventSource requests. */
+    streamUrl: () => `${BASE}/inbound/stream`,
   },
 };
 

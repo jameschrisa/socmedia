@@ -25,6 +25,7 @@ const SOURCE_OPTIONS: { value: LogSource | ""; label: string }[] = [
   { value: "media", label: "media" },
   { value: "agent", label: "agent" },
   { value: "quick", label: "quick" },
+  { value: "inbound", label: "inbound" },
   { value: "system", label: "system" },
 ];
 

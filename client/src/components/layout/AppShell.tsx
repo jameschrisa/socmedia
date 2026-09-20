@@ -6,6 +6,7 @@ import { RightRail } from "./RightRail";
 import { useOrgs } from "@/hooks/useOrg";
 import { useCardFocus } from "@/hooks/useCardFocus";
 import { useThemeMode } from "@/hooks/useThemeMode";
+import { useInboundToasts } from "@/hooks/useInboundToasts";
 import { AiPanel } from "@/features/ai/AiPanel";
 import { ComposerDrawer } from "@/features/studio/ComposerDrawer";
 import { useOpenConsole } from "@/features/console/useConsoleNav";
@@ -19,6 +20,7 @@ export function AppShell() {
   useCardFocus("main");
   const location = useLocation();
   const mode = useThemeMode();
+  useInboundToasts();
 
   // Ctrl+` opens the full-page console from anywhere in the app; the console page has its own
   // handler that closes it back to whatever route was open here.

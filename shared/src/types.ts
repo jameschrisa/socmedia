@@ -332,7 +332,7 @@ export interface ClipRequest {
 
 /* ---------- Activity log / console ---------- */
 export type LogLevel = "debug" | "info" | "warn" | "error";
-export type LogSource = "http" | "auth" | "scheduler" | "publisher" | "media" | "agent" | "quick" | "system";
+export type LogSource = "http" | "auth" | "scheduler" | "publisher" | "media" | "agent" | "quick" | "inbound" | "system";
 
 export interface LogEntry {
   id: string;
@@ -605,3 +605,10 @@ export interface InboundStatus {
 export type InboundEvent =
   | { type: "message"; message: InboundMessage }
   | { type: "status"; status: InboundStatus };
+
+/** GET/PUT /api/inbound/transcription: which provider (if any) transcribes voice notes. apiKey is masked on read. */
+export interface InboundTranscriptionSettings {
+  provider: "none" | "openai" | "deepgram";
+  configured: boolean;
+  apiKey?: string | null;
+}

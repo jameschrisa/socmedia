@@ -236,6 +236,60 @@ export function runIncrementalMigrations(db: Db): void {
     `);
   }
 
+  if (!hasTable(db, "inbound_bindings")) {
+    db.exec(`
+      CREATE TABLE inbound_bindings (
+        id TEXT PRIMARY KEY,
+        channel TEXT NOT NULL,
+        senderId TEXT NOT NULL,
+        senderLabel TEXT,
+        userId TEXT NOT NULL,
+        orgId TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        connectionIds TEXT NOT NULL DEFAULT '[]',
+        publishMode TEXT NOT NULL DEFAULT 'all',
+        confirmBeforePosting INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'pending',
+        verificationCode TEXT,
+        createdAt TEXT NOT NULL,
+        verifiedAt TEXT,
+        lastMessageAt TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_inbound_bindings_channel_sender ON inbound_bindings(channel, senderId);
+      CREATE INDEX IF NOT EXISTS idx_inbound_bindings_org ON inbound_bindings(orgId);
+    `);
+  }
+
+  if (!hasTable(db, "inbound_messages")) {
+    db.exec(`
+      CREATE TABLE inbound_messages (
+        id TEXT PRIMARY KEY,
+        channel TEXT NOT NULL,
+        providerMessageId TEXT NOT NULL,
+        senderId TEXT NOT NULL,
+        bindingId TEXT,
+        orgId TEXT,
+        userId TEXT,
+        text TEXT NOT NULL DEFAULT '',
+        mediaCount INTEGER NOT NULL DEFAULT 0,
+        hasAudio INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'received',
+        postId TEXT,
+        mediaIds TEXT NOT NULL DEFAULT '[]',
+        links TEXT NOT NULL DEFAULT '[]',
+        reply TEXT,
+        repliedBy TEXT,
+        error TEXT,
+        timeline TEXT NOT NULL DEFAULT '[]',
+        receivedAt TEXT NOT NULL,
+        completedAt TEXT,
+        UNIQUE(channel, providerMessageId)
+      );
+      CREATE INDEX IF NOT EXISTS idx_inbound_messages_org ON inbound_messages(orgId);
+      CREATE INDEX IF NOT EXISTS idx_inbound_messages_sender ON inbound_messages(channel, senderId);
+      CREATE INDEX IF NOT EXISTS idx_inbound_messages_received ON inbound_messages(receivedAt);
+    `);
+  }
+
   // Multiple accounts per platform: drop the old UNIQUE(orgId, platform) constraint by rebuilding the table.
   const ddl = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'connections'").get() as { sql: string } | undefined;
   if (ddl && /UNIQUE\s*\(\s*orgId\s*,\s*platform\s*\)/i.test(ddl.sql)) {

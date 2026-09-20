@@ -15,6 +15,7 @@ import { UsersCard } from "./UsersCard";
 import { SignInPolicyCard } from "./SignInPolicyCard";
 import { AccessRequestsCard } from "./AccessRequestsCard";
 import { QuickPostSection } from "./QuickPostSection";
+import { InboundSection } from "./inbound/InboundSection";
 
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : "Something went wrong";
@@ -172,6 +173,13 @@ export function SettingsPage() {
         <section className="space-y-3">
           <SectionTitle>Quick post from your phone</SectionTitle>
           <QuickPostSection />
+        </section>
+      )}
+
+      {can.manageSettings && (
+        <section id="inbound" className="space-y-3">
+          <SectionTitle>Post from chat</SectionTitle>
+          <InboundSection />
         </section>
       )}
 
