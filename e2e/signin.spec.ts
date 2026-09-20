@@ -15,7 +15,7 @@ test.describe("sign-in page (signed out)", () => {
     await expect(page.getByRole("button", { name: "Email me a sign-in link" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Continue with Google" })).toHaveCount(0);
 
-    await expect(page.getByText("Sign-in is limited to @enelhealth.com and @f3insights.com")).toBeVisible();
+    await expect(page.getByText(/Sign-in is limited to/)).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Request access" })).toHaveAttribute("href", "/request-access");
   });
 

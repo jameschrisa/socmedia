@@ -23,14 +23,6 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   state: "The sign-in session expired. Try again.",
 };
 
-/** "acme.com" and "example.org" style join for the allowed-domains footer hint. */
-function joinDomains(domains: string[]): string {
-  const withAt = domains.map((d) => `@${d}`);
-  if (withAt.length === 0) return "";
-  if (withAt.length === 1) return withAt[0]!;
-  return `${withAt.slice(0, -1).join(", ")} and ${withAt[withAt.length - 1]}`;
-}
-
 /** Reads and then strips `?auth=error&reason=...` from the URL, once, on mount. */
 function useAuthErrorFromUrl(): string | null {
   const [message, setMessage] = useState<string | null>(null);
@@ -179,7 +171,7 @@ function MagicLinkForm({ email, setEmail }: { email: string; setEmail: (v: strin
 }
 
 function SignInView({ login }: { login: LoginMutation }) {
-  const { providers, allowedDomains } = useAuth();
+  const { providers } = useAuth();
   const urlError = useAuthErrorFromUrl();
   const [email, setEmail] = useState("");
   const hasPrimary = providers.magicLink || providers.google;
@@ -187,8 +179,6 @@ function SignInView({ login }: { login: LoginMutation }) {
   // says is available (which may still be loading its default the first time this renders).
   const [manualShowPassword, setManualShowPassword] = useState<boolean | null>(null);
   const showPassword = manualShowPassword ?? (!hasPrimary && providers.password);
-
-  const domainsHint = allowedDomains.length > 0 ? `Sign-in is limited to ${joinDomains(allowedDomains)}` : null;
 
   return (
     <div className="space-y-5">
@@ -219,7 +209,6 @@ function SignInView({ login }: { login: LoginMutation }) {
       )}
 
       <div className="space-y-1 border-t border-ink-200 pt-4 text-center text-xs text-ink-400">
-        {domainsHint && <p className="text-balance">{domainsHint}</p>}
         <p>
           Not a suprstar yet?{" "}
           <Link className="auth-tap-inline link" to="/request-access">Request access</Link>

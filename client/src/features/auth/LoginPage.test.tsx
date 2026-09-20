@@ -126,12 +126,12 @@ describe("LoginPage", () => {
     expect(window.location.search).toBe("");
   });
 
-  it("shows the allowed-domains footer hint and a link to request access", async () => {
+  it("links to request access without naming the allowed domains", async () => {
     mockFetch({ "GET /api/auth/me": () => ({ ...SIGNED_OUT, allowedDomains: ["acme.com", "beta.io"] }) });
     renderWithProviders(<LoginPage />);
 
-    expect(await screen.findByText("Sign-in is limited to @acme.com and @beta.io")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /request access/i })).toHaveAttribute("href", "/request-access");
+    expect(await screen.findByRole("link", { name: /request access/i })).toHaveAttribute("href", "/request-access");
+    expect(screen.queryByText(/Sign-in is limited to/)).not.toBeInTheDocument();
   });
 
   function mockMatchMedia(reduceMotion: boolean) {
