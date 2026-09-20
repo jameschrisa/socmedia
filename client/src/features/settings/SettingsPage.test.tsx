@@ -92,4 +92,27 @@ describe("SettingsPage", () => {
     await waitFor(() => expect(saved).not.toBeNull());
     expect(saved.defaultPublishMode).toBe("queue");
   });
+
+  it("no longer renders the phone links or chat channels sections, and points to Remote Posting instead", async () => {
+    mockFetch({
+      "GET /api/orgs": () => [makeOrg("org1")],
+      "GET /api/auth/me": () => ({
+        authenticated: true,
+        needsSetup: false,
+        user: { id: "u1", email: "ada@suprstar.com", name: "Ada Lovelace", role: "editor", orgIds: "*", active: true, mustChangePassword: false, createdAt: "", lastLoginAt: null },
+      }),
+      "GET /api/settings/publishing": () => ({ defaultPublishMode: "all", queueSpacingMinutes: 10, warnOnDuplicateCaptions: true }),
+      "GET /api/connections": () => [],
+    });
+    renderWithProviders(<SettingsPage />);
+
+    const notice = await screen.findByTestId("remote-posting-moved");
+    expect(notice).toHaveTextContent("Phone links and chat channels now live under Remote Posting.");
+    expect(screen.getByRole("link", { name: /go to remote posting/i })).toHaveAttribute("href", "/remote");
+
+    expect(screen.queryByText("Quick post from your phone")).not.toBeInTheDocument();
+    expect(screen.queryByText("Post from chat")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("inbound-section")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("setup-channel")).not.toBeInTheDocument();
+  });
 });

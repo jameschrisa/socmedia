@@ -38,6 +38,19 @@ describe("TopNav", () => {
     expect(screen.getByRole("link", { name: "Calendar" })).toBeInTheDocument();
   });
 
+  it("shows the Remote Posting tab for writers and hides it for viewers", async () => {
+    mockFetch({ "GET /api/auth/me": authRoute("editor"), "GET /api/orgs": () => [] });
+    renderWithProviders(<TopNav />);
+    expect(await screen.findByRole("link", { name: "Remote Posting" })).toHaveAttribute("href", "/remote");
+  });
+
+  it("hides the Remote Posting tab for viewers", async () => {
+    mockFetch({ "GET /api/auth/me": authRoute("viewer"), "GET /api/orgs": () => [] });
+    renderWithProviders(<TopNav />);
+    await screen.findByTestId("user-menu-trigger");
+    expect(screen.queryByRole("link", { name: "Remote Posting" })).not.toBeInTheDocument();
+  });
+
   it("does not render a user menu when there is no signed-in user", async () => {
     mockFetch({ "GET /api/orgs": () => [] });
     renderWithProviders(<TopNav />);

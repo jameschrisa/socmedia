@@ -28,12 +28,20 @@ test.describe("quick post from a phone", () => {
     orgId = await apiOrgId(ownerRequest);
   });
 
-  test("Settings -> Quick post from your phone: creating a link shows the reveal dialog and lists the new link", async ({ page }) => {
+  test("Remote Posting -> Phone links: creating a link shows the reveal dialog and lists the new link; Settings only shows the moved-card pointer", async ({ page }) => {
     await gotoApp(page);
     await switchOrg(page, LARKSPUR);
 
+    // Settings no longer hosts this section at all -- only a pointer card to Remote Posting.
     await page.goto("/settings");
-    await expect(page.getByRole("heading", { name: "Quick post from your phone" }).first()).toBeVisible();
+    await expect(page.getByText("Quick post from your phone")).toHaveCount(0);
+    const movedCard = page.getByTestId("remote-posting-moved");
+    await expect(movedCard).toBeVisible();
+    await expect(movedCard.getByRole("link", { name: "Go to Remote Posting" })).toHaveAttribute("href", "/remote");
+
+    await page.goto("/remote#phone");
+    await expect(page.getByTestId("remote-tabs").getByRole("tab", { name: "Phone links" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("heading", { name: "Phone links" }).first()).toBeVisible();
     await page.getByRole("button", { name: "Create link" }).click();
 
     const dialog = page.getByRole("dialog");
@@ -191,7 +199,7 @@ test.describe("quick post from a phone", () => {
   test("revoking the link removes it from the table", async ({ page }) => {
     await gotoApp(page);
     await switchOrg(page, LARKSPUR);
-    await page.goto("/settings");
+    await page.goto("/remote#phone");
     const row = page.locator("tr", { hasText: "QA phone" }).filter({ hasNotText: "QA phone edge" });
     await expect(row).toBeVisible();
 

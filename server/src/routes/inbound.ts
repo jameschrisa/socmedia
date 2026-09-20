@@ -407,6 +407,8 @@ export function inboundRouter(db: Db): Router {
       "X-Accel-Buffering": "no",
     });
     res.flushHeaders();
+    // First bytes right away: proxies forward the response and the browser fires EventSource "open".
+    res.write(": connected\n\n");
 
     const visible = (orgId: string | null | undefined): boolean => {
       if (user.role === "admin" || user.role === "owner") return true;

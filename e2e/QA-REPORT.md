@@ -2,8 +2,8 @@
 
 Run with `npx playwright test` from the repo root. Config: `playwright.config.ts` (root) + helpers/specs under `e2e/`.
 
-- Total: **82 tests**, **81 passing**, **1 skipped (environment-dependent, not a defect — see "Round 4" below)**, **0 failing**. Verified deterministic across multiple full-suite runs, on top of the determinism already established in Rounds 1-4.
-- **Both Round 1 defects and the Round 3 defect are now fixed in the application code** and their tests pass unmodified — see "Round 1 defects: now fixed" and "Round 3 defect: now fixed" below. Round 2 (console, agent, quick post, sign-in video) found no new defects. **Round 4 (X platform, full-page console, terminal, platform docs) found no new hard-failing defects** — one test is conditionally skipped for an environment-dependent reason explained below, and one pre-existing test needed a small update for the intentional addition of a 5th platform (not a defect) — see "Round 4: X platform, full-page console, terminal, platform docs" below. **Round 5 (inbound messaging) found one real defect, fixed live in the app code while this round was in progress** — see "Round 5: inbound messaging" below.
+- Total: **88 tests**, **86 passing**, **1 skipped (environment-dependent, not a defect — see "Round 4" below)**, **1 failing (a genuine new defect — see "Round 6: Remote Posting" below)**. Verified deterministic across multiple full-suite runs, on top of the determinism already established in Rounds 1-5.
+- **Both Round 1 defects and the Round 3 defect are now fixed in the application code** and their tests pass unmodified — see "Round 1 defects: now fixed" and "Round 3 defect: now fixed" below. Round 2 (console, agent, quick post, sign-in video) found no new defects. **Round 4 (X platform, full-page console, terminal, platform docs) found no new hard-failing defects** — one test is conditionally skipped for an environment-dependent reason explained below, and one pre-existing test needed a small update for the intentional addition of a 5th platform (not a defect) — see "Round 4: X platform, full-page console, terminal, platform docs" below. **Round 5 (inbound messaging) found one real defect, fixed live in the app code while this round was in progress** — see "Round 5: inbound messaging" below. **Round 6 (Remote Posting) found one real defect, left failing** — see "Round 6: Remote Posting" below.
 - Environment: API on `:4100`, web on `:5174` (own Vite dev server instance, HMR disabled for that instance — see "Environment notes" below), isolated `DATA_DIR=./data/e2e` wiped by `globalSetup` on every run. Bootstrap owner: `qa@suprstar.test` / `qa-password-123` (from `ADMIN_EMAIL`/`ADMIN_PASSWORD`), storage state cached at `e2e/.auth/owner.json` after `auth.setup.ts`. As of Round 3, the API's `CLIENT_URL` is also pinned to the e2e web port (`:5174`) — see "Round 3" for why.
 
 ## Pass/fail table
@@ -55,45 +55,51 @@ Order matches an actual `npx playwright test` run (files execute roughly alphabe
 | 41 | login.spec.ts | both background media files are served as the right content type | ✅ pass |
 | 42 | orgs.spec.ts | Enel Health is seeded on a fresh database and shows its handle everywhere | ✅ pass |
 | 43 | orgs.spec.ts | a new demo organization can be seeded from the larkspur profile with identity overrides | ✅ pass |
-| 44 | quick.spec.ts | Settings -> Quick post from your phone: creating a link shows the reveal dialog and lists the new link | ✅ pass |
+| 44 | quick.spec.ts | Remote Posting -> Phone links: creating a link shows the reveal dialog and lists the new link; Settings only shows the moved-card pointer | ✅ pass |
 | 45 | quick.spec.ts | the public phone page shows the org and an Instagram chip, and refuses to post without a photo | ✅ pass |
 | 46 | quick.spec.ts | uploading a photo and a caption posts immediately and shows a live link | ✅ pass |
 | 47 | quick.spec.ts | multipart edge cases: missing caption needs a caption, a transcript is used as-is, unknown tokens 404 | ✅ pass |
 | 48 | quick.spec.ts | a deactivated token shows the invalid-link message on the phone page | ✅ pass |
 | 49 | quick.spec.ts | revoking the link removes it from the table | ✅ pass |
-| 50 | signin.spec.ts | shows the heading, the magic-link form, no Google button, the domains footer and a Request access link | ✅ pass |
-| 51 | signin.spec.ts | "Use a password instead" reveals the password form (Email + Password) | ✅ pass |
-| 52 | signin.spec.ts | ?auth=error&reason=expired shows the expired notice and the query string is stripped from the URL | ✅ pass |
-| 53 | signin.spec.ts | nurse@enelhealth.com signs in via a magic link, is auto-provisioned editor scoped to Enel Health, and the link is single-use | ✅ pass (was ❌ Defect 3 in Round 3 — now fixed; the `expect.soft` org-switcher/current-org assertion left in the test now genuinely holds) |
-| 54 | signin.spec.ts | someone@gmail.com gets an inline 403 naming the allowed domains | ✅ pass |
-| 55 | signin.spec.ts | API: a disallowed domain gets 403 reason domain; an invited user (any domain) gets 200 | ✅ pass |
-| 56 | signin.spec.ts | a deactivated user's magic-link request is refused with reason inactive | ✅ pass |
-| 57 | smoke.spec.ts | API health and seeded organizations (authenticated) | ✅ pass (updated in Round 4 — see below) |
-| 58 | smoke.spec.ts | navigates between primary tabs | ✅ pass |
-| 59 | smoke.spec.ts | switches organization and scopes data | ✅ pass |
-| 60 | smoke.spec.ts | social profile cards flip to reveal configuration | ✅ pass |
-| 61 | smoke.spec.ts | connection test returns a result in sandbox mode | ✅ pass |
-| 62 | smoke.spec.ts | calendar renders the month grid with scheduled posts and a week view | ✅ pass |
-| 63 | smoke.spec.ts | new post opens the composer with platform targets and time scroller | ✅ pass |
-| 64 | smoke.spec.ts | AI assistant generates captions (mock or live) | ✅ pass |
-| 65 | smoke.spec.ts | analytics page shows KPIs after sync | ✅ pass |
-| 66 | terminal.spec.ts | owner: the Terminal tab shows the host line with the shell path and an xterm container | ✅ pass |
-| 67 | terminal.spec.ts | typing 'echo suprstar-e2e' into the xterm produces it in the rendered output | ⚠️ **skipped** — this host's `node-pty` silently falls back to a plain-pipe shell per session even though `GET /api/terminal/status` reports `pty: true`; see "Round 4" below |
-| 68 | terminal.spec.ts | Disconnect and Restart shell work | ✅ pass |
-| 69 | terminal.spec.ts | a viewer sees the disabled explanation and GET /api/terminal/status reports enabled: false with a reason | ✅ pass |
-| 70 | terminal.spec.ts | an unauthenticated WebSocket to /api/terminal is refused | ✅ pass |
-| 71 | users.spec.ts | owner invited an editor and a viewer with temporary passwords shown | ✅ pass |
-| 72 | users.spec.ts | invited users appear in the Users & access table with their roles | ✅ pass |
-| 73 | users.spec.ts | viewer cannot see New post and the API rejects a viewer's post creation with 403 | ✅ pass |
-| 74 | users.spec.ts | editor can save a draft post from the composer but has no Users section in Settings | ✅ pass (was ❌ Defect 2 in Round 1 — now fixed) |
-| 75 | video.spec.ts | shows the upload size hint and refuses a video over 5:00 client-side | ✅ pass |
-| 76 | video.spec.ts | uploads a video, shows its duration, and trims a vertical clip via the scissors editor | ✅ pass |
-| 77 | x.spec.ts | Social Profiles shows an X card per org, among all 5 platform groups | ✅ pass |
-| 78 | x.spec.ts | Connect on X in sandbox mode marks it connected with a handle, and the authorize URL uses PKCE (S256) | ✅ pass |
-| 79 | x.spec.ts | composer: an X-only 281-char caption trips the 280 limit and blocks Publish now; trimming to 280 clears it | ✅ pass |
-| 80 | x.spec.ts | publish now on X succeeds and the job's URL is on x.com (API) | ✅ pass |
-| 81 | x.spec.ts | the calendar platform filter includes X | ✅ pass |
-| 82 | x.spec.ts | Analytics renders an X series in the Engagement-by-platform chart after syncing a connected X account | ✅ pass |
+| 50 | remote.spec.ts | the nav tab exists for the owner and is hidden for a viewer, who sees the read-only note at /remote | ✅ pass |
+| 51 | remote.spec.ts | hash routing selects each tab and the segmented bar reflects it | ✅ pass |
+| 52 | remote.spec.ts | Overview: a remote draft needing a caption can be captioned and published from the queue, KPI tiles update, and the Overview page notice reflects it | ✅ pass |
+| 53 | remote.spec.ts | Remote posts: lists posts from both sources with per-account links, the source filter narrows, and Delete with confirm removes a row | ✅ pass |
+| 54 | remote.spec.ts | Chat channels as an editor: setup is read-only but the message monitor and bindings should still be visible | ❌ **fail** — genuine defect, see "Round 6: Remote Posting" / Defect 5 below |
+| 55 | remote.spec.ts | the right-rail Inbound popover's Open Remote Posting link lands on /remote#chat | ✅ pass |
+| 56 | signin.spec.ts | shows the heading, the magic-link form, no Google button, the domains footer and a Request access link | ✅ pass |
+| 57 | signin.spec.ts | "Use a password instead" reveals the password form (Email + Password) | ✅ pass |
+| 58 | signin.spec.ts | ?auth=error&reason=expired shows the expired notice and the query string is stripped from the URL | ✅ pass |
+| 59 | signin.spec.ts | nurse@enelhealth.com signs in via a magic link, is auto-provisioned editor scoped to Enel Health, and the link is single-use | ✅ pass (was ❌ Defect 3 in Round 3 — now fixed; the `expect.soft` org-switcher/current-org assertion left in the test now genuinely holds) |
+| 60 | signin.spec.ts | someone@gmail.com gets an inline 403 naming the allowed domains | ✅ pass |
+| 61 | signin.spec.ts | API: a disallowed domain gets 403 reason domain; an invited user (any domain) gets 200 | ✅ pass |
+| 62 | signin.spec.ts | a deactivated user's magic-link request is refused with reason inactive | ✅ pass |
+| 63 | smoke.spec.ts | API health and seeded organizations (authenticated) | ✅ pass (updated in Round 4 — see below) |
+| 64 | smoke.spec.ts | navigates between primary tabs | ✅ pass |
+| 65 | smoke.spec.ts | switches organization and scopes data | ✅ pass |
+| 66 | smoke.spec.ts | social profile cards flip to reveal configuration | ✅ pass |
+| 67 | smoke.spec.ts | connection test returns a result in sandbox mode | ✅ pass |
+| 68 | smoke.spec.ts | calendar renders the month grid with scheduled posts and a week view | ✅ pass |
+| 69 | smoke.spec.ts | new post opens the composer with platform targets and time scroller | ✅ pass |
+| 70 | smoke.spec.ts | AI assistant generates captions (mock or live) | ✅ pass |
+| 71 | smoke.spec.ts | analytics page shows KPIs after sync | ✅ pass |
+| 72 | terminal.spec.ts | owner: the Terminal tab shows the host line with the shell path and an xterm container | ✅ pass |
+| 73 | terminal.spec.ts | typing 'echo suprstar-e2e' into the xterm produces it in the rendered output | ⚠️ **skipped** — this host's `node-pty` silently falls back to a plain-pipe shell per session even though `GET /api/terminal/status` reports `pty: true`; see "Round 4" below |
+| 74 | terminal.spec.ts | Disconnect and Restart shell work | ✅ pass |
+| 75 | terminal.spec.ts | a viewer sees the disabled explanation and GET /api/terminal/status reports enabled: false with a reason | ✅ pass |
+| 76 | terminal.spec.ts | an unauthenticated WebSocket to /api/terminal is refused | ✅ pass |
+| 77 | users.spec.ts | owner invited an editor and a viewer with temporary passwords shown | ✅ pass |
+| 78 | users.spec.ts | invited users appear in the Users & access table with their roles | ✅ pass |
+| 79 | users.spec.ts | viewer cannot see New post and the API rejects a viewer's post creation with 403 | ✅ pass |
+| 80 | users.spec.ts | editor can save a draft post from the composer but has no Users section in Settings | ✅ pass (was ❌ Defect 2 in Round 1 — now fixed) |
+| 81 | video.spec.ts | shows the upload size hint and refuses a video over 5:00 client-side | ✅ pass |
+| 82 | video.spec.ts | uploads a video, shows its duration, and trims a vertical clip via the scissors editor | ✅ pass |
+| 83 | x.spec.ts | Social Profiles shows an X card per org, among all 5 platform groups | ✅ pass |
+| 84 | x.spec.ts | Connect on X in sandbox mode marks it connected with a handle, and the authorize URL uses PKCE (S256) | ✅ pass |
+| 85 | x.spec.ts | composer: an X-only 281-char caption trips the 280 limit and blocks Publish now; trimming to 280 clears it | ✅ pass |
+| 86 | x.spec.ts | publish now on X succeeds and the job's URL is on x.com (API) | ✅ pass |
+| 87 | x.spec.ts | the calendar platform filter includes X | ✅ pass |
+| 88 | x.spec.ts | Analytics renders an X series in the Engagement-by-platform chart after syncing a connected X account | ✅ pass |
 
 ## Round 1 defects: now fixed
 
@@ -452,6 +458,144 @@ reverted to a plain `expect`) now shows a genuine `123456`-shaped code staying o
 `······`. Left here for the historical record; the pass/fail table above reflects the current, passing
 result.
 
+## Round 6: Remote Posting
+
+Scope: "Quick post from your phone" and "Post from chat" moved out of Settings into a new top-level
+nav tab, "Remote Posting" (`/remote`, `client/src/features/remote/RemotePostingPage.tsx`), hidden for
+viewers, with a hash-routed segmented bar (`remote-tabs`): Overview (`#overview`, KPI tiles, the "Needs
+a caption" queue with inline Save caption/Publish now/Open in composer, an activity feed, a Set up
+checklist), Phone links (`#phone`, the former quick-post section, renamed card title), Chat channels
+(`#chat`, the former inbound section, setup gated to admins), and Remote posts (`#posts`, a table of
+quick/inbound-labeled posts with source/status filters and row actions). Settings now shows only a
+`remote-posting-moved` pointer card; the right-rail Inbound popover's link is now "Open Remote Posting"
+→ `/remote#chat`; the Overview page (`/`) shows a `remote-drafts-notice` while a remote draft needs a
+caption. Read against `client/src/features/remote/{RemotePostingPage,RemoteOverviewTab,RemotePostsTable}.tsx`,
+`remoteUtils.ts`, `TopNav.tsx`, `SettingsPage.tsx` and `OverviewPage.tsx`, and the corresponding server
+routes (`server/src/routes/inbound.ts`, `server/src/services/{inbound,quickPost}.ts`) before writing
+tests.
+
+**Existing specs updated first, per the task, to follow the section moves:** `e2e/quick.spec.ts`'s first
+test now asserts Settings shows only the `remote-posting-moved` pointer card (no "Quick post from your
+phone" heading) and drives the create-link flow from `/remote#phone` instead, asserting the `remote-tabs`
+segmented bar and the card's new title ("Phone links") along the way; its last test ("revoking the
+link...") now navigates to `/remote#phone` too. `e2e/inbound.spec.ts`'s wizard test now asserts Settings
+shows no "Post from chat" text (only the moved-card pointer) before driving the rest of the flow from
+`/remote#chat`; its Twilio-wizard, confirm-before-posting, and voice-transcription tests were each updated
+to navigate to `/remote#chat` instead of `/settings`. The viewer-role test at the end of `inbound.spec.ts`
+was left as-is: it already only asserted Settings has no "Post from chat" text, which is still exactly
+true now that the section moved rather than disappeared. No other spec referenced these sections
+(`smoke.spec.ts`'s primary-tabs test iterates an explicit label list that doesn't include "Remote
+Posting", so it needed no change).
+
+New spec: `e2e/remote.spec.ts` (6 tests). **Result: one real defect found (Defect 5, below), left
+failing** — recorded per this round's instructions rather than softened to force a green run. Everything
+else specified matched documented/expected behavior: the nav tab is visible for the owner (`can.write`)
+and absent for a viewer, who sees `remote-read-only` and no `remote-tabs` at all when hitting `/remote`
+directly; hash routing selects the right tab both when clicking a segmented-bar tab (which pushes the
+matching `#hash`) and when navigating straight to a hash URL; a remote (chat) draft created via
+`POST /api/inbound/test` with an image and no text lands in the "Needs a caption" queue, can be captioned
+inline (Save caption enables/disables correctly on dirty state) and published from the queue (the row
+leaves the queue, the post is `published` via the API, the "Needs a caption" KPI tile and the Overview
+page's `remote-drafts-notice` both update); the Remote posts tab lists posts from both a phone (quick)
+token and a chat (inbound) binding with per-account live links, the source filter (`SegmentedTabs`:
+All sources/Phone/Chat) narrows the table correctly, and Delete-with-confirm removes exactly the targeted
+row (confirmed gone via a follow-up `GET /api/posts/:id` → 404) without touching the other; and the
+right-rail Inbound popover's "Open Remote Posting" link has `href="/remote#chat"` and lands there.
+
+**Test-writing note (not an app defect): two KPI tile labels had already been renamed by the time this
+round ran** (`client/src/features/remote/RemoteOverviewTab.tsx`'s `StatTile` labels are "Needs a caption"
+and "Phone posts, 7 days" / "Failed today", not the fuller phrasing implied by earlier reading of the same
+file during planning) — a moving-target situation in the same vein as Round 5's, caught by an initial test
+run and fixed by matching the actual rendered label text (`"Needs a caption"`) instead of a guessed one.
+Also, an initial version of the Overview-queue test raced the Overview page's own draft-count fetch when
+computing its "before" baseline from the DOM right after a fresh navigation (a leftover needs-caption
+draft from `quick.spec.ts`'s multipart-edge-case test, never resolved, sits in the same org throughout the
+run) — fixed by computing that baseline directly from `GET /api/posts` instead of parsing
+`remote-drafts-notice`'s text on a page that might not have finished its first fetch yet, reserving the
+DOM-text parse for after an explicit `toBeVisible()`/`expect.poll()` wait.
+
+## Defect 5 (Round 6) — An editor can't see the inbound message monitor or the linked-senders table at all on the Chat channels tab, even though the server explicitly allows editors to read both
+
+**Severity:** Medium (no data leak — the server-side permission is actually *more* permissive than the
+client exposes, not less — but it silently removes a capability the API was clearly built to support:
+an editor keeping an eye on inbound chat activity and who's linked, without needing settings access).
+
+**Where:** `client/src/features/remote/RemotePostingPage.tsx`, `ChatChannelsTab`:
+
+```tsx
+function ChatChannelsTab({ canManage }: { canManage: boolean }) {
+  if (!canManage) {
+    return (
+      <div className="card p-6 text-sm text-ink-500" data-testid="chat-channels-read-only">
+        Setting up chat channels needs settings access. Ask an owner or admin to configure a channel here.
+      </div>
+    );
+  }
+  return <InboundSection />;
+}
+```
+
+`canManage` is `can.manageSettings` (owner/admin only per `ROLE_CAPABILITIES` in `shared/src/types.ts`).
+Whenever it's `false` — which is true for the `editor` role, the one role this tab is nominally supposed
+to serve alongside admins per this round's brief ("Chat channels tab as an editor... shows the monitor but
+the setup is read-only") — the component renders *only* the read-only message and never mounts
+`InboundSection` at all, so nothing inside it (the message monitor, the linked-senders table) ever
+renders for an editor, regardless of what that editor is actually allowed to fetch.
+
+Server-side, though, the two endpoints that would drive a read-only monitor are already editor-permitted,
+distinct from the channel-setup endpoints that genuinely do need admin (`server/src/routes/inbound.ts`):
+
+```ts
+router.get("/status", requireRole("admin"), ...);      // channel config/listening state -- setup-only
+router.get("/channels", requireRole("admin"), ...);    // ditto
+router.get("/messages", requireRole("editor"), ...);   // used by InboundMonitor
+router.get("/bindings", requireRole("editor"), ...);   // used by InboundBindingsTable
+```
+
+`InboundMonitor` and `InboundBindingsTable` (`client/src/features/remote/inbound/{InboundMonitor,
+InboundBindingsTable}.tsx`) are built entirely on `useInboundMessages`/`useInboundBindings`
+(`GET /messages`, `GET /bindings`) — the two editor-permitted routes — not on the admin-only `status`/
+`channels` routes that `InboundSection` also happens to fetch for its channel chips and the "Set up a
+channel" wizard. So a monitor+bindings-only view for an editor is entirely buildable from data an editor
+can already fetch; `ChatChannelsTab` just doesn't attempt it, and swaps in the "ask an admin" message for
+the whole tab instead of only the setup controls.
+
+**Repro steps:**
+1. As an owner, invite a user with role `editor` and sign in as them (or drive a request as them
+   directly — no UI action needed to observe the gap).
+2. As the owner (or any admin), create a verified "test"-channel binding and send at least one message
+   through it (e.g. `POST /api/inbound/test` with `senderId`/`text`/`imageUrl`), so there is at least one
+   inbound message and one binding to potentially display.
+3. Confirm the editor actually has read access: `GET /api/inbound/messages` and `GET /api/inbound/bindings`
+   with the editor's session both return `200` with the message/binding included (both routes are
+   `requireRole("editor")`).
+4. As the editor, in the UI, go to Remote Posting → Chat channels (`/remote#chat`).
+
+**Expected:** Per this round's own scope ("Chat channels tab as an editor... shows the monitor but the
+setup is read-only") and the server's own permission split above: the editor sees the live message
+monitor and the linked-senders table (read-only where that matters, e.g. no "Set up a channel" button,
+no channel edit links, no transcription row), consistent with what `GET /messages` and `GET /bindings`
+already allow them to read.
+
+**Actual:** The editor sees only the static "Setting up chat channels needs settings access..." message
+(`chat-channels-read-only`) and nothing else — no monitor, no bindings table, no way to see any inbound
+activity at all from this tab, even though the underlying data is one editor-permitted API call away.
+
+**Suggested fix direction (not applied — app code is out of scope for this task):** split `ChatChannelsTab`
+so the setup-only pieces of `InboundSection` (the channel chips backed by `GET /status`/`GET /channels`,
+the "Set up a channel" button/wizard, the transcription row) stay gated on `canManage`, while the monitor
+and bindings table (built on the editor-permitted `GET /messages`/`GET /bindings`) render for any writer —
+e.g. by giving `InboundSection` a `canManage` prop it threads down to conditionally render just those
+setup-only pieces, rather than `ChatChannelsTab` choosing between "everything" and "nothing" at the top.
+
+**Test:** `e2e/remote.spec.ts` → "Chat channels as an editor: setup is read-only but the message monitor
+and bindings should still be visible". Uses `expect.soft` for the two visibility assertions (monitor row,
+then bindings row) specifically so both symptoms are reported together in one run rather than the first
+one hiding the second, mirroring the precedent set by Defect 3 (Round 3) and Defect 4 (Round 5) for a
+confirmed-real defect this task's scope doesn't allow fixing. The read-only gating that *is* correct
+(no `setup-channel` button, the `chat-channels-read-only` message itself) is asserted with a plain
+(non-soft) `expect` in the same test, since that part isn't in dispute.
+
 ## Notes / minor observations (not blocking, not filed as defects)
 
 - **Login page fields aren't associated for `getByLabel` in a couple of spots that matter for testability:** the composer's Title/Caption fields (`client/src/features/studio/ComposerDrawer.tsx`) render their `<label>` via the shared `Field` component without passing `htmlFor`/`id`, so the label has no programmatic association with the input (not even implicit nesting). Not a functional bug — sighted users see the label fine — but it's an accessibility gap (screen readers won't associate the label with the field) and it forced the e2e suite to fall back to `getByPlaceholder(...)` for those two fields instead of `getByLabel(...)`.
@@ -471,11 +615,13 @@ result.
 - `e2e/auth.setup.ts` — logs in as the bootstrap owner, saves `e2e/.auth/owner.json` (gitignored). Round 3 updated it for the redesigned sign-in page (click "Use a password instead" first).
 - `e2e/auth.spec.ts`, `e2e/users.spec.ts`, `e2e/orgs.spec.ts`, `e2e/connections.spec.ts`, `e2e/video.spec.ts` — Round 1. `auth.spec.ts` updated in Round 3 for the redesigned sign-in page.
 - `e2e/smoke.spec.ts` — Round 1. Round 4 updated the hardcoded 4-platform connections assertion to `[...PLATFORMS].sort()` (see "Round 4" above) so it doesn't go stale the next time a platform is added or removed.
-- `e2e/quick.spec.ts`, `e2e/login.spec.ts` — Round 2. `login.spec.ts`'s heading assertions updated in Round 3 for the new copy.
+- `e2e/login.spec.ts` — Round 2. Heading assertions updated in Round 3 for the new sign-in copy.
 - `e2e/signin.spec.ts`, `e2e/access.spec.ts` — Round 3. Unmodified in Round 4; `signin.spec.ts`'s `expect.soft` org-switcher assertion now passes for real (Defect 3 fixed — see above).
 - `e2e/console.spec.ts` — Round 2, **fully rewritten in Round 4** for the Console's move from a drawer to a full page at `/console`: `rail-console`/`rail-console-mobile` navigation, Ctrl+\` open/close, `console-close`, the `console-split-handle` (keyboard-resizable, persisted `consoleSplit`), the Agent pane (`agent-scroll`, `agent-empty`, slash commands including the new `/docs` and `/diagnose`) now separate from the Activity log pane (`console-scroll`, filters, streaming, Log files), plus a Documentation-rail platform-docs search test.
 - `e2e/terminal.spec.ts` — **new in Round 4**: the OS terminal tab (status line, `xterm-container`), a real typed-echo round trip through the rendered `.xterm-rows` (with a documented, evidence-based skip condition for the plain-pipe fallback — see "Round 4" above), Disconnect/Restart, a viewer's disabled explanation, and an unauthenticated WebSocket rejection (via `ws`, resolved from the `server` workspace with `createRequire`, the same trick `global-setup.ts` uses for `sharp`).
 - `e2e/x.spec.ts` — **new in Round 4**: X as the fifth platform across Social Profiles, sandbox Connect (PKCE `code_challenge_method=S256`), the composer's 280-character limit and `preview-x`, a real sandbox publish job with an `x.com` URL, the calendar platform filter, and an Analytics series after sync.
-- `e2e/inbound.spec.ts` — **new in Round 5**: the full "post from chat" feature — the setup wizard for the test channel and Twilio credentials, the public Twilio webhook (real HMAC-SHA1 signature verification, wrong-signature 403, idempotent duplicate `MessageSid`), confirm-before-posting (stage → `yes` → publish, and a UI Discard), slash commands via the shared agent, the transcription provider/key row, the right-rail `rail-inbound` popover, the Console's `inbound`-source Activity log filter, and the viewer role guard. Deliberately not `mode: "serial"` (see the comment at the top of the file) so the one test carrying an `expect.soft`-guarded regression check (Defect 4, now fixed) can't skip the rest of the file's coverage if it ever fails again.
+- `e2e/inbound.spec.ts` — **new in Round 5**: the full "post from chat" feature — the setup wizard for the test channel and Twilio credentials, the public Twilio webhook (real HMAC-SHA1 signature verification, wrong-signature 403, idempotent duplicate `MessageSid`), confirm-before-posting (stage → `yes` → publish, and a UI Discard), slash commands via the shared agent, the transcription provider/key row, the right-rail `rail-inbound` popover, the Console's `inbound`-source Activity log filter, and the viewer role guard. Deliberately not `mode: "serial"` (see the comment at the top of the file) so the one test carrying an `expect.soft`-guarded regression check (Defect 4, now fixed) can't skip the rest of the file's coverage if it ever fails again. **Round 6** updated four tests to navigate to `/remote#chat` instead of `/settings` for the "post from chat" section's move (see "Round 6" above); the viewer-role test needed no change.
+- `e2e/quick.spec.ts` — Round 2. **Round 6** renamed and updated its first test for the quick-post section's move to `/remote#phone` (asserting Settings now shows only the `remote-posting-moved` pointer card and the renamed "Phone links" card title), and updated its last test ("revoking the link...") to navigate to `/remote#phone` too (see "Round 6" above).
+- `e2e/remote.spec.ts` — **new in Round 6**: the "Remote Posting" nav tab and its viewer read-only note, hash routing across all four tabs, the Overview tab's "Needs a caption" queue end to end (create via `POST /api/inbound/test` → caption → publish, with KPI tiles and the Overview page's `remote-drafts-notice` both reflecting it), the Remote posts tab (both sources listed with per-account links, the source filter, Delete-with-confirm), the right-rail popover's "Open Remote Posting" link, and one real defect left failing (Defect 5 — see "Round 6" above).
 - `e2e/fixtures/*.mp4`, `e2e/fixtures/quick-photo.jpg` — generated, gitignored.
 - `client/vite.config.ts` — reads `VITE_API_PROXY` for the dev proxy target and disables HMR only for that instance.

@@ -13,6 +13,7 @@ const tabs = [
   { to: "/", label: "Overview", end: true },
   { to: "/calendar", label: "Calendar" },
   { to: "/studio", label: "Studio" },
+  { to: "/remote", label: "Remote Posting", requires: "write" as const },
   { to: "/connections", label: "Social Profiles" },
   { to: "/analytics", label: "Analytics" },
   { to: "/settings", label: "Settings" },
@@ -73,7 +74,7 @@ export function TopNav() {
           </div>
         </div>
         <nav className="-mb-px flex gap-1 overflow-x-auto no-scrollbar" aria-label="Primary">
-          {tabs.map((t) => (
+          {tabs.filter((t) => !t.requires || can[t.requires]).map((t) => (
             <NavLink
               key={t.to}
               to={t.to}

@@ -376,3 +376,61 @@
   .inbound-tap-inline { padding: 12px 6px; margin: -12px -6px; }
   .inbound-wizard .inbound-tap { min-height: 44px; }
 }
+
+/* ---- Remote Posting: page tabs, tap targets and stacked tables on phones. Additive. ---- */
+/* Below 480px the four page tabs form a 2x2 grid instead of wrapping each label onto two lines. */
+@media (max-width: 479px) {
+  .remote-tabs [role="tablist"] { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .remote-tabs [role="tab"] { white-space: nowrap; min-height: 44px; }
+}
+/* 44px targets on phones for the caption queue, table row actions and the source filter. */
+@media (max-width: 640px) {
+  .remote-tap { min-height: 44px; }
+  button.remote-tap.h-7, button.remote-tap.h-8 { height: 44px; }
+  .remote-tap-icon { min-width: 44px; }
+  .remote-tap-tabs [role="tab"] { min-height: 44px; }
+}
+/* Below `sm` the Remote posts and Phone links tables stack each row into a card so source, status,
+   links and actions stay on screen instead of hiding behind a horizontal scroll. One DOM for both. */
+@media (max-width: 639px) {
+  .remote-stack-table thead { display: none; }
+  .remote-stack-table, .remote-stack-table tbody { display: block; }
+  .remote-stack-table tr { display: grid; align-items: center; column-gap: 0.75rem; row-gap: 0.5rem; padding: 0.75rem 0; }
+  .remote-stack-table td { padding: 0; min-width: 0; }
+  .remote-stack-table .cell-meta { font-size: 0.75rem; color: var(--c-ink-500); }
+  .remote-stack-table .cell-meta::before { content: attr(data-label) ": "; color: var(--c-ink-400); }
+  /* Remote posts: caption on top, source + status + targets on one line, then created and links, actions last. */
+  .remote-posts-table tr {
+    grid-template-columns: auto auto 1fr;
+    grid-template-areas:
+      "post post post"
+      "source status targets"
+      "created created links"
+      "actions actions actions";
+  }
+  .remote-posts-table .cell-post { grid-area: post; }
+  .remote-posts-table .cell-post p { max-width: none; }
+  .remote-posts-table .cell-source { grid-area: source; }
+  .remote-posts-table .cell-status { grid-area: status; }
+  .remote-posts-table .cell-targets { grid-area: targets; justify-self: end; }
+  .remote-posts-table .cell-created { grid-area: created; }
+  .remote-posts-table .cell-links { grid-area: links; justify-self: end; }
+  .remote-posts-table .cell-actions { grid-area: actions; text-align: left; }
+  .remote-posts-table .cell-actions > div { justify-content: flex-start; }
+  /* Phone links: label with the toggle and Revoke beside it, accounts underneath, then mode, uses and last used. */
+  .remote-links-table tr {
+    grid-template-columns: auto auto 1fr;
+    grid-template-areas:
+      "label active revoke"
+      "accounts accounts accounts"
+      "mode uses lastused";
+  }
+  .remote-links-table .cell-label { grid-area: label; }
+  .remote-links-table .cell-accounts { grid-area: accounts; }
+  .remote-links-table .cell-mode { grid-area: mode; white-space: nowrap; }
+  .remote-links-table .cell-uses { grid-area: uses; white-space: nowrap; }
+  .remote-links-table .cell-lastused { grid-area: lastused; }
+  .remote-links-table .cell-active { grid-area: active; }
+  .remote-links-table .cell-revoke { grid-area: revoke; justify-self: end; }
+  .remote-links-table .cell-label { overflow-wrap: anywhere; }
+}

@@ -46,7 +46,15 @@ test.describe("inbound messaging", () => {
   test("wizard: set up the test channel, link qa-phone, send a test message end to end", async ({ page }) => {
     await gotoApp(page);
     await switchOrg(page, LARKSPUR);
+
+    // Settings no longer hosts "Post from chat" at all -- only a pointer card to Remote Posting.
     await page.goto("/settings");
+    await expect(page.getByText("Post from chat")).toHaveCount(0);
+    const movedCard = page.getByTestId("remote-posting-moved");
+    await expect(movedCard).toBeVisible();
+
+    await page.goto("/remote#chat");
+    await expect(page.getByTestId("remote-tabs").getByRole("tab", { name: "Chat channels" })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByTestId("inbound-section")).toBeVisible();
 
     await page.getByTestId("setup-channel").click();
@@ -112,7 +120,7 @@ test.describe("inbound messaging", () => {
 
   test("Twilio wizard: credentials save, webhook URL, listening chip, masked on reopen", async ({ page }) => {
     await gotoApp(page);
-    await page.goto("/settings");
+    await page.goto("/remote#chat");
     await expect(page.getByTestId("inbound-section")).toBeVisible();
     await page.getByTestId("setup-channel").click();
 
@@ -131,7 +139,7 @@ test.describe("inbound messaging", () => {
     await expect(wizard.getByTestId("twilio-webhook-url")).toHaveValue(`${API_BASE_URL}/api/inbound/twilio`);
 
     // Reload before reopening via "Edit" so the wizard picks up the freshly saved (masked) config
-    // from a clean fetch, exactly like a user coming back to Settings later would.
+    // from a clean fetch, exactly like a user coming back to Remote Posting later would.
     await page.reload();
     await expect(page.getByTestId("inbound-section")).toBeVisible();
     await expect(page.getByTestId("inbound-chip-twilio")).toContainText("Listening", { timeout: 10_000 });
@@ -211,7 +219,7 @@ test.describe("inbound messaging", () => {
     expect(second.status).toBe("awaiting_confirmation");
 
     await gotoApp(page);
-    await page.goto("/settings");
+    await page.goto("/remote#chat");
     await expect(page.getByTestId("inbound-section")).toBeVisible();
     const row = page
       .getByTestId("inbound-message-row")
@@ -245,7 +253,7 @@ test.describe("inbound messaging", () => {
     expect(before.transcription.configured).toBe(false);
 
     await gotoApp(page);
-    await page.goto("/settings");
+    await page.goto("/remote#chat");
     const row = page.getByTestId("transcription-row");
     await expect(row).toBeVisible();
     await row.getByLabel("Voice transcription").selectOption("openai");

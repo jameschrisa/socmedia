@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { toast } from "sonner";
 import { useAuth } from "./useAuth";
 import { useInboundStream } from "./useInbound";
-import { maskSenderId } from "@/features/settings/inbound/inboundUtils";
+import { maskSenderId } from "@/features/remote/inbound/inboundUtils";
 
 /**
  * Toasts once when a chat message finishes publishing or fails, while the app is open.

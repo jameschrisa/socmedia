@@ -8,7 +8,7 @@ import { Badge, Button, Portal, useAnchorPosition } from "@/components/ui";
 import { useAppStore } from "@/store/appStore";
 import { useAuth } from "@/hooks/useAuth";
 import { useInboundMessages, useInboundStatus } from "@/hooks/useInbound";
-import { CHANNEL_LABEL, CHANNEL_STATE_DOT, CHANNEL_STATE_LABEL, MESSAGE_STATUS_DOT, maskSenderId, mediaCountLabel } from "@/features/settings/inbound/inboundUtils";
+import { CHANNEL_LABEL, CHANNEL_STATE_DOT, CHANNEL_STATE_LABEL, MESSAGE_STATUS_DOT, maskSenderId, mediaCountLabel } from "@/features/remote/inbound/inboundUtils";
 import { useOpenConsole } from "@/features/console/useConsoleNav";
 import { api } from "@/lib/api";
 import { qk } from "@/lib/queryClient";
@@ -208,7 +208,7 @@ export function RightRail() {
                     ))}
                     {inboundMessages.data && inboundMessages.data.length === 0 && <li className="text-xs text-ink-500">No messages yet.</li>}
                   </ul>
-                  <Link className="link mt-3 inline-flex items-center gap-1 text-sm" to="/settings#inbound" onClick={() => setOpen(null)}>Open settings <ExternalLink className="h-3.5 w-3.5" /></Link>
+                  <Link className="link mt-3 inline-flex items-center gap-1 text-sm" to="/remote#chat" onClick={() => setOpen(null)}>Open Remote Posting <ExternalLink className="h-3.5 w-3.5" /></Link>
                 </>
               )}
             </motion.div>

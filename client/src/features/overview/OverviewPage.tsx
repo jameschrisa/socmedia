@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { addDays, format } from "date-fns";
-import { CalendarClock, CalendarDays, CheckCircle2, Clapperboard, Plus, Sparkles, Users } from "lucide-react";
+import { CalendarClock, CalendarDays, CheckCircle2, Clapperboard, MessageSquareText, Plus, Sparkles, Users } from "lucide-react";
 import { PLATFORMS, PLATFORM_SPECS } from "@socmedia/shared";
 import { Badge, Button, Card, CardBody, CardHeader, EmptyState, PlatformIcon, Skeleton, StatusBadge } from "@/components/ui";
 import { compactNumber, formatDateTime } from "@/lib/utils";
@@ -16,6 +16,7 @@ import { useAppStore } from "@/store/appStore";
 import { StatTile } from "@/features/analytics/components/StatTile";
 import { PlatformDot } from "@/features/analytics/components/PlatformDot";
 import { engagementOf, rangeFor } from "@/features/analytics/analyticsUtils";
+import { needsCaption } from "@/features/remote/remoteUtils";
 
 const linkButtonClass = "inline-flex h-9 items-center gap-1.5 rounded-lg border border-ink-200 bg-glass px-4 text-sm font-medium text-ink-700 transition-colors hover:border-ink-300 hover:bg-ink-50";
 
@@ -60,6 +61,9 @@ export function OverviewPage() {
   const approvalQuery = usePosts({ status: ["needs_approval"], includeUnscheduled: true });
   const { approve } = usePostMutations();
 
+  const draftsQuery = usePosts({ status: ["draft"], includeUnscheduled: true });
+  const draftsNeedingCaptionCount = useMemo(() => (draftsQuery.data ?? []).filter(needsCaption).length, [draftsQuery.data]);
+
   const jobsQuery = useQuery({
     queryKey: qk.jobs(orgId, { limit: 8, scope: "overview" }),
     queryFn: () => api.jobs.list({ limit: 8 }),
@@ -84,6 +88,15 @@ export function OverviewPage() {
           <Link to="/connections" className={linkButtonClass}><Users className="h-4 w-4" />Social Profiles</Link>
         </div>
       </div>
+
+      {draftsNeedingCaptionCount > 0 && (
+        <Link to="/remote#overview" className="notice-info focus-ring flex items-center gap-2 hover:text-ink-900" data-testid="remote-drafts-notice">
+          <MessageSquareText className="h-4 w-4 shrink-0" aria-hidden />
+          {draftsNeedingCaptionCount === 1
+            ? "1 remote draft is waiting on a caption."
+            : `${draftsNeedingCaptionCount} remote drafts are waiting on a caption.`} Open Remote Posting →
+        </Link>
+      )}
 
       <div>
         <h2 className="mb-3 text-sm font-semibold text-ink-700">Connected profiles</h2>

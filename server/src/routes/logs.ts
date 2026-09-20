@@ -45,6 +45,8 @@ export function logsRouter(_db: Db): Router {
       "X-Accel-Buffering": "no",
     });
     res.flushHeaders();
+    // First bytes right away: proxies forward the response and the browser fires EventSource "open".
+    res.write(": connected\n\n");
 
     const send = (entry: LogEntry) => {
       if (levelFilter && entry.level !== levelFilter) return;

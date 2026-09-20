@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { Eye, EyeOff, Plus } from "lucide-react";
 import type { InboundChannel, InboundTranscriptionSettings } from "@socmedia/shared";
@@ -98,22 +97,21 @@ function TranscriptionRow() {
             </div>
           </Field>
         )}
-        <Button size="sm" className="inbound-tap" disabled={!dirty || keyMissing} loading={save.isPending} onClick={submit} data-testid="save-transcription">Save</Button>
+        {/* Lines up with the select (label height plus its gap) instead of sinking to the hint's baseline. */}
+        <Button size="md" className="inbound-tap sm:mt-[26px] sm:self-start" disabled={!dirty || keyMissing} loading={save.isPending} onClick={submit} data-testid="save-transcription">Save</Button>
       </div>
       {dirty && keyMissing && <p className="mt-2 text-xs text-amber-700">Paste an API key to save this provider.</p>}
     </div>
   );
 }
 
-/** Settings section: configure inbound chat channels (Twilio, Telegram, Test), link senders, watch
- * messages arrive live, and manage which senders can post. */
+/** Remote Posting → Chat channels: configure inbound chat channels (Twilio, Telegram, Test), link senders,
+ * watch messages arrive live, and manage which senders can post. */
 export function InboundSection() {
   const status = useInboundStatus();
   const channelsQuery = useInboundChannels();
-  const location = useLocation();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardChannel, setWizardChannel] = useState<InboundChannel | null>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
   const monitorRef = useRef<HTMLDivElement>(null);
 
   const openWizard = (channel?: InboundChannel) => { setWizardChannel(channel ?? null); setWizardOpen(true); };
@@ -121,17 +119,10 @@ export function InboundSection() {
   const channels = channelsQuery.data ?? [];
   const channelStatuses = status.data?.channels ?? [];
 
-  // "/settings#inbound" (the right-rail popover's "Open settings" link) lands on this card, even when the
-  // page was already open. React Router does not scroll to hashes on its own.
-  useEffect(() => {
-    if (location.hash !== "#inbound" || !cardRef.current) return;
-    cardRef.current.scrollIntoView({ block: "start" });
-  }, [location.hash, location.key]);
-
   return (
-    <div ref={cardRef} className="scroll-mt-28">
     <Card data-testid="inbound-section">
       <CardHeader
+        className="flex-col sm:flex-row"
         title="Post from chat"
         subtitle="Let your team post a photo by texting or messaging a bot. suprstar drafts or publishes it automatically."
         action={<Button size="sm" className="inbound-tap shrink-0" icon={<Plus className="h-4 w-4" />} onClick={() => openWizard()} data-testid="setup-channel">Set up a channel</Button>}
@@ -191,6 +182,5 @@ export function InboundSection() {
 
       <InboundWizard open={wizardOpen} onClose={() => setWizardOpen(false)} channels={channels} initialChannel={wizardChannel} onFinished={goToMonitor} />
     </Card>
-    </div>
   );
 }

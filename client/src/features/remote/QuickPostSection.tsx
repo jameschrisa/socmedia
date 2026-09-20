@@ -28,14 +28,14 @@ function TokenRow({ token, accountLabels, onToggle, onRevoke, busy }: {
 }) {
   return (
     <tr className="border-b border-ink-100 last:border-0">
-      <td className="py-2.5 pr-3 text-sm font-medium text-ink-900">{token.label}</td>
-      <td className="py-2.5 pr-3 text-sm text-ink-600">{accountLabels}</td>
-      <td className="py-2.5 pr-3 text-sm text-ink-600">{token.publishMode === "queue" ? "Queue" : "All at once"}</td>
-      <td className="py-2.5 pr-3 text-sm text-ink-600">{token.usesCount}</td>
-      <td className="py-2.5 pr-3 text-sm text-ink-600">{token.lastUsedAt ? relativeTime(token.lastUsedAt) : "Never"}</td>
-      <td className="py-2.5 pr-3"><Toggle checked={token.active} onChange={onToggle} disabled={busy} label={`${token.label} active`} size="sm" /></td>
-      <td className="py-2.5 text-right">
-        <Button variant="ghost" size="sm" onClick={onRevoke} disabled={busy} aria-label={`Revoke ${token.label}`} className="text-red-600 hover:bg-red-50" icon={<Trash2 className="h-3.5 w-3.5" />}>
+      <td className="cell-label py-2.5 pr-3 text-sm font-medium text-ink-900">{token.label}</td>
+      <td className="cell-meta cell-accounts py-2.5 pr-3 text-sm text-ink-600" data-label="Accounts">{accountLabels}</td>
+      <td className="cell-meta cell-mode py-2.5 pr-3 text-sm text-ink-600" data-label="Mode">{token.publishMode === "queue" ? "Queue" : "All at once"}</td>
+      <td className="cell-meta cell-uses py-2.5 pr-3 text-sm text-ink-600" data-label="Uses">{token.usesCount}</td>
+      <td className="cell-meta cell-lastused py-2.5 pr-3 text-sm text-ink-600" data-label="Last used">{token.lastUsedAt ? relativeTime(token.lastUsedAt) : "Never"}</td>
+      <td className="cell-active py-2.5 pr-3"><Toggle checked={token.active} onChange={onToggle} disabled={busy} label={`${token.label} active`} size="sm" /></td>
+      <td className="cell-revoke py-2.5 text-right">
+        <Button variant="ghost" size="sm" onClick={onRevoke} disabled={busy} aria-label={`Revoke ${token.label}`} className="remote-tap remote-tap-icon text-red-600 hover:bg-red-50" icon={<Trash2 className="h-3.5 w-3.5" />}>
           <span className="hidden sm:inline">Revoke</span>
         </Button>
       </td>
@@ -173,7 +173,7 @@ function CreateLinkModal({ open, onClose }: { open: boolean; onClose: () => void
   );
 }
 
-/** Settings section: manage "Quick post from your phone" links (advanced, write access only). */
+/** Remote Posting → Phone links: manage "quick post from your phone" links (advanced, write access only). */
 export function QuickPostSection() {
   const { data: tokens = [], isLoading } = useQuickTokens();
   const { data: connections = [] } = useConnections();
@@ -193,7 +193,8 @@ export function QuickPostSection() {
   return (
     <Card>
       <CardHeader
-        title="Quick post from your phone"
+        className="flex-col sm:flex-row"
+        title="Phone links"
         subtitle={
           <>
             <Badge tone="info" className="mr-2">Advanced</Badge>
@@ -220,7 +221,7 @@ export function QuickPostSection() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="remote-stack-table remote-links-table w-full text-left">
               <thead>
                 <tr className="border-b border-ink-100 text-xs uppercase tracking-wide text-ink-500">
                   <th className="py-2 pr-3 font-medium">Label</th>
@@ -229,7 +230,7 @@ export function QuickPostSection() {
                   <th className="py-2 pr-3 font-medium">Uses</th>
                   <th className="py-2 pr-3 font-medium">Last used</th>
                   <th className="py-2 pr-3 font-medium">Active</th>
-                  <th className="py-2" />
+                  <th className="py-2"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>

@@ -138,4 +138,25 @@ describe("OverviewPage", () => {
       expect(calls.some((c) => c.method === "POST" && c.url.includes("/posts/post-approval/approve"))).toBe(true);
     });
   });
+
+  it("shows a notice linking to Remote Posting when a remote draft needs a caption", async () => {
+    const org = makeOrg();
+    const draft = makePost({ id: "post-draft", status: "draft", labels: ["quick"], notes: "Needs a caption (submitted from phone)" });
+    mockFetch({
+      "GET /api/orgs": () => [org],
+      "GET /api/connections": () => [],
+      "GET /api/analytics/summary": () => makeSummary(),
+      "GET /api/posts": (_init, url) => {
+        const u = new URL(url!, "http://test.local");
+        const status = u.searchParams.get("status")?.split(",");
+        return status?.includes("draft") ? [draft] : [];
+      },
+      "GET /api/jobs": () => [],
+    });
+    renderWithProviders(<OverviewPage />);
+
+    const notice = await screen.findByTestId("remote-drafts-notice");
+    expect(notice).toHaveTextContent("1 remote draft is waiting on a caption.");
+    expect(notice).toHaveAttribute("href", "/remote#overview");
+  });
 });

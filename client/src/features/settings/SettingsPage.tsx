@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, Pencil, Plus, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { Organization, OrganizationInput } from "@socmedia/shared";
 import { Badge, Button, Card, Modal, OrgLogo, SectionTitle, SegmentedTabs } from "@/components/ui";
 import { useAppStore, type ThemePref } from "@/store/appStore";
@@ -14,8 +15,6 @@ import { PublishingSettingsCard } from "./PublishingSettingsCard";
 import { UsersCard } from "./UsersCard";
 import { SignInPolicyCard } from "./SignInPolicyCard";
 import { AccessRequestsCard } from "./AccessRequestsCard";
-import { QuickPostSection } from "./QuickPostSection";
-import { InboundSection } from "./inbound/InboundSection";
 
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : "Something went wrong";
@@ -171,15 +170,13 @@ export function SettingsPage() {
 
       {can.write && (
         <section className="space-y-3">
-          <SectionTitle>Quick post from your phone</SectionTitle>
-          <QuickPostSection />
-        </section>
-      )}
-
-      {can.manageSettings && (
-        <section id="inbound" className="space-y-3">
-          <SectionTitle>Post from chat</SectionTitle>
-          <InboundSection />
+          <SectionTitle>Remote posting</SectionTitle>
+          <Card className="flex flex-wrap items-center justify-between gap-4 p-5" data-testid="remote-posting-moved">
+            <p className="text-sm text-ink-500">Phone links and chat channels now live under Remote Posting.</p>
+            <Link to="/remote" className="focus-ring inline-flex h-9 items-center gap-1.5 bg-brand-500 px-4 text-sm font-medium text-[color:var(--c-on-brand)] hover:bg-brand-600">
+              Go to Remote Posting <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Card>
         </section>
       )}
 
