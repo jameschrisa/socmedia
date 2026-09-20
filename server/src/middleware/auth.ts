@@ -40,6 +40,12 @@ export function attachUser(db: Db) {
   };
 }
 
+/** Resolves the signed-in user from a raw `Cookie` request header. Used outside Express (e.g. the WebSocket upgrade handler). */
+export function resolveSessionUser(db: Db, cookieHeader: string | undefined | null): User | undefined {
+  const cookies = parseCookies(cookieHeader ?? undefined);
+  return resolveUserFromCookie(db, cookies[SESSION_COOKIE_NAME]);
+}
+
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (!req.user) {
     res.status(401).json({ error: "Sign in required" });

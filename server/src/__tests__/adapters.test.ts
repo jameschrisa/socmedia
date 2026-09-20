@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { PlatformConnection } from "@socmedia/shared";
 import { defaultCredentials, defaultSettings } from "../db/defaults";
@@ -6,6 +7,7 @@ import { instagramAdapter } from "../platforms/instagram";
 import { linkedinAdapter } from "../platforms/linkedin";
 import { tiktokAdapter } from "../platforms/tiktok";
 import { youtubeAdapter } from "../platforms/youtube";
+import { xAdapter } from "../platforms/x";
 
 function makeConnection(platform: PlatformConnection["platform"], overrides: Partial<PlatformConnection> = {}): PlatformConnection {
   const now = new Date().toISOString();
@@ -76,6 +78,27 @@ describe("platform adapters: buildAuthorizeUrl", () => {
     expect(url.searchParams.get("scope")).toContain("instagram_basic");
     expect(url.searchParams.get("state")).toBe("stateabc");
   });
+
+  it("x: uses x.com/i/oauth2/authorize with a PKCE S256 challenge derived from the persisted code_verifier", () => {
+    const verifier = "test-code-verifier-1234567890-abcdefghij";
+    const expectedChallenge = crypto.createHash("sha256").update(verifier).digest("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const conn = makeConnection("x", { credentials: { ...defaultCredentials("x"), clientId: "the-client-id", redirectUri: "https://app.example.com/oauth/callback", extra: { codeVerifier: verifier } } });
+    const url = new URL(xAdapter.buildAuthorizeUrl(conn, "statex1"));
+    expect(url.hostname).toBe("x.com");
+    expect(url.pathname).toBe("/i/oauth2/authorize");
+    expect(url.searchParams.get("client_id")).toBe("the-client-id");
+    expect(url.searchParams.get("state")).toBe("statex1");
+    expect(url.searchParams.get("code_challenge_method")).toBe("S256");
+    expect(url.searchParams.get("code_challenge")).toBe(expectedChallenge);
+  });
+
+  it("x: prepareAuthorization generates a fresh code_verifier for the connect route to persist", () => {
+    const conn = makeConnection("x");
+    const a = xAdapter.prepareAuthorization!(conn);
+    const b = xAdapter.prepareAuthorization!(conn);
+    expect(a.extra.codeVerifier).toBeTruthy();
+    expect(a.extra.codeVerifier).not.toBe(b.extra.codeVerifier);
+  });
 });
 
 describe("sandbox-wrapped adapters", () => {
@@ -119,6 +142,16 @@ describe("sandbox-wrapped adapters", () => {
     const instagramConn = makeConnection("instagram", { mode: "sandbox" });
     const instagramResult = await getAdapter("instagram").publish(instagramConn, post, { platform: "instagram", connectionId: instagramConn.id, format: "square", mediaIds: [] }, []);
     expect(instagramResult.externalUrl).toMatch(/^https:\/\/www\.instagram\.com\/p\//);
+
+    const xConn = makeConnection("x", { mode: "sandbox", handle: "@brand" });
+    const xResult = await getAdapter("x").publish(xConn, post, { platform: "x", connectionId: xConn.id, format: "square", mediaIds: [] }, []);
+    expect(xResult.externalUrl).toMatch(/^https:\/\/x\.com\/brand\/status\//);
+  });
+
+  it("x: rejects captions over 280 characters before making any network call", async () => {
+    const post = { id: "p1", orgId: "org_1", title: "T", caption: "x".repeat(300), hashtags: [], mediaIds: [], targets: [], status: "draft", scheduledAt: null, timezone: "UTC", labels: [], notes: "", createdAt: "", updatedAt: "", publishedAt: null } as any;
+    const conn = makeConnection("x", { mode: "live", handle: "@brand", credentials: { ...defaultCredentials("x"), accessToken: "token" } });
+    await expect(xAdapter.publish(conn, post, { platform: "x", connectionId: conn.id, format: "square", mediaIds: [] }, [])).rejects.toThrow(/280 characters/);
   });
 
   it("fetchMetrics is deterministic for a given connection id", async () => {

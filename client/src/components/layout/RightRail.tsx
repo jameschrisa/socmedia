@@ -1,14 +1,84 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { BookOpen, CalendarCheck2, Sparkles, HeartHandshake, ExternalLink, Terminal, X } from "lucide-react";
+import { BookOpen, CalendarCheck2, Sparkles, HeartHandshake, ExternalLink, Search, Terminal, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { PLATFORMS, PLATFORM_SPECS, type Platform } from "@socmedia/shared";
 import { Button, Portal, useAnchorPosition } from "@/components/ui";
 import { useAppStore } from "@/store/appStore";
+import { useOpenConsole } from "@/features/console/useConsoleNav";
 import { api } from "@/lib/api";
 import { qk } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 
 type PanelId = "docs" | "scheduler" | "approvals";
+
+/** Support-facing search over the bundled platform developer docs, reachable outside the console too. */
+function PlatformDocsSearch() {
+  const [platform, setPlatform] = useState<Platform | "">("");
+  const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQ(q.trim()), 300);
+    return () => clearTimeout(id);
+  }, [q]);
+
+  const search = useQuery({
+    queryKey: qk.docsSearch({ platform: platform || undefined, q: debouncedQ }),
+    queryFn: () => api.docs.searchPlatforms({ platform: platform || undefined, q: debouncedQ, limit: 5 }),
+    enabled: debouncedQ.length > 1,
+  });
+  const hits = search.data?.hits ?? [];
+
+  return (
+    <div className="mt-4 border-t pt-3" style={{ borderColor: "var(--c-edge)" }}>
+      <p className="text-xs font-semibold text-ink-700">Platform docs</p>
+      <div className="mt-2 flex gap-1.5">
+        <select
+          aria-label="Filter docs by platform"
+          value={platform}
+          onChange={(e) => setPlatform(e.target.value as Platform | "")}
+          className="input select-chevron !h-8 w-[6.5rem] shrink-0 !py-0 pr-6 text-xs"
+        >
+          <option value="">All</option>
+          {PLATFORMS.map((p) => <option key={p} value={p}>{PLATFORM_SPECS[p].name}</option>)}
+        </select>
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-400" aria-hidden />
+          <input
+            type="search"
+            aria-label="Search platform docs"
+            data-testid="platform-docs-input"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search docs…"
+            className="input !h-8 w-full !py-0 pl-7 text-xs"
+          />
+        </div>
+      </div>
+      <div className="mt-2 max-h-56 space-y-2.5 overflow-y-auto scrollbar-thin" data-testid="platform-docs-results">
+        {search.isFetching && <p className="text-xs text-ink-500">Searching…</p>}
+        {!search.isFetching && debouncedQ.length > 1 && hits.length === 0 && (
+          <p className="text-xs text-ink-500">No matches in the platform docs. Try a shorter term{platform ? ", or set the platform back to All" : ""}.</p>
+        )}
+        {hits.map((hit, i) => (
+          <div key={`${hit.file}-${hit.heading}-${i}`} className="text-xs" data-testid="platform-docs-hit">
+            <div className="flex items-center gap-1.5">
+              <span className="chip chip-inactive !px-1.5 !py-0 text-[10px] uppercase">{hit.platform}</span>
+              <span className="min-w-0 truncate font-medium text-ink-800">{hit.heading}</span>
+            </div>
+            <p className="mt-0.5 line-clamp-2 text-ink-500">{hit.excerpt}</p>
+            {hit.sources[0] && (
+              <a href={hit.sources[0]} target="_blank" rel="noreferrer" className="link mt-0.5 inline-flex items-center gap-1 text-[11px]">
+                Source <ExternalLink className="h-3 w-3" aria-hidden />
+              </a>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /**
  * Collapsed help rail: a slim strip of icon buttons. Panels are hidden by default and
@@ -16,7 +86,7 @@ type PanelId = "docs" | "scheduler" | "approvals";
  */
 export function RightRail() {
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen);
-  const toggleConsole = useAppStore((s) => s.toggleConsole);
+  const openConsole = useOpenConsole();
   const [open, setOpen] = useState<PanelId | null>(null);
   const railRef = useRef<HTMLElement>(null);
   const PANEL_W = 288;
@@ -27,7 +97,7 @@ export function RightRail() {
 
   const items: { id: PanelId | "ai" | "console"; label: string; icon: React.ReactNode; tone: string; onClick: () => void }[] = [
     { id: "ai", label: "AI Assistant", icon: <Sparkles className="h-4 w-4" />, tone: "text-brand-600 bg-brand-50 hover:bg-brand-100", onClick: () => { setOpen(null); setAiPanelOpen(true); } },
-    { id: "console", label: "Console", icon: <Terminal className="h-4 w-4" />, tone: "text-ink-600 bg-ink-50 hover:bg-ink-100", onClick: () => { setOpen(null); toggleConsole(); } },
+    { id: "console", label: "Console", icon: <Terminal className="h-4 w-4" />, tone: "text-ink-600 bg-ink-50 hover:bg-ink-100", onClick: () => { setOpen(null); openConsole(); } },
     { id: "docs", label: "Documentation", icon: <BookOpen className="h-4 w-4" />, tone: "text-ink-600 bg-ink-50 hover:bg-ink-100", onClick: () => toggle("docs") },
     { id: "scheduler", label: "Scheduler status", icon: <CalendarCheck2 className="h-4 w-4" />, tone: "text-green-600 bg-green-50 hover:bg-green-100", onClick: () => toggle("scheduler") },
     { id: "approvals", label: "Approvals", icon: <HeartHandshake className="h-4 w-4" />, tone: "text-pink-600 bg-pink-50 hover:bg-pink-100", onClick: () => toggle("approvals") },
@@ -71,6 +141,7 @@ export function RightRail() {
                   <h3 className="mt-3 text-sm font-semibold">Documentation</h3>
                   <p className="mt-1 text-sm text-ink-500">How to obtain API credentials for each network and switch from sandbox to live publishing. See <code className="bg-ink-100 px-1 text-xs">server/README.md</code>.</p>
                   <a className="link mt-3 inline-flex items-center gap-1 text-sm" href="https://github.com" target="_blank" rel="noreferrer">Open docs <ExternalLink className="h-3.5 w-3.5" /></a>
+                  <PlatformDocsSearch />
                 </>
               )}
               {open === "scheduler" && (

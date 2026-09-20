@@ -83,3 +83,85 @@ export function installMockEventSource() {
   MockEventSource.instances = [];
   return () => { (globalThis as any).EventSource = previous; };
 }
+
+type WsListener = (ev: any) => void;
+
+/** Minimal WebSocket stand-in: jsdom has none. Records everything sent so tests can assert on it,
+ * and exposes `dispatchOpen`/`dispatchMessage`/`dispatchClose`/`dispatchError` to drive it from the server side. */
+export class MockWebSocket {
+  static instances: MockWebSocket[] = [];
+  static readonly CONNECTING = 0;
+  static readonly OPEN = 1;
+  static readonly CLOSING = 2;
+  static readonly CLOSED = 3;
+  url: string;
+  sent: string[] = [];
+  closed = false;
+  readyState = 0; // CONNECTING
+  onopen: WsListener | null = null;
+  onmessage: WsListener | null = null;
+  onclose: WsListener | null = null;
+  onerror: WsListener | null = null;
+  private listeners: Record<string, WsListener[]> = {};
+
+  constructor(url: string) {
+    this.url = url;
+    MockWebSocket.instances.push(this);
+  }
+
+  addEventListener(type: string, cb: WsListener) {
+    (this.listeners[type] ??= []).push(cb);
+  }
+
+  removeEventListener(type: string, cb: WsListener) {
+    this.listeners[type] = (this.listeners[type] ?? []).filter((f) => f !== cb);
+  }
+
+  private emit(type: string, ev: any) {
+    if (type === "open" && this.onopen) this.onopen(ev);
+    if (type === "message" && this.onmessage) this.onmessage(ev);
+    if (type === "close" && this.onclose) this.onclose(ev);
+    if (type === "error" && this.onerror) this.onerror(ev);
+    for (const cb of this.listeners[type] ?? []) cb(ev);
+  }
+
+  send(data: string) {
+    this.sent.push(data);
+  }
+
+  close() {
+    if (this.closed) return;
+    this.closed = true;
+    this.readyState = 3; // CLOSED
+    this.emit("close", { code: 1000 });
+  }
+
+  /** Test hook: simulate the server accepting the connection. */
+  dispatchOpen() {
+    this.readyState = 1; // OPEN
+    this.emit("open", {});
+  }
+
+  /** Test hook: simulate a server → client text frame. */
+  dispatchMessage(data: unknown) {
+    this.emit("message", { data: typeof data === "string" ? data : JSON.stringify(data) });
+  }
+
+  dispatchClose() {
+    this.closed = true;
+    this.readyState = 3;
+    this.emit("close", { code: 1000 });
+  }
+
+  dispatchError() {
+    this.emit("error", {});
+  }
+}
+
+/** Installs `MockWebSocket` as the global `WebSocket` for the duration of a test; returns a restore function. */
+export function installMockWebSocket() {
+  const previous = (globalThis as any).WebSocket;
+  (globalThis as any).WebSocket = MockWebSocket;
+  MockWebSocket.instances = [];
+  return () => { (globalThis as any).WebSocket = previous; };
+}

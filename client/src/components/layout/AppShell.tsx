@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import { TopNav } from "./TopNav";
@@ -7,7 +8,7 @@ import { useCardFocus } from "@/hooks/useCardFocus";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { AiPanel } from "@/features/ai/AiPanel";
 import { ComposerDrawer } from "@/features/studio/ComposerDrawer";
-import { ConsoleDrawer } from "@/features/console/ConsoleDrawer";
+import { useOpenConsole } from "@/features/console/useConsoleNav";
 import { ApiError } from "@/lib/api";
 
 export function AppShell() {
@@ -18,6 +19,21 @@ export function AppShell() {
   useCardFocus("main");
   const location = useLocation();
   const mode = useThemeMode();
+
+  // Ctrl+` opens the full-page console from anywhere in the app; the console page has its own
+  // handler that closes it back to whatever route was open here.
+  const openConsole = useOpenConsole();
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.code === "Backquote") {
+        e.preventDefault();
+        openConsole();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openConsole]);
+
   return (
     <div className="min-h-screen flex flex-col">
       <TopNav />
@@ -42,7 +58,6 @@ export function AppShell() {
       </main>
       <AiPanel />
       <ComposerDrawer />
-      <ConsoleDrawer />
       <Toaster position="bottom-right" theme={mode} closeButton toastOptions={{ className: "text-sm glass-sheet !rounded-2xl" }} />
     </div>
   );

@@ -22,6 +22,15 @@ export function effectiveCaption(post: Pick<Post, "caption" | "hashtags">, targe
   return composeCaption(target.caption ?? post.caption, target.hashtags ?? post.hashtags);
 }
 
+/** "10 minutes", "2 min 20 s" or "45 seconds", whichever reads naturally for a platform limit. */
+function formatLimit(seconds: number): string {
+  if (seconds < 60) return `${seconds} seconds`;
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  if (rest === 0) return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  return `${minutes} min ${rest} s`;
+}
+
 /** Validate a post against each target platform's rules. */
 export function validatePost(
   post: Pick<Post, "caption" | "hashtags" | "mediaIds" | "targets" | "title" | "scheduledAt"> & Partial<Pick<Post, "publishMode">>,
@@ -66,7 +75,7 @@ export function validatePost(
         issues.push({ level: "error", platform: target.platform, message: `${name} does not accept ${asset.kind} files (${asset.filename}).` });
       }
       if (asset.kind === "video" && asset.durationSeconds && asset.durationSeconds > spec.maxVideoSeconds) {
-        issues.push({ level: "error", platform: target.platform, message: `${name} videos must be under ${Math.round(spec.maxVideoSeconds / 60)} minutes.` });
+        issues.push({ level: "error", platform: target.platform, message: `${name} videos must be under ${formatLimit(spec.maxVideoSeconds)}.` });
       }
     }
     if (target.platform === "youtube") {

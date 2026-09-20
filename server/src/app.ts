@@ -8,7 +8,7 @@ import { attachUser, authGate, requireRole, requireWrite } from "./middleware/au
 import { errorHandler } from "./middleware/errors";
 import { httpLogging } from "./middleware/httpLogging";
 import { orgMiddleware } from "./middleware/org";
-import { agentRouter } from "./routes/agent";
+import { agentRouter, platformDocsRouter } from "./routes/agent";
 import { aiRouter } from "./routes/ai";
 import { analyticsRouter } from "./routes/analytics";
 import { authRouter } from "./routes/auth";
@@ -21,6 +21,7 @@ import { orgsRouter } from "./routes/orgs";
 import { postsRouter } from "./routes/posts";
 import { quickPublicRouter, quickTokensRouter } from "./routes/quick";
 import { settingsRouter } from "./routes/settings";
+import { terminalRouter } from "./routes/terminal";
 import { usersRouter } from "./routes/users";
 
 /** Builds the Express app (no listening) so tests can drive it with supertest directly. */
@@ -46,6 +47,8 @@ export function createApp(db: Db): express.Express {
   app.use("/api/settings", requireRole("admin"), settingsRouter(db));
   app.use("/api", orgsRouter(db));
   app.use("/api/logs", logsRouter(db));
+  app.use("/api/terminal", terminalRouter(db));
+  app.use("/api/docs/platforms", platformDocsRouter(db));
 
   // Not org-scoped: the OAuth provider redirects here directly and state encodes the connectionId.
   // Registered before the org-scoped /api/connections router so it isn't shadowed by "/:id".

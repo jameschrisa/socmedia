@@ -11,7 +11,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": process.env.VITE_API_PROXY || "http://localhost:4000",
+      "/api": { target: process.env.VITE_API_PROXY || "http://localhost:4000", ws: true },
       "/uploads": process.env.VITE_API_PROXY || "http://localhost:4000",
     },
     // The e2e run (identified by VITE_API_PROXY, only set by playwright.config.ts) uses its own

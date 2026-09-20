@@ -181,8 +181,16 @@ export function connectionsRouter(db: Db): Router {
   router.post(
     "/:id/connect",
     asyncHandler(async (req, res) => {
-      const existing = getOwned(req, repo);
+      let existing = getOwned(req, repo);
       const adapter = getAdapter(existing.platform);
+      if (adapter.prepareAuthorization) {
+        const prepared = adapter.prepareAuthorization(existing);
+        existing = repo.save({
+          ...existing,
+          credentials: { ...existing.credentials, extra: { ...existing.credentials.extra, ...prepared.extra } },
+          updatedAt: new Date().toISOString(),
+        });
+      }
       const state = encodeState(existing.id);
       const authorizeUrl = adapter.buildAuthorizeUrl(existing, state);
 

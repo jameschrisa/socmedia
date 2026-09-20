@@ -24,9 +24,15 @@ export function rangeFor(preset: RangePreset, now: Date = new Date()): { from: s
 export type SummarySeriesPoint = AnalyticsSummary["series"][number];
 export type SeriesMetricKey = "impressions" | "engagement" | "followers";
 
-/** brand colour to use for a platform series/legend, TikTok's near-black swapped for readability. */
+/**
+ * Brand colour to use for a platform series/legend/badge. TikTok and X are both near-black,
+ * which vanishes against the dark theme's void background, so TikTok swaps to the app's ink
+ * tone and X swaps to its own blue accent (keeping it visually distinct from TikTok's swap).
+ */
 export function platformColor(platform: Platform): string {
-  return platform === "tiktok" ? "#f0eef3" : PLATFORM_SPECS[platform].color;
+  if (platform === "tiktok") return "#f0eef3";
+  if (platform === "x") return PLATFORM_SPECS.x.accent;
+  return PLATFORM_SPECS[platform].color;
 }
 
 function sortedDates(series: { date: string }[]): string[] {

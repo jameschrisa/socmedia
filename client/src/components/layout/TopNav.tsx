@@ -5,6 +5,7 @@ import { OrgSwitcher } from "./OrgSwitcher";
 import { Button, SparkMark, Wordmark } from "@/components/ui";
 import { useAppStore } from "@/store/appStore";
 import { useAuth } from "@/hooks/useAuth";
+import { useOpenConsole } from "@/features/console/useConsoleNav";
 import { UserMenu } from "@/features/auth/UserMenu";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +30,7 @@ export function Logo() {
 export function TopNav() {
   const openComposer = useAppStore((s) => s.openComposer);
   const toggleAi = useAppStore((s) => s.toggleAiPanel);
-  const toggleConsole = useAppStore((s) => s.toggleConsole);
+  const openConsole = useOpenConsole();
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
   const { can } = useAuth();
@@ -53,7 +54,7 @@ export function TopNav() {
             </button>
             <button
               type="button"
-              onClick={toggleConsole}
+              onClick={openConsole}
               aria-label="Console"
               title="Console (Ctrl+`)"
               data-testid="rail-console-mobile"

@@ -118,6 +118,15 @@ Switch a connection's mode with `PATCH /connections/:id { "mode": "live" }`.
    the linked Page's Instagram Business Account id via `/me/accounts` and stores it in
    `credentials.extra.igUserId`.
 
+### X (X Developer Portal)
+1. Create a project and an app at [console.x.com](https://console.x.com) (or the legacy developer portal) — a v2 app must live inside a **Project**.
+2. Under the app's "User authentication settings", enable **OAuth 2.0** with app type **Web App** (confidential client — this is the type that can hold a client secret server-side).
+3. Set permissions to **Read and write** (required for `POST /2/tweets` and media upload).
+4. Add `<PUBLIC_BASE_URL>/api/connections/oauth/callback` as the callback URL (URLs must match exactly, including scheme and trailing slash; X rejects `localhost` in production).
+5. Copy the app's **OAuth 2.0 Client ID and Client Secret** into `clientId`/`clientSecret` — not the OAuth 1.0a API Key/Secret, which will fail with `invalid_client` at the token endpoint.
+6. X's OAuth 2.0 authorization-code flow requires **PKCE**. suprstar generates a `code_verifier` and persists it to `credentials.extra.codeVerifier` when `POST /connections/:id/connect` runs (via the adapter's `prepareAuthorization` hook), derives the S256 `code_challenge` for the authorize URL, and clears the verifier once `exchangeCode` succeeds. Nothing to configure for this — it's automatic — but it means a connect attempt must complete (or be retried, which regenerates the verifier) rather than reusing a stale authorize URL.
+7. Note the tier limits: legacy **Free** tier is capped at roughly 1,500 posts/month with tight per-15-minute write limits; media upload requires the `media.write` scope; higher-volume posting needs **Basic** tier or the newer pay-per-usage credits (see `docs/platforms/x/overview.md` for current pricing — it changes often).
+
 ## Data model notes
 
 - SQLite tables: `organizations`, `connections`, `media`, `posts`, `publish_jobs`, `metric_snapshots`,

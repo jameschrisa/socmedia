@@ -36,12 +36,15 @@ function fakeExternalUrl(platform: Platform, conn: PlatformConnection, id: strin
       return `https://www.linkedin.com/feed/update/urn:li:share:${id}`;
     case "instagram":
       return `https://www.instagram.com/p/${id}/`;
+    case "x":
+      return `https://x.com/${handle.replace(/^@/, "")}/status/${id}`;
   }
 }
 
 /** Wraps a real adapter so sandbox-mode connections get simulated, deterministic responses. */
 export function sandboxWrap(real: PlatformAdapter, platform: Platform): PlatformAdapter {
   return {
+    ...(real.prepareAuthorization ? { prepareAuthorization: (conn: PlatformConnection) => real.prepareAuthorization!(conn) } : {}),
     buildAuthorizeUrl: (conn, state) => real.buildAuthorizeUrl(conn, state),
 
     async exchangeCode(conn, code) {

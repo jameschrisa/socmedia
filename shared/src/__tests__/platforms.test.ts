@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { PLATFORMS, PLATFORM_SPECS, FORMAT_SPECS, commonFormats, cropForFormat, isPlatform, isPostFormat } from "../platforms";
 
 describe("platform specs", () => {
-  it("defines all four platforms with a default format they support", () => {
-    expect(PLATFORMS).toEqual(["tiktok", "youtube", "linkedin", "instagram"]);
+  it("defines all five platforms with a default format they support", () => {
+    expect(PLATFORMS).toEqual(["tiktok", "youtube", "linkedin", "instagram", "x"]);
     for (const p of PLATFORMS) {
       const spec = PLATFORM_SPECS[p];
       expect(spec.formats).toContain(spec.defaultFormat);

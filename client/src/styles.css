@@ -236,6 +236,20 @@
   .terminal .term-grip:hover > span, .terminal .term-grip:focus-visible > span { background: var(--c-brand-400); }
   .terminal .term-grip:focus-visible { outline: none; }
 
+  /* Console page split view: the Agent/right-pane widths follow --split (0.3-0.7), set inline on the row.
+     Below the lg breakpoint the row becomes a column and a segmented switch picks one pane at a time,
+     so the basis is left at auto there instead of fighting the stacked layout. */
+  .console-split-left, .console-split-right { flex: 1 1 auto; min-width: 0; min-height: 0; }
+  @media (min-width: 1024px) {
+    .console-split-left { flex: 0 0 calc(var(--split, 0.5) * 100% - 4px); }
+    .console-split-right { flex: 0 0 calc((1 - var(--split, 0.5)) * 100% - 4px); }
+  }
+  .console-split-handle { width: 8px; touch-action: none; }
+  .console-split-handle:hover > span, .console-split-handle:focus-visible > span { background: var(--c-brand-400); }
+  .console-split-handle:focus-visible { outline: none; }
+  /* The console page owns the viewport: 100dvh keeps the command line above phone browser chrome. */
+  .console-page { height: 100vh; height: 100dvh; }
+
   /* ---- Sign-in card: the one rounded surface in the product. Dark glass in both themes because it sits over footage. ----
      Re-pins the dark token set on this element so the shared Input, Field, Button and notice styles render for a dark surface
      even when the app theme is light. */
@@ -283,6 +297,15 @@
   .login-card .auth-tap-inline { padding: 14px 4px; margin: -14px -4px; }
   /* Show/hide password toggle sits inside the input; give it the full input height. */
   .login-card .auth-eye { height: 40px; width: 40px; right: 2px; }
+}
+
+/* ---- Console on phones: 44px targets for the pane switch, toolbar buttons and inline actions. ---- */
+@media (max-width: 640px) {
+  .terminal [role="tablist"] [role="tab"] { min-height: 40px; padding-inline: 0.875rem; }
+  .terminal .console-mobile-switch [role="tablist"] [role="tab"] { min-height: 44px; }
+  .terminal .console-tap { min-height: 44px; }
+  .terminal button.console-tap.h-7 { height: 44px; width: 44px; }
+  .terminal [data-testid="console-close"] { min-height: 44px; }
 }
 
 /* Mandatory fallbacks */

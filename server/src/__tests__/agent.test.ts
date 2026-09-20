@@ -1,9 +1,23 @@
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nanoid } from "nanoid";
+import { ConnectionsRepo } from "../db/repositories/connections";
 import { UsersRepo } from "../db/repositories/users";
 import { hashPassword } from "../services/auth";
 import { cleanupTestContext, createTestContext, type TestContext } from "./testApp";
+
+/** Marks the org's youtube connection as failed with a realistic OAuth error, so platform_docs/diagnose_connection have something to find. */
+function failYoutubeConnectionWithInvalidGrant(ctx: TestContext): string {
+  const repo = new ConnectionsRepo(ctx.db);
+  const conn = repo.listByOrgAndPlatform(ctx.orgId, "youtube")[0];
+  const now = new Date().toISOString();
+  repo.save({
+    ...conn,
+    status: "error",
+    lastTest: { ok: false, checkedAt: now, latencyMs: 42, message: "invalid_grant", details: [] },
+  });
+  return conn.id;
+}
 
 const { mockCreate, AnthropicMock } = vi.hoisted(() => {
   const mockCreate = vi.fn();
@@ -167,6 +181,72 @@ describe("agent console", () => {
       expect(res.body.actions).toHaveLength(1);
       expect(res.body.actions[0]).toMatchObject({ tool: "list_posts", ok: true });
       expect(mockCreate).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("platform docs slash commands", () => {
+    it("/docs <platform> <query> lists top doc hits with file and heading", async () => {
+      const res = await request(ctx.app).post("/api/agent/commands").set(h()).send({ input: "/docs youtube invalid_grant" });
+      expect(res.status).toBe(200);
+      expect(res.body.actions[0]).toMatchObject({ tool: "platform_docs", ok: true });
+      expect(res.body.reply).not.toMatch(/No doc hits/);
+      expect(res.body.reply).toMatch(/\[youtube\]/);
+      expect(res.body.reply).toMatch(/youtube[/\\].*\.md/);
+    });
+
+    it("/docs <query> (no platform token) still searches", async () => {
+      const res = await request(ctx.app).post("/api/agent/commands").set(h()).send({ input: "/docs invalid_grant" });
+      expect(res.status).toBe(200);
+      expect(res.body.reply).not.toMatch(/No doc hits/);
+    });
+
+    it("/docs with no query shows usage", async () => {
+      const res = await request(ctx.app).post("/api/agent/commands").set(h()).send({ input: "/docs" });
+      expect(res.body.reply).toMatch(/Usage/);
+    });
+
+    it("/diagnose <platform> bundles status, last test and doc hits", async () => {
+      failYoutubeConnectionWithInvalidGrant(ctx);
+      const res = await request(ctx.app).post("/api/agent/commands").set(h()).send({ input: "/diagnose youtube" });
+      expect(res.status).toBe(200);
+      expect(res.body.actions.map((a: { tool: string }) => a.tool)).toContain("diagnose_connection");
+      expect(res.body.reply).toMatch(/youtube/i);
+      expect(res.body.reply).toMatch(/Last test: FAILED — invalid_grant/);
+      expect(res.body.reply).toMatch(/Top doc matches:/);
+    });
+
+    it("/diagnose <connectionId> works directly with an id", async () => {
+      const connectionId = failYoutubeConnectionWithInvalidGrant(ctx);
+      const res = await request(ctx.app).post("/api/agent/commands").set(h()).send({ input: `/diagnose ${connectionId}` });
+      expect(res.status).toBe(200);
+      expect(res.body.reply).toMatch(/Last test: FAILED — invalid_grant/);
+    });
+
+    it("/diagnose with an unknown platform/id reports usage or not-found", async () => {
+      const usage = await request(ctx.app).post("/api/agent/commands").set(h()).send({ input: "/diagnose" });
+      expect(usage.body.reply).toMatch(/Usage/);
+
+      const notFound = await request(ctx.app).post("/api/agent/commands").set(h()).send({ input: "/diagnose nope-not-real" });
+      expect(notFound.body.reply).toMatch(/not found/i);
+    });
+  });
+
+  describe("mock agent routes diagnostic questions to diagnose_connection", () => {
+    it('routes "why did youtube fail" to diagnose_connection and quotes a doc hit', async () => {
+      failYoutubeConnectionWithInvalidGrant(ctx);
+      const res = await request(ctx.app).post("/api/agent/commands").set(h()).send({ input: "why did youtube fail?" });
+      expect(res.status).toBe(200);
+      expect(res.body.mock).toBe(true);
+      expect(res.body.actions.map((a: { tool: string }) => a.tool)).toEqual(expect.arrayContaining(["list_accounts", "diagnose_connection"]));
+      expect(res.body.reply).toMatch(/youtube/i);
+      expect(res.body.reply).toMatch(/Source:/);
+    });
+
+    it('"what failed" with no platform mentioned falls back to the generic failed-jobs summary', async () => {
+      const res = await request(ctx.app).post("/api/agent/commands").set(h()).send({ input: "what failed recently?" });
+      expect(res.status).toBe(200);
+      expect(res.body.mock).toBe(true);
+      expect(res.body.actions[0]).toMatchObject({ tool: "list_jobs" });
     });
   });
 });

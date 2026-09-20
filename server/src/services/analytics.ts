@@ -183,6 +183,11 @@ const FALLBACK_BEST_TIMES: Record<Platform, BestTimeSlot[]> = {
     { weekday: 5, hour: 13, score: 0.79 },
     { weekday: 6, hour: 17, score: 0.74 },
   ],
+  x: [
+    { weekday: 2, hour: 8, score: 0.8 },
+    { weekday: 3, hour: 12, score: 0.77 },
+    { weekday: 4, hour: 17, score: 0.73 },
+  ],
 };
 
 /** Aggregates engagement by weekday/hour of published posts; falls back to platform heuristics. */

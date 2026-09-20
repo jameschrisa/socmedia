@@ -19,18 +19,24 @@ interface AppState {
   openComposer: (postId?: string | null, defaults?: Partial<ComposerDefaults>) => void;
   closeComposer: () => void;
   composerDefaults: ComposerDefaults;
-  consoleOpen: boolean;
-  setConsoleOpen: (open: boolean) => void;
-  toggleConsole: () => void;
-  consoleHeight: number;
-  setConsoleHeight: (h: number) => void;
+  /** Route the console page returns to when closed; set right before navigating to /console. */
+  consoleReturnTo: string;
+  setConsoleReturnTo: (path: string) => void;
+  /** Width of the Agent pane as a fraction of the split view, clamped to [CONSOLE_SPLIT_MIN, CONSOLE_SPLIT_MAX]. */
+  consoleSplit: number;
+  setConsoleSplit: (ratio: number) => void;
   consoleHistory: string[];
   pushConsoleHistory: (cmd: string) => void;
 }
 
-export const CONSOLE_MIN_HEIGHT = 160;
-export const CONSOLE_DEFAULT_HEIGHT = 320;
+export const CONSOLE_SPLIT_MIN = 0.3;
+export const CONSOLE_SPLIT_MAX = 0.7;
+export const CONSOLE_SPLIT_DEFAULT = 0.5;
 const CONSOLE_HISTORY_MAX = 50;
+
+function clampSplit(ratio: number): number {
+  return Math.min(CONSOLE_SPLIT_MAX, Math.max(CONSOLE_SPLIT_MIN, ratio));
+}
 
 export interface ComposerDefaults {
   scheduledAt: string | null;
@@ -56,11 +62,10 @@ export const useAppStore = create<AppState>()(
       composerDefaults: emptyDefaults,
       openComposer: (postId = null, defaults = {}) => set({ composerOpen: true, composerPostId: postId, composerDefaults: { ...emptyDefaults, ...defaults } }),
       closeComposer: () => set({ composerOpen: false, composerPostId: null, composerDefaults: emptyDefaults }),
-      consoleOpen: false,
-      setConsoleOpen: (open) => set({ consoleOpen: open }),
-      toggleConsole: () => set({ consoleOpen: !get().consoleOpen }),
-      consoleHeight: CONSOLE_DEFAULT_HEIGHT,
-      setConsoleHeight: (h) => set({ consoleHeight: Math.max(CONSOLE_MIN_HEIGHT, h) }),
+      consoleReturnTo: "/",
+      setConsoleReturnTo: (path) => set({ consoleReturnTo: path || "/" }),
+      consoleSplit: CONSOLE_SPLIT_DEFAULT,
+      setConsoleSplit: (ratio) => set({ consoleSplit: clampSplit(ratio) }),
       consoleHistory: [],
       pushConsoleHistory: (cmd) => set((s) => ({ consoleHistory: [cmd, ...s.consoleHistory.filter((c) => c !== cmd)].slice(0, CONSOLE_HISTORY_MAX) })),
     }),
@@ -69,7 +74,7 @@ export const useAppStore = create<AppState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
         currentOrgId: s.currentOrgId, calendarView: s.calendarView, theme: s.theme,
-        consoleOpen: s.consoleOpen, consoleHeight: s.consoleHeight, consoleHistory: s.consoleHistory,
+        consoleSplit: s.consoleSplit, consoleHistory: s.consoleHistory,
       }),
     },
   ),

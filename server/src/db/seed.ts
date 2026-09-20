@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { nanoid } from "nanoid";
 import sharp from "sharp";
+import { PLATFORMS } from "@socmedia/shared";
 import type { MediaAsset, Platform, Post, PostFormat, PostStatus, PublishJob } from "@socmedia/shared";
 import type { Db } from "./database";
 import { ConnectionsRepo } from "../db/repositories/connections";
@@ -202,6 +203,24 @@ const LARKSPUR_POSTS: SamplePostSpec[] = [
     offsetDays: null,
     platforms: ["linkedin"],
   },
+  {
+    title: "Flu shot clinics: walk-ins welcome all week",
+    caption:
+      "Reminder: all four Larkspur clinics are doing walk-in flu shots through Saturday. No appointment, most insurance covers it in full.",
+    hashtags: ["flushot", "communityhealth"],
+    status: "published",
+    offsetDays: -14,
+    platforms: ["x"],
+    jobs: { x: "succeeded" },
+  },
+  {
+    title: "Same-day telehealth, now booking",
+    caption: "Cold, rash, refill or follow-up? Book a same-day video visit from the patient portal, usually seen within two hours.",
+    hashtags: ["telehealth", "patientcare"],
+    status: "scheduled",
+    offsetDays: 4,
+    platforms: ["x"],
+  },
 ];
 
 export const DEMO_PROFILES: Record<string, DemoProfile> = {
@@ -213,7 +232,7 @@ export const DEMO_PROFILES: Record<string, DemoProfile> = {
     timezone: "America/Los_Angeles",
     displayName: "Larkspur Health",
     handle: "@larkspurhealth",
-    followers: { tiktok: 12400, youtube: 5310, linkedin: 8760, instagram: 19850 },
+    followers: { tiktok: 12400, youtube: 5310, linkedin: 8760, instagram: 19850, x: 7420 },
     posts: LARKSPUR_POSTS,
   },
 };
@@ -228,6 +247,8 @@ function fakeExternalUrl(platform: Platform, handle: string, id: string): string
       return `https://www.linkedin.com/feed/update/urn:li:share:${id}`;
     case "instagram":
       return `https://www.instagram.com/p/${id}/`;
+    case "x":
+      return `https://x.com/${handle.replace(/^@/, "")}/status/${id}`;
   }
 }
 
@@ -242,7 +263,7 @@ export async function seedDemoContent(db: Db, orgId: string, profile: DemoProfil
   const fakeFollowers = profile.followers;
 
   const connectionByPlatform: Partial<Record<Platform, ReturnType<ConnectionsRepo["get"]>>> = {};
-  for (const platform of ["tiktok", "youtube", "linkedin", "instagram"] as Platform[]) {
+  for (const platform of PLATFORMS) {
     const existing = connectionsRepo.getByOrgAndPlatform(orgId, platform);
     if (!existing) continue;
     const nowIso = now();
@@ -274,12 +295,14 @@ export async function seedDemoContent(db: Db, orgId: string, profile: DemoProfil
     youtube: media.landscape_16_9,
     linkedin: media.square,
     instagram: media.square,
+    x: media.square,
   };
   const formatForPlatform: Record<Platform, PostFormat> = {
     tiktok: "portrait_9_16",
     youtube: "landscape_16_9",
     linkedin: "square",
     instagram: "square",
+    x: "square",
   };
 
   for (const [index, spec] of profile.posts.entries()) {
@@ -412,9 +435,28 @@ function seedBundledLogo(db: Db, orgId: string, assetName: string): void {
   }
 }
 
+/**
+ * Gives every existing organization a (disconnected, sandbox) account on any platform added after
+ * the org was created, so a new platform such as X shows up for old databases on the next start.
+ */
+export function ensurePlatformCoverage(db: Db): number {
+  const orgsRepo = new OrganizationsRepo(db);
+  const connectionsRepo = new ConnectionsRepo(db);
+  let added = 0;
+  for (const org of orgsRepo.list()) {
+    const before = connectionsRepo.listByOrg(org.id).length;
+    ensureConnectionsForOrg(db, org.id);
+    added += connectionsRepo.listByOrg(org.id).length - before;
+  }
+  return added;
+}
+
 export async function seedIfEmpty(db: Db): Promise<void> {
   const orgsRepo = new OrganizationsRepo(db);
-  if (orgsRepo.count() > 0) return;
+  if (orgsRepo.count() > 0) {
+    ensurePlatformCoverage(db);
+    return;
+  }
 
   const org = orgsRepo.create({
     id: nanoid(),

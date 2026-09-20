@@ -1,5 +1,5 @@
-import { Bookmark, Heart, MessageCircle, MoreHorizontal, Send, Share2, ThumbsUp } from "lucide-react";
-import { FORMAT_SPECS, type MediaAsset, type Platform, type PostFormat } from "@socmedia/shared";
+import { Bookmark, Heart, MessageCircle, MoreHorizontal, Repeat2, Send, Share2, ThumbsUp } from "lucide-react";
+import { FORMAT_SPECS, PLATFORM_SPECS, type MediaAsset, type Platform, type PostFormat } from "@socmedia/shared";
 import { cn } from "@/lib/utils";
 
 const MAX_PREVIEW_CHARS = 125;
@@ -12,12 +12,16 @@ function truncate(text: string): string {
 function MediaBox({ media, format, className }: { media?: MediaAsset; format: PostFormat; className?: string }) {
   const ratio = FORMAT_SPECS[format].ratio;
   return (
-    <div className={cn("w-full overflow-hidden bg-ink-200", className)} style={{ aspectRatio: ratio }}>
+    <div className={cn("relative w-full overflow-hidden bg-ink-200", className)} style={{ aspectRatio: ratio }}>
       {media ? (
         media.kind === "image" ? (
           <img src={media.thumbnailUrl ?? media.url} alt="" className="h-full w-full object-cover" />
         ) : (
-          <video src={media.url} className="h-full w-full object-cover" muted />
+          <>
+            {/* preload="metadata" paints the first frame so the box isn't a blank grey square before play. */}
+            <video src={media.url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+            <span className="media-chip absolute bottom-2 left-2">Video</span>
+          </>
         )
       ) : (
         <div className="flex h-full w-full items-center justify-center text-xs text-ink-400">No media selected</div>
@@ -96,6 +100,49 @@ export function PlatformPreview({ platform, format, title, caption, media, displ
           <div className="min-w-0">
             <p className="line-clamp-2 text-sm font-semibold text-ink-900">{title || "Untitled video"}</p>
             <p className="text-xs text-ink-500">{name}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (platform === "x") {
+    const count = caption.length;
+    const overLimit = count > PLATFORM_SPECS.x.captionMaxLength;
+    const isVideo = primary?.kind === "video";
+    return (
+      <div className="mx-auto w-full max-w-[320px] overflow-hidden rounded-2xl border border-ink-200 bg-glass p-3" data-testid="preview-x">
+        <div className="flex items-start gap-2.5">
+          <div className="h-10 w-10 shrink-0 rounded-full bg-ink-300" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1 text-sm">
+              <span className="truncate font-semibold text-ink-900">{name}</span>
+              <span className="truncate text-ink-500">{at.startsWith("@") ? at : `@${at}`}</span>
+            </div>
+            <p className="mt-0.5 whitespace-pre-line break-words text-sm text-ink-800 [overflow-wrap:anywhere]">{caption || "What's happening?"}</p>
+            {media.length > 0 &&
+              (isVideo ? (
+                <MediaBox media={primary} format={format} className="mt-2 rounded-xl" />
+              ) : (
+                <div className={cn("mt-2 grid gap-0.5 overflow-hidden rounded-xl", media.length > 1 && "grid-cols-2")}>
+                  {media.slice(0, 4).map((m) => (
+                    <div key={m.id} className="overflow-hidden bg-ink-200" style={{ aspectRatio: media.length === 1 ? FORMAT_SPECS[format].ratio : 1 }}>
+                      <img src={m.thumbnailUrl ?? m.url} alt="" className="h-full w-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              ))}
+            <div className="mt-2 flex items-center justify-between text-ink-500">
+              <div className="flex items-center gap-4">
+                <MessageCircle className="h-4 w-4" />
+                <Repeat2 className="h-4 w-4" />
+                <Heart className="h-4 w-4" />
+                <Share2 className="h-4 w-4" />
+              </div>
+              <span data-testid="preview-x-counter" className={cn("text-xs tabular-nums", overLimit ? "font-semibold text-red-600" : "text-ink-500")}>
+                {count}/{PLATFORM_SPECS.x.captionMaxLength}
+              </span>
+            </div>
           </div>
         </div>
       </div>

@@ -1,6 +1,11 @@
-import type { AgentAction, Post, PublishJob } from "@socmedia/shared";
-import type { AgentToolContext } from "./agentTools";
+import { PLATFORMS } from "@socmedia/shared";
+import type { AgentAction, Platform, PlatformConnection, Post, PublishJob } from "@socmedia/shared";
+import type { AgentToolContext, DiagnoseConnectionData } from "./agentTools";
 import { runTool } from "./agentTools";
+
+/** "why did", "failed", "error", "diagnose", "not connecting" — the intents that warrant a per-connection diagnosis. */
+const DIAGNOSTIC_INTENT_RE = /\b(why did|failed|error|diagnose|not connecting)\b/;
+const PLATFORM_RE = new RegExp(`\\b(${PLATFORMS.join("|")})\\b`, "i");
 
 /**
  * Deterministic offline fallback used when no AI provider is configured. Pattern-matches a handful
@@ -22,6 +27,27 @@ export async function runMockAgent(ctx: AgentToolContext, input: string): Promis
     if (posts.length === 0) return { reply: "No posts yet.", actions };
     const lines = posts.slice(0, 10).map((p) => `- ${p.id}: "${p.title || "(untitled)"}" [${p.status}]`);
     return { reply: `You have ${posts.length} post(s):\n${lines.join("\n")}`, actions };
+  }
+
+  const platformMatch = lower.match(PLATFORM_RE);
+  if (DIAGNOSTIC_INTENT_RE.test(lower) && platformMatch) {
+    const platform = platformMatch[1].toLowerCase() as Platform;
+    const accountsResult = await runAndTrack("list_accounts", {});
+    const accounts = (accountsResult.data as PlatformConnection[]) ?? [];
+    const match = accounts.find((a) => a.platform === platform);
+    if (!match) return { reply: `No ${platform} account is connected in this org.`, actions };
+
+    const diag = await runAndTrack("diagnose_connection", { connectionId: match.id });
+    if (!diag.ok) return { reply: diag.summary, actions };
+    const data = diag.data as DiagnoseConnectionData;
+    const lines = [diag.summary];
+    const topHit = data.docHits[0];
+    if (topHit) {
+      const excerpt = topHit.excerpt.length > 300 ? `${topHit.excerpt.slice(0, 300)}…` : topHit.excerpt;
+      lines.push(`From ${topHit.file} ("${topHit.heading}"): ${excerpt}`);
+      if (topHit.sources[0]) lines.push(`Source: ${topHit.sources[0]}`);
+    }
+    return { reply: lines.join("\n\n"), actions };
   }
 
   if (/what.*failed|failed jobs?|anything fail/.test(lower)) {

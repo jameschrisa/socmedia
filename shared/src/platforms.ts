@@ -2,7 +2,7 @@
  * Platform specifications: formats, limits, brand colours.
  * Single source of truth shared by the API and the UI.
  */
-export const PLATFORMS = ["tiktok", "youtube", "linkedin", "instagram"] as const;
+export const PLATFORMS = ["tiktok", "youtube", "linkedin", "instagram", "x"] as const;
 export type Platform = (typeof PLATFORMS)[number];
 
 export const POST_FORMATS = [
@@ -145,6 +145,27 @@ export const PLATFORM_SPECS: Record<Platform, PlatformSpec> = {
       docsUrl: "https://developers.facebook.com/docs/instagram-platform/content-publishing",
     },
     description: "Publish feed posts, carousels, Reels and Stories via the Instagram Graph API.",
+  },
+  x: {
+    id: "x",
+    name: "X",
+    color: "#000000",
+    accent: "#1D9BF0",
+    formats: ["square", "landscape_16_9", "portrait_4_5"],
+    defaultFormat: "square",
+    captionMaxLength: 280,
+    hashtagLimit: 3,
+    mediaKinds: ["image", "video"],
+    requiresMedia: false,
+    maxMediaCount: 4,
+    maxVideoSeconds: 140,
+    oauth: {
+      authorizeUrl: "https://x.com/i/oauth2/authorize",
+      tokenUrl: "https://api.x.com/2/oauth2/token",
+      scopes: ["tweet.read", "tweet.write", "users.read", "media.write", "offline.access"],
+      docsUrl: "https://docs.x.com/x-api/posts/creation-of-a-post",
+    },
+    description: "Post text, images and short videos through the X API v2.",
   },
 };
 

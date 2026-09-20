@@ -13,6 +13,8 @@ export const BUILTIN_COMMANDS: BuiltinCommand[] = [
   { command: "/retry", description: "Retry a failed job by id" },
   { command: "/logs", description: "Show recent log entries" },
   { command: "/whoami", description: "Show the signed-in user" },
+  { command: "/docs", description: "Search platform docs: /docs <platform?> <query>" },
+  { command: "/diagnose", description: "Diagnose a connection: /diagnose <connectionId|platform>" },
   { command: "/clear", description: "Clear this console (no request sent)" },
 ];
 

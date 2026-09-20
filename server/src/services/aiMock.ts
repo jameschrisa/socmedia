@@ -28,6 +28,7 @@ const CTAS: Record<Platform, string> = {
   youtube: "Subscribe so you never miss an episode.",
   linkedin: "Connect with us to learn more.",
   instagram: "Save this post and follow for more.",
+  x: "Follow along for more like this.",
 };
 
 const HASHTAG_POOL: Record<Platform, string[]> = {
@@ -35,6 +36,7 @@ const HASHTAG_POOL: Record<Platform, string[]> = {
   youtube: ["tutorial", "explained", "behindthescenes", "weeklyupdate", "community"],
   linkedin: ["leadership", "growth", "teamculture", "industryinsights", "b2b"],
   instagram: ["newarrivals", "behindthescenes", "community", "smallbusiness", "inspiration"],
+  x: ["news", "thread", "hottake", "update", "community"],
 };
 
 const STOPWORDS = new Set([

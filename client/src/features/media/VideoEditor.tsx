@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Pause, Play, Scissors, Volume2, VolumeX } from "lucide-react";
-import { FORMAT_SPECS, type MediaAsset, type Platform, type PostFormat } from "@socmedia/shared";
+import { FORMAT_SPECS, PLATFORM_SPECS, type MediaAsset, type Platform, type PostFormat } from "@socmedia/shared";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Toggle } from "@/components/ui/Toggle";
@@ -29,6 +29,7 @@ const PLATFORM_SHORTCUTS: { key: string; label: string; platform: Platform; form
   { key: "instagram-reels", label: "IG Reels", platform: "instagram", format: "portrait_9_16" },
   { key: "instagram-feed", label: "IG Feed", platform: "instagram", format: "square" },
   { key: "linkedin", label: "LinkedIn", platform: "linkedin", format: "square" },
+  { key: "x", label: "X", platform: "x", format: "landscape_16_9" },
 ];
 
 const MAX_LENGTH = 300;
@@ -173,6 +174,15 @@ export function VideoEditor({ asset, onClose, onDone, initialFormat }: VideoEdit
 
   const selectedLength = range.end - range.start;
   const overLength = selectedLength > MAX_LENGTH;
+  /** Platform shortcuts sharing the current format, used to surface each platform's own video length cap (e.g. X's 140s). */
+  const matchingShortcuts = format ? PLATFORM_SHORTCUTS.filter((s) => s.format === format) : [];
+  const tightestPlatformLimit = matchingShortcuts.length
+    ? Math.min(...matchingShortcuts.map((s) => PLATFORM_SPECS[s.platform].maxVideoSeconds))
+    : null;
+  const overPlatformLimit = !overLength && tightestPlatformLimit != null && selectedLength > tightestPlatformLimit;
+  const overPlatformLimitLabel = overPlatformLimit
+    ? matchingShortcuts.filter((s) => PLATFORM_SPECS[s.platform].maxVideoSeconds === tightestPlatformLimit).map((s) => s.label).join("/")
+    : null;
   const outputSize = frameFor(format) ?? (naturalSize.width && naturalSize.height ? naturalSize : null);
   const cropStyle = previewCropStyle(naturalSize.width, naturalSize.height, format);
   const previewRatio = outputSize && outputSize.height > 0 ? outputSize.width / outputSize.height : 16 / 9;
@@ -380,8 +390,13 @@ export function VideoEditor({ asset, onClose, onDone, initialFormat }: VideoEdit
               </div>
             </div>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <p className={cn("text-xs", overLength ? "font-semibold text-red-600" : "text-ink-500")} data-testid="selection-length">
-                Selected: {formatTimecode(selectedLength)}{overLength ? " (over the 5:00 limit)" : ""}
+              <p className={cn("text-xs", overLength || overPlatformLimit ? "font-semibold text-red-600" : "text-ink-500")} data-testid="selection-length">
+                Selected: {formatTimecode(selectedLength)}
+                {overLength
+                  ? " (over the 5:00 limit)"
+                  : overPlatformLimit
+                    ? ` (over the ${tightestPlatformLimit}s limit for ${overPlatformLimitLabel})`
+                    : ""}
               </p>
               <p className="text-xs text-ink-400">Clips are limited to 5:00 for now.</p>
             </div>
@@ -413,7 +428,7 @@ export function VideoEditor({ asset, onClose, onDone, initialFormat }: VideoEdit
                   type="button"
                   onClick={() => setFormat(s.format)}
                   aria-pressed={format === s.format}
-                  title={`${s.label}: ${FORMAT_SPECS[s.format].label}`}
+                  title={`${s.label}: ${FORMAT_SPECS[s.format].label}, video up to ${PLATFORM_SPECS[s.platform].maxVideoSeconds}s`}
                   className={cn("chip px-2.5", format === s.format ? "chip-active" : "chip-inactive")}
                 >
                   <PlatformIcon platform={s.platform} size={16} mono />

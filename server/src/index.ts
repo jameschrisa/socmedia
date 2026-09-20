@@ -1,8 +1,10 @@
+import http from "node:http";
 import path from "node:path";
 import { createApp } from "./app";
 import { config } from "./config";
 import { openDatabase } from "./db/database";
 import { seedIfEmpty } from "./db/seed";
+import { attachTerminalServer } from "./routes/terminal";
 import { ensureBootstrapAdmin } from "./services/auth";
 import { log } from "./services/logger";
 import { startScheduler } from "./services/scheduler";
@@ -18,9 +20,14 @@ async function main() {
   const app = createApp(db);
   const stopScheduler = startScheduler(db, config.schedulerIntervalMs);
 
-  const server = app.listen(config.port, () => {
+  // Created explicitly (rather than app.listen) so the WebSocket terminal endpoint can hook the
+  // http.Server's "upgrade" event directly; createApp stays a plain Express app for supertest.
+  const server = http.createServer(app);
+  attachTerminalServer(server, db);
+
+  server.listen(config.port, () => {
     log.info("system", `Pulse API listening on :${config.port}`, {
-      data: { dataDir: config.dataDir, aiConfigured: !!config.anthropicApiKey },
+      data: { dataDir: config.dataDir, aiConfigured: !!config.anthropicApiKey, osTerminal: config.osTerminal },
     });
   });
 

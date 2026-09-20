@@ -88,11 +88,11 @@ export function OverviewPage() {
       <div>
         <h2 className="mb-3 text-sm font-semibold text-ink-700">Connected profiles</h2>
         {connectionsQuery.isLoading ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            {PLATFORMS.map((p) => <Skeleton key={p} className="h-24" />)}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {PLATFORMS.map((platform) => {
               const conn = (connectionsQuery.data ?? []).find((c) => c.platform === platform);
               return (

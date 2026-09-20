@@ -7,6 +7,7 @@ import { config } from "../config";
 import { openDatabase } from "../db/database";
 import type { Db } from "../db/database";
 import { ConnectionsRepo } from "../db/repositories/connections";
+import { JobsRepo } from "../db/repositories/jobs";
 import { MediaRepo } from "../db/repositories/media";
 import { MetricsRepo } from "../db/repositories/metrics";
 import { OrganizationsRepo } from "../db/repositories/organizations";
@@ -49,6 +50,11 @@ describe("seedIfEmpty", () => {
     const org2Connections = connectionsRepo.listByOrg(org2.id);
     expect(org2Connections.every((c) => c.status === "disconnected")).toBe(true);
 
+    const xConnection = org1Connections.find((c) => c.platform === "x")!;
+    expect(xConnection).toBeTruthy();
+    expect(xConnection.handle).toBe("@larkspurhealth");
+    expect(xConnection.followers).toBeGreaterThan(0);
+
     const postsRepo = new PostsRepo(db);
     const posts = postsRepo.listByOrg(org1.id);
     expect(posts.length).toBeGreaterThanOrEqual(8);
@@ -57,6 +63,17 @@ describe("seedIfEmpty", () => {
     expect(statuses.has("scheduled")).toBe(true);
     expect(statuses.has("published")).toBe(true);
     expect(statuses.has("needs_approval")).toBe(true);
+
+    const xPosts = posts.filter((p) => p.targets.some((t) => t.platform === "x"));
+    expect(xPosts.length).toBeGreaterThanOrEqual(2);
+    expect(xPosts.some((p) => p.status === "published")).toBe(true);
+    expect(xPosts.some((p) => p.status === "scheduled")).toBe(true);
+
+    const jobsRepo = new JobsRepo(db);
+    const publishedXPost = xPosts.find((p) => p.status === "published")!;
+    const xJob = jobsRepo.listByPost(publishedXPost.id).find((j) => j.platform === "x")!;
+    expect(xJob.status).toBe("succeeded");
+    expect(xJob.externalUrl).toMatch(/^https:\/\/x\.com\//);
 
     const mediaRepo = new MediaRepo(db);
     const media = mediaRepo.listByOrg(org1.id);
@@ -77,5 +94,28 @@ describe("seedIfEmpty", () => {
 
     await seedIfEmpty(db);
     expect(orgsRepo.count()).toBe(countBefore);
+  });
+});
+
+describe("ensurePlatformCoverage", () => {
+  it("adds accounts for platforms an existing organization is missing", async () => {
+    const { ensurePlatformCoverage } = await import("../db/seed");
+    const { ConnectionsRepo } = await import("../db/repositories/connections");
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pulse-coverage-"));
+    const db = openDatabase(path.join(dataDir, "test.db"));
+    await seedIfEmpty(db);
+    const orgs = new OrganizationsRepo(db).list();
+    const connections = new ConnectionsRepo(db);
+    const xConn = connections.getByOrgAndPlatform(orgs[0]!.id, "x")!;
+    connections.delete(xConn.id);
+    expect(connections.listByOrg(orgs[0]!.id)).toHaveLength(PLATFORMS.length - 1);
+
+    expect(ensurePlatformCoverage(db)).toBe(1);
+    expect(connections.listByOrg(orgs[0]!.id)).toHaveLength(PLATFORMS.length);
+    expect(connections.getByOrgAndPlatform(orgs[0]!.id, "x")?.status).toBe("disconnected");
+    // Idempotent on the next start.
+    expect(ensurePlatformCoverage(db)).toBe(0);
+    db.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
   });
 });

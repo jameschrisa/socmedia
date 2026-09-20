@@ -1,7 +1,8 @@
 import { nanoid } from "nanoid";
 import { PLATFORM_SPECS, postInputSchema } from "@socmedia/shared";
-import type { Organization, Platform, PostStatus, PostTarget, User } from "@socmedia/shared";
+import type { Organization, Platform, PlatformDocHit, PostStatus, PostTarget, PublishJob, User } from "@socmedia/shared";
 import type { Db } from "../db/database";
+import { mask } from "../crypto";
 import { ConnectionsRepo } from "../db/repositories/connections";
 import { JobsRepo } from "../db/repositories/jobs";
 import { MediaRepo } from "../db/repositories/media";
@@ -9,6 +10,7 @@ import { PostsRepo } from "../db/repositories/posts";
 import { summarize } from "./analytics";
 import { generateCaptions } from "./ai";
 import { log } from "./logger";
+import { searchPlatformDocs } from "./platformDocs";
 import { publishPost, retryJob } from "./publisher";
 
 export interface AgentToolContext {
@@ -21,6 +23,27 @@ export interface ToolResult {
   ok: boolean;
   summary: string;
   data?: unknown;
+}
+
+/** Everything `diagnose_connection` bundles up for one connection. */
+export interface DiagnoseConnectionData {
+  connection: {
+    id: string;
+    platform: Platform;
+    label: string;
+    displayName: string;
+    handle: string;
+    status: string;
+    mode: string;
+    enabled: boolean;
+    scopes: string[];
+    tokenExpiresAt: string | null;
+    accessTokenMasked: string;
+    hasRefreshToken: boolean;
+  };
+  lastTest: { ok: boolean; checkedAt: string; message: string } | null;
+  recentJobs: { id: string; status: string; error: string | null; createdAt: string; finishedAt: string | null }[];
+  docHits: PlatformDocHit[];
 }
 
 export type ToolHandler = (ctx: AgentToolContext, input: Record<string, unknown>) => Promise<ToolResult>;
@@ -126,6 +149,26 @@ export const TOOL_DEFINITIONS: { name: string; description: string; input_schema
     name: "search_posts",
     description: "Search posts by a substring of their title or caption.",
     input_schema: { type: "object", properties: { q: { type: "string" } }, required: ["q"] },
+  },
+  {
+    name: "platform_docs",
+    description:
+      "Search suprstar's bundled platform developer-documentation knowledge base (docs/platforms: OAuth, publishing, error references, troubleshooting) by keyword or exact error string. Always consult this before answering a connection/account/publishing problem, and cite the returned file and source URL in your reply.",
+    input_schema: {
+      type: "object",
+      properties: {
+        platform: { type: "string", description: "tiktok|youtube|linkedin|instagram, to boost matches for that platform" },
+        query: { type: "string", description: "keywords or the exact error string the user/API reported" },
+        limit: { type: "number" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "diagnose_connection",
+    description:
+      "Bundle a connection's status/mode/scopes/token expiry (masked), its last connection test result, its 5 most recent publish jobs, and the top platform-doc hits for its most recent error. Use this before answering \"why did X fail\" / \"why isn't X connecting\" questions.",
+    input_schema: { type: "object", properties: { connectionId: { type: "string" } }, required: ["connectionId"] },
   },
 ];
 
@@ -300,6 +343,58 @@ export async function runTool(ctx: AgentToolContext, name: string, rawInput: unk
         (p) => p.title.toLowerCase().includes(q) || p.caption.toLowerCase().includes(q)
       );
       return { ok: true, summary: `Found ${posts.length} post(s) matching "${q}".`, data: posts };
+    }
+    case "platform_docs": {
+      const query = String(input.query ?? "").trim();
+      if (!query) return { ok: false, summary: "platform_docs needs a query." };
+      const platform = typeof input.platform === "string" ? input.platform : undefined;
+      const limit = typeof input.limit === "number" ? input.limit : 5;
+      const hits = searchPlatformDocs({ platform, query, limit });
+      return {
+        ok: true,
+        summary: hits.length > 0 ? `Found ${hits.length} doc hit(s) for "${query}".` : `No platform-doc hits for "${query}".`,
+        data: hits,
+      };
+    }
+    case "diagnose_connection": {
+      const connection = connectionsRepo.get(String(input.connectionId ?? ""));
+      if (!connection || connection.orgId !== ctx.org.id) {
+        return { ok: false, summary: `Connection ${input.connectionId} not found.` };
+      }
+      const recentJobs = jobsRepo
+        .listByOrg(ctx.org.id)
+        .filter((j) => j.connectionId === connection.id)
+        .slice(0, 5);
+      const recentErrorText =
+        recentJobs.find((j) => j.error)?.error ?? (connection.lastTest && !connection.lastTest.ok ? connection.lastTest.message : "");
+      const docHits = recentErrorText ? searchPlatformDocs({ platform: connection.platform, query: recentErrorText, limit: 3 }) : [];
+
+      const data: DiagnoseConnectionData = {
+        connection: {
+          id: connection.id,
+          platform: connection.platform,
+          label: connection.label,
+          displayName: connection.displayName,
+          handle: connection.handle,
+          status: connection.status,
+          mode: connection.mode,
+          enabled: connection.enabled,
+          scopes: connection.credentials.scopes,
+          tokenExpiresAt: connection.credentials.tokenExpiresAt ?? null,
+          accessTokenMasked: connection.credentials.accessToken ? mask(connection.credentials.accessToken) : "",
+          hasRefreshToken: !!connection.credentials.refreshToken,
+        },
+        lastTest: connection.lastTest
+          ? { ok: connection.lastTest.ok, checkedAt: connection.lastTest.checkedAt, message: connection.lastTest.message }
+          : null,
+        recentJobs: recentJobs.map((j: PublishJob) => ({ id: j.id, status: j.status, error: j.error ?? null, createdAt: j.createdAt, finishedAt: j.finishedAt ?? null })),
+        docHits,
+      };
+
+      const statusLine = `${connection.platform} connection "${connection.label || connection.displayName}" is ${connection.status} (${connection.mode}).`;
+      const errorLine = recentErrorText ? ` Most recent error: "${recentErrorText}".` : "";
+      const docLine = docHits.length > 0 ? ` Best doc match: ${docHits[0].file} — "${docHits[0].heading}".` : "";
+      return { ok: true, summary: `${statusLine}${errorLine}${docLine}`, data };
     }
     default:
       return { ok: false, summary: `Unknown tool "${name}".` };

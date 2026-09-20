@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { matchingCommands } from "./consoleUtils";
 
@@ -6,13 +6,21 @@ interface ConsoleInputProps {
   history: string[];
   pending: boolean;
   onSubmit: (value: string) => void;
+  autoFocus?: boolean;
 }
 
 /** The `❯` prompt line at the bottom of the console: sends commands, cycles history, hints slash commands. */
-export function ConsoleInput({ history, pending, onSubmit }: ConsoleInputProps) {
+export function ConsoleInput({ history, pending, onSubmit, autoFocus }: ConsoleInputProps) {
   const [value, setValue] = useState("");
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const inputRef = useRef<HTMLInputElement>(null);
   const hints = matchingCommands(value);
+
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus();
+    // Only on mount: re-focusing on every render would steal focus back from elsewhere in the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const submit = () => {
     const trimmed = value.trim();
@@ -68,6 +76,7 @@ export function ConsoleInput({ history, pending, onSubmit }: ConsoleInputProps) 
         <span className="text-brand-400" aria-hidden>&#10095;</span>
         <label htmlFor="console-command-input" className="sr-only">Console command</label>
         <input
+          ref={inputRef}
           id="console-command-input"
           type="text"
           value={value}

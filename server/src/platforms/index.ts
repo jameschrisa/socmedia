@@ -4,6 +4,7 @@ import { tiktokAdapter } from "./tiktok";
 import { youtubeAdapter } from "./youtube";
 import { linkedinAdapter } from "./linkedin";
 import { instagramAdapter } from "./instagram";
+import { xAdapter } from "./x";
 import { sandboxWrap } from "./sandbox";
 
 export { PlatformError } from "./types";
@@ -14,6 +15,7 @@ const REAL_ADAPTERS: Record<Platform, PlatformAdapter> = {
   youtube: youtubeAdapter,
   linkedin: linkedinAdapter,
   instagram: instagramAdapter,
+  x: xAdapter,
 };
 
 const ADAPTERS: Record<Platform, PlatformAdapter> = {
@@ -21,6 +23,7 @@ const ADAPTERS: Record<Platform, PlatformAdapter> = {
   youtube: sandboxWrap(REAL_ADAPTERS.youtube, "youtube"),
   linkedin: sandboxWrap(REAL_ADAPTERS.linkedin, "linkedin"),
   instagram: sandboxWrap(REAL_ADAPTERS.instagram, "instagram"),
+  x: sandboxWrap(REAL_ADAPTERS.x, "x"),
 };
 
 /** Returns the sandbox-aware adapter for a platform: live calls when mode==="live", simulated otherwise. */

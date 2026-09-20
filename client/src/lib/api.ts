@@ -8,6 +8,7 @@ import type {
   QuickPostToken, QuickPostPublicInfo, QuickPostResult,
   AccessPolicy, AccessRequest, AccessRequestStatus, MagicLinkRequestResult,
   MagicLinkRequestInput, AccessRequestCreateInput, AccessRequestApproveInput,
+  TerminalStatus, PlatformDocHit,
 } from "@socmedia/shared";
 import { useAppStore } from "@/store/appStore";
 
@@ -219,6 +220,25 @@ export const api = {
 
   agent: {
     command: (input: string) => request<AgentCommandResult>("/agent/commands", { method: "POST", body: json({ input }) }),
+  },
+
+  terminal: {
+    status: () => request<TerminalStatus>("/terminal/status", {}, { org: false }),
+    /** Same-origin WebSocket URL for the OS terminal, authenticated by the session cookie via the Vite proxy in dev. */
+    wsUrl: (cols: number, rows: number) => {
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      return `${proto}://${location.host}${BASE}/terminal?cols=${cols}&rows=${rows}`;
+    },
+  },
+
+  docs: {
+    searchPlatforms: (params: { platform?: string; q: string; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (params.platform) q.set("platform", params.platform);
+      q.set("q", params.q);
+      if (params.limit) q.set("limit", String(params.limit));
+      return request<{ hits: PlatformDocHit[] }>(`/docs/platforms/search?${q.toString()}`, {}, { org: false });
+    },
   },
 
   quick: {

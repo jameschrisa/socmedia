@@ -11,6 +11,7 @@ import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { QuickPostPage } from "@/features/quick/QuickPostPage";
 import { RequestAccessPage } from "@/features/auth/RequestAccessPage";
+import { ConsolePage } from "@/features/console/ConsolePage";
 
 export default function App() {
   return (
@@ -19,6 +20,8 @@ export default function App() {
         <Routes>
           <Route path="/go/:token" element={<QuickPostPage />} />
           <Route path="/request-access" element={<RequestAccessPage />} />
+          {/* Rendered instead of AppShell's chrome: no top nav tabs, no right rail. */}
+          <Route path="/console" element={<RequireAuth><ConsolePage /></RequireAuth>} />
           <Route element={<RequireAuth><AppShell /></RequireAuth>}>
             <Route index element={<OverviewPage />} />
             <Route path="calendar" element={<CalendarPage />} />

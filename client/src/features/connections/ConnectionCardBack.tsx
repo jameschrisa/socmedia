@@ -168,7 +168,15 @@ export function ConnectionCardBack({ connection, mutations, onBack, siblingCount
               </button>
             </div>
           </Field>
-          <Field label="Redirect URI" htmlFor={fid("redirect-uri")} hint={`Suggested: ${suggestedRedirect}`}>
+          <Field
+            label="Redirect URI"
+            htmlFor={fid("redirect-uri")}
+            hint={
+              connection.platform === "x"
+                ? `Suggested: ${suggestedRedirect}. Register the app as a "Web App" in the X developer portal; X signs in with OAuth 2.0 and PKCE.`
+                : `Suggested: ${suggestedRedirect}`
+            }
+          >
             <div className="flex items-center gap-2">
               <Input id={fid("redirect-uri")} value={form.redirectUri} onChange={(e) => setForm((f) => ({ ...f, redirectUri: e.target.value }))} placeholder={suggestedRedirect} />
               <Button type="button" variant="outline" size="sm" onClick={copyRedirect} aria-label="Copy suggested redirect URI">

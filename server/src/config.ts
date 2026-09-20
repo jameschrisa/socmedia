@@ -33,6 +33,8 @@ export const config = {
   mailFrom: process.env.MAIL_FROM || "",
   resendApiKey: process.env.RESEND_API_KEY || "",
   smtpUrl: process.env.SMTP_URL || "",
+  /** In-app OS terminal (see server/src/services/terminal.ts). "on" | "off"; env OS_TERMINAL; default on outside production. */
+  osTerminal: ((process.env.OS_TERMINAL || (process.env.NODE_ENV === "production" ? "off" : "on")).toLowerCase() === "off" ? "off" : "on") as "on" | "off",
 };
 
 export type Config = typeof config;

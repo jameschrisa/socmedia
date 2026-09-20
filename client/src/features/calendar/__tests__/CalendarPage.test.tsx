@@ -79,7 +79,7 @@ describe("CalendarPage", () => {
     await user.click(screen.getByTestId("platform-filter"));
     expect(screen.getByTestId("platform-filter")).toHaveTextContent("All platforms");
     await user.click(screen.getByRole("option", { name: /Toggle instagram filter/i }));
-    expect(screen.getByTestId("platform-filter")).toHaveTextContent("3 of 4 platforms");
+    expect(screen.getByTestId("platform-filter")).toHaveTextContent("4 of 5 platforms");
     await waitFor(() => expect(screen.queryByRole("button", { name: /Launch teaser/i })).not.toBeInTheDocument());
   });
 

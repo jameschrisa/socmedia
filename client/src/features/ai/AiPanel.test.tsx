@@ -74,7 +74,7 @@ describe("AiPanel", () => {
     expect(call).toBeTruthy();
     const body = call!.body as { tone: string; platforms: string[] };
     expect(body.tone).toBe("professional");
-    expect([...body.platforms].sort()).toEqual(["instagram", "linkedin", "tiktok", "youtube"]);
+    expect([...body.platforms].sort()).toEqual(["instagram", "linkedin", "tiktok", "x", "youtube"]);
   });
 
   it("sends a caption to the composer via Use in composer", async () => {

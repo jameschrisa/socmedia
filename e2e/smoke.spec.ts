@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { PLATFORMS } from "@socmedia/shared";
 import { gotoApp } from "./helpers";
 
 const ORG_ID_KEY = "pulse-app";
@@ -14,7 +15,9 @@ test.describe("suprstar smoke", () => {
     expect(list.length).toBeGreaterThanOrEqual(2);
     const conns = await request.get("/api/connections", { headers: { "X-Org-Id": list[0].id } });
     const c = await conns.json();
-    expect(c.map((x: any) => x.platform).sort()).toEqual(["instagram", "linkedin", "tiktok", "youtube"]);
+    // Asserts against the shared PLATFORMS list, not a literal, hardcoded array: ensureConnectionsForOrg
+    // seeds one sandbox connection per entry in PLATFORMS, so this must track it as platforms are added.
+    expect(c.map((conn: { platform: string }) => conn.platform).sort()).toEqual([...PLATFORMS].sort());
   });
 
   test("navigates between primary tabs", async ({ page }) => {

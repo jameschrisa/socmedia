@@ -55,6 +55,7 @@ function setup() {
     makeConnection("youtube", { status: "disconnected" }),
     makeConnection("linkedin", { status: "connected", displayName: "Acme Co", handle: "acme-co", followers: 4300, mode: "live" }),
     makeConnection("instagram", { status: "disconnected" }),
+    makeConnection("x", { status: "connected", displayName: "Acme", handle: "@acme", followers: 900 }),
   ];
 
   const now = new Date();
@@ -107,12 +108,13 @@ describe("OverviewPage", () => {
     expect(await screen.findByText(/Meridian Labs/)).toBeInTheDocument();
   });
 
-  it("renders 4 platform cards with connected handles", async () => {
+  it("renders 5 platform cards with connected handles", async () => {
     setup();
     renderWithProviders(<OverviewPage />);
 
     expect(await screen.findByText("@acme.tiktok")).toBeInTheDocument();
     expect(screen.getByText("acme-co")).toBeInTheDocument();
+    expect(screen.getByText("@acme")).toBeInTheDocument();
     expect(screen.getAllByText("Not connected")).toHaveLength(2);
   });
 

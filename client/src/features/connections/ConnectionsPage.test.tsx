@@ -63,6 +63,7 @@ function setupConnections() {
     makeConnection("youtube"),
     makeConnection("linkedin"),
     makeConnection("instagram"),
+    makeConnection("x"),
   ];
 
   const mocked = mockFetch({
@@ -119,11 +120,11 @@ describe("ConnectionsPage", () => {
     useAppStore.setState({ currentOrgId: "org1" });
   });
 
-  it("renders 4 platform cards with names", async () => {
+  it("renders 5 platform cards with names", async () => {
     setupConnections();
     renderWithProviders(<ConnectionsPage />);
 
-    for (const name of ["TikTok", "YouTube", "LinkedIn", "Instagram"]) {
+    for (const name of ["TikTok", "YouTube", "LinkedIn", "Instagram", "X"]) {
       expect(await screen.findByRole("heading", { name: new RegExp(`^${name}`), level: 3 })).toBeInTheDocument();
     }
   });

@@ -1,30 +1,37 @@
 import { test, expect, type Page } from "@playwright/test";
 import { OWNER_EMAIL, OWNER_STORAGE_STATE, WEB_BASE_URL } from "./constants";
-import { gotoApp, inviteUser, signInFreshUser, type InvitedUser } from "./helpers";
+import { gotoApp, inviteUser, signInFreshUser, switchOrg, type InvitedUser } from "./helpers";
 
 const runId = Date.now();
 
 /**
- * Matches one rendered `LogLine`'s DOM text content and captures its source. The level/source spans
+ * Matches one rendered log line's DOM text content and captures its source. The level/source spans
  * are visually uppercased via CSS (`text-transform`), but `textContent` reflects the underlying
  * (lowercase) data, and adjacent `<span>`s with no literal whitespace between them in JSX render
  * with no space in between either -- so this intentionally doesn't require any separators.
  */
 const LOG_LINE_RE = /^\d{2}:\d{2}:\d{2}(debug|info|warn|error)([a-z]+)/;
 
+/** Clicks the rail button and waits for the full-page console (both panes) to be ready. */
 async function openConsole(page: Page): Promise<void> {
   await page.getByTestId("rail-console").click();
-  await expect(page.getByRole("region", { name: "Console" })).toBeVisible();
+  await expect(page).toHaveURL(/\/console$/);
+  await expect(page.getByLabel("Console command")).toBeVisible();
+  await expect(page.getByTestId("console-right-tab")).toBeVisible();
 }
 
-/** All rendered terminal lines, newest last. */
-async function terminalLines(page: Page): Promise<string[]> {
+/** All rendered lines in the Agent pane's transcript (echoed commands + replies), newest last. */
+async function agentLines(page: Page): Promise<string[]> {
+  return page.getByTestId("agent-scroll").locator(".term-line").allTextContents();
+}
+
+/** All rendered lines in the Activity log pane's stream, newest last. */
+async function logLines(page: Page): Promise<string[]> {
   return page.getByTestId("console-scroll").locator(".term-line").allTextContents();
 }
 
-/** Sources of every server-log (non-local-echo) line currently rendered. */
-async function logLineSources(page: Page): Promise<string[]> {
-  const lines = await terminalLines(page);
+/** Sources of every server-log line in a set of rendered Activity-log lines. */
+function logSources(lines: string[]): string[] {
   return lines.map((l) => l.match(LOG_LINE_RE)?.[2]).filter((s): s is string => !!s);
 }
 
@@ -34,96 +41,125 @@ async function runCommand(page: Page, text: string): Promise<void> {
   await input.press("Enter");
 }
 
-test.describe("agent console", () => {
-  test("rail-console opens the Console drawer, Ctrl+` toggles it, and its height persists across a reload", async ({ page }) => {
-    await gotoApp(page);
-    const region = page.getByRole("region", { name: "Console" });
+test.describe("agent console (full page)", () => {
+  test("rail-console opens /console with both panes, Ctrl+` toggles it, and Close returns to the previous route", async ({ page }) => {
+    await gotoApp(page, "/studio");
+    await expect(page).toHaveURL(/\/studio$/);
 
-    await page.getByTestId("rail-console").click();
-    await expect(region).toBeVisible();
+    await openConsole(page);
+    await expect(page.getByTestId("agent-scroll")).toBeVisible();
+    await expect(page.getByTestId("console-scroll")).toBeVisible();
 
     await page.keyboard.press("Control+Backquote");
-    await expect(region).not.toBeVisible();
+    await expect(page).toHaveURL(/\/studio$/);
+    // Wait for AppShell (and its own Ctrl+` "open" listener, replacing the console page's "close"
+    // listener) to actually finish mounting before firing the next shortcut.
+    await expect(page.getByTestId("org-switcher")).toBeVisible();
+
     await page.keyboard.press("Control+Backquote");
-    await expect(region).toBeVisible();
+    await expect(page).toHaveURL(/\/console$/);
 
-    const drawer = page.getByTestId("console-drawer");
-    const before = (await drawer.boundingBox())!.height;
+    await page.getByTestId("console-close").click();
+    await expect(page).toHaveURL(/\/studio$/);
+  });
 
-    // Resize from the keyboard: the drag handle is a `role="separator"` that responds to arrow keys
-    // (+24px per press). Wait for each press to land before sending the next one, so a stale-closure
-    // regression (state update not yet applied when the next keydown fires) would show up as a real failure.
-    const handle = page.getByTestId("console-drag-handle");
+  test("rail-console-mobile opens the console on a narrow viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 480, height: 800 });
+    await gotoApp(page, "/studio");
+    await page.getByTestId("rail-console-mobile").click();
+    await expect(page).toHaveURL(/\/console$/);
+    await expect(page.getByLabel("Console command")).toBeVisible();
+  });
+
+  test("the split handle resizes the panes from the keyboard and the split persists across a reload", async ({ page }) => {
+    await gotoApp(page, "/studio");
+    await openConsole(page);
+
+    const handle = page.getByTestId("console-split-handle");
+    await expect(handle).toHaveAttribute("aria-valuenow", "50");
+
     await handle.focus();
-    let last = before;
-    for (let i = 0; i < 5; i++) {
-      await page.keyboard.press("ArrowUp");
-      await expect.poll(async () => (await drawer.boundingBox())!.height, { timeout: 2_000 }).toBeGreaterThan(last);
-      last = (await drawer.boundingBox())!.height;
-    }
-    const afterResize = last;
-    expect(afterResize).toBeGreaterThanOrEqual(before + 5 * 24 - 4);
+    for (let i = 0; i < 5; i++) await page.keyboard.press("ArrowRight");
+    await expect(handle).toHaveAttribute("aria-valuenow", "60");
 
     await page.reload();
-    await expect(page.getByRole("region", { name: "Console" })).toBeVisible();
-    const afterReload = (await page.getByTestId("console-drawer").boundingBox())!.height;
-    expect(Math.abs(afterReload - afterResize)).toBeLessThanOrEqual(4);
+    await expect(page.getByLabel("Console command")).toBeVisible();
+    await expect(page.getByTestId("console-split-handle")).toHaveAttribute("aria-valuenow", "60");
   });
 
-  test("shows recent server activity and streams new lines in without a reload", async ({ page }) => {
-    await gotoApp(page);
+  test("console-right-tab toggles between Activity log and Terminal", async ({ page }) => {
+    await gotoApp(page, "/studio");
     await openConsole(page);
+    await expect(page.getByTestId("console-scroll")).toBeVisible();
 
-    await expect.poll(async () => logLineSources(page), { timeout: 10_000 }).toContain("http");
+    await page.getByTestId("console-right-tab").getByRole("tab", { name: "Terminal" }).click();
+    await expect(page.getByTestId("xterm-container").or(page.getByTestId("terminal-disabled"))).toBeVisible();
+    await expect(page.getByTestId("console-scroll")).toHaveCount(0);
 
-    // Trigger a fresh request via normal in-app navigation (no page reload, so the SSE connection
-    // -- and the console's local state -- survives) and confirm it streams straight into the terminal.
-    await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Social Profiles" }).click();
-    await expect.poll(
-      async () => (await terminalLines(page)).some((l) => l.includes("GET /api/connections")),
-      { timeout: 30_000 },
-    ).toBe(true);
+    await page.getByTestId("console-right-tab").getByRole("tab", { name: "Activity log" }).click();
+    await expect(page.getByTestId("console-scroll")).toBeVisible();
   });
 
-  test("filters narrow the visible lines by source and by text", async ({ page }) => {
-    await gotoApp(page);
+  test("the Activity log pane shows recent server activity and streams a new line via a request in the same browser context", async ({ page }) => {
+    await gotoApp(page, "/studio");
     await openConsole(page);
-    await expect.poll(async () => logLineSources(page), { timeout: 10_000 }).toContain("http");
 
+    await expect.poll(async () => logSources(await logLines(page)), { timeout: 10_000 }).toContain("http");
+
+    const before = (await logLines(page)).length;
+    // A request through the shared session (no page reload, so the SSE connection survives) that
+    // this page can't have already fired on its own -- proves the stream, not just the initial fetch.
+    const res = await page.request.get("/api/docs/platforms/status");
+    expect(res.ok()).toBeTruthy();
+
+    await expect.poll(async () => (await logLines(page)).length, { timeout: 15_000 }).toBeGreaterThan(before);
+    await expect(page.getByTestId("console-scroll")).toContainText("GET /api/docs/platforms/status");
+  });
+
+  test("filters narrow the visible log lines by source and by text", async ({ page }) => {
+    await gotoApp(page, "/studio");
+    await openConsole(page);
+    await expect.poll(async () => logSources(await logLines(page)), { timeout: 10_000 }).toContain("http");
+
+    // Running a slash command guarantees a fresh, deterministic "agent"-source log entry (every
+    // command is logged) and a "POST /api/agent/commands" http entry to filter for below.
     await runCommand(page, "/status");
-    await expect(page.getByText(/Scheduler:/)).toBeVisible();
+    await expect.poll(async () => logSources(await logLines(page)), { timeout: 10_000 }).toContain("agent");
 
     await page.getByLabel("Filter by source").selectOption("agent");
-    await expect.poll(async () => logLineSources(page), { timeout: 10_000 }).toContain("agent");
-    // Every *server log* line left after the source filter must itself be source=agent; local
-    // command-echo/reply lines aren't tagged with a source and are exempt from this check.
     await expect.poll(async () => {
-      const sources = await logLineSources(page);
-      return sources.every((s) => s === "agent");
-    }).toBe(true);
+      const sources = logSources(await logLines(page));
+      return sources.length > 0 && sources.every((s) => s === "agent");
+    }, { timeout: 10_000 }).toBe(true);
 
     await page.getByLabel("Filter by source").selectOption("");
-    await expect.poll(async () => logLineSources(page), { timeout: 10_000 }).toContain("http");
-    const beforeTextFilter = (await terminalLines(page)).length;
-    await page.getByLabel("Search log messages").fill("scheduler");
-    // The filter is applied per logical item (a log line, or a whole command+reply exchange), not
-    // per raw rendered line, so an agent reply that mentions "Scheduler" keeps its non-matching
-    // action-summary lines too. Assert the echoed "/status" command (which itself has no match) is
-    // gone, the matching reply text is still there, and the overall count actually shrank.
-    await expect.poll(async () => (await terminalLines(page)).length).toBeLessThan(beforeTextFilter);
-    await expect(page.getByText("you ❯", { exact: false })).toHaveCount(0);
-    await expect(page.getByText(/Scheduler:/)).toBeVisible();
+    await expect.poll(async () => logSources(await logLines(page)), { timeout: 10_000 }).toContain("http");
+
+    // Resetting the source filter reconnects the SSE stream and replaces the buffer with a fresh
+    // last-200-entries snapshot, so run the command whose request we'll search for *after* that
+    // reset (no further filter changes happen before we search) rather than reusing the /status
+    // call above, which could otherwise have already aged out of the snapshot on a busy shared server.
+    await runCommand(page, "/whoami");
+    await expect.poll(async () => (await logLines(page)).some((l) => l.includes("POST /api/agent/commands")), { timeout: 10_000 }).toBe(true);
+
+    const beforeCount = (await logLines(page)).length;
+    await page.getByLabel("Search log messages").fill("agent/commands");
+    await expect.poll(async () => (await logLines(page)).length, { timeout: 10_000 }).toBeLessThan(beforeCount);
+    const remaining = await logLines(page);
+    expect(remaining.length).toBeGreaterThan(0);
+    for (const line of remaining) expect(line.toLowerCase()).toContain("agent/commands");
   });
 
-  test("slash commands: /status, /help, /whoami, an offline-mock reply, /clear and history recall", async ({ page }) => {
-    await gotoApp(page);
+  test("slash commands: /status, /help, /whoami, /docs, an offline-mock reply, /clear and history recall", async ({ page }) => {
+    await gotoApp(page, "/studio");
     await openConsole(page);
 
     await runCommand(page, "/status");
     await expect(page.getByText(/Scheduler: ticking every/)).toBeVisible();
 
     await runCommand(page, "/help");
-    await expect(page.getByText("/publish <postId>: publish a post now (write role)")).toBeVisible();
+    await expect(page.getByText("/docs <platform?> <query>: search the platform developer-docs knowledge base")).toBeVisible();
+    await expect(page.getByText("/diagnose <connectionId|platform>: bundle a connection's status, last test, recent jobs and doc hits")).toBeVisible();
 
     await runCommand(page, "/whoami");
     await expect(page.getByText(new RegExp(`<${OWNER_EMAIL.replace(".", "\\.")}>`))).toBeVisible();
@@ -133,17 +169,54 @@ test.describe("agent console", () => {
     await runCommand(page, "what a wonderful console this is");
     await expect(page.getByText(/AI provider/i)).toBeVisible();
 
+    await runCommand(page, "/docs youtube invalid_grant");
+    await expect.poll(async () => {
+      const text = (await agentLines(page)).join("\n");
+      return /oauth|errors/i.test(text) && text.includes("docs/platforms");
+    }, { timeout: 10_000 }).toBe(true);
+
     await runCommand(page, "/clear");
-    await expect(page.getByTestId("console-empty")).toBeVisible();
+    await expect(page.getByTestId("agent-empty")).toBeVisible();
 
     const input = page.getByLabel("Console command");
     await input.click();
     await page.keyboard.press("ArrowUp");
-    await expect(input).toHaveValue("what a wonderful console this is");
+    await expect(input).toHaveValue("/docs youtube invalid_grant");
+  });
+
+  test("/diagnose x reports the org's X account status", async ({ page, request }) => {
+    const orgRes = await request.post("/api/orgs", {
+      data: { name: `Diagnose QA ${runId}`, brandColor: "#1D9BF0", timezone: "UTC" },
+    });
+    expect(orgRes.ok(), await orgRes.text()).toBeTruthy();
+    const org = await orgRes.json();
+
+    // A freshly created org's X account is a disconnected sandbox account, so the reply is
+    // deterministic regardless of what other specs have done to shared orgs.
+    await gotoApp(page, "/studio");
+    await switchOrg(page, org.name);
+
+    await openConsole(page);
+    await runCommand(page, "/diagnose x");
+    await expect.poll(async () => {
+      const text = (await agentLines(page)).join("\n");
+      return /\bx\b/i.test(text) && /disconnected/i.test(text);
+    }, { timeout: 10_000 }).toBe(true);
+  });
+
+  test("Documentation rail search finds a YouTube/Google hit for redirect_uri_mismatch", async ({ page }) => {
+    await gotoApp(page, "/studio");
+    await page.getByTestId("rail-docs").click();
+    await page.getByTestId("platform-docs-input").fill("redirect_uri_mismatch");
+
+    const hits = page.getByTestId("platform-docs-hit");
+    await expect(hits.first()).toBeVisible({ timeout: 10_000 });
+    const texts = await hits.allTextContents();
+    expect(texts.some((t) => /youtube|google/i.test(t))).toBe(true);
   });
 
   test("owner sees a Log files tab listing rotated app logs with viewable content", async ({ page }) => {
-    await gotoApp(page);
+    await gotoApp(page, "/studio");
     await openConsole(page);
     await page.getByRole("tab", { name: "Log files" }).click();
 
@@ -166,7 +239,7 @@ test.describe("agent console", () => {
 
     const { context, page } = await signInFreshUser(browser, { email: viewer.email, tempPassword: viewer.password });
     try {
-      await gotoApp(page);
+      await gotoApp(page, "/studio");
       await openConsole(page);
       await expect(page.getByRole("tab", { name: "Log files" })).toHaveCount(0);
 

@@ -34,6 +34,12 @@ export interface PublishResult {
 }
 
 export interface PlatformAdapter {
+  /**
+   * Optional pre-authorization step run by the connect route BEFORE buildAuthorizeUrl and persisted
+   * to the connection's credentials.extra immediately. Used by platforms that need per-attempt state
+   * (e.g. X's PKCE code_verifier) available to both buildAuthorizeUrl and exchangeCode.
+   */
+  prepareAuthorization?(conn: PlatformConnection): { extra: Record<string, string> };
   buildAuthorizeUrl(conn: PlatformConnection, state: string): string;
   exchangeCode(conn: PlatformConnection, code: string): Promise<Partial<ConnectionCredentials>>;
   refreshToken(conn: PlatformConnection): Promise<Partial<ConnectionCredentials>>;

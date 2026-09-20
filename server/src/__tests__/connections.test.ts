@@ -1,5 +1,6 @@
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { PLATFORMS } from "@socmedia/shared";
 import { ConnectionsRepo } from "../db/repositories/connections";
 import { cleanupTestContext, createTestContext, type TestContext } from "./testApp";
 
@@ -21,7 +22,7 @@ describe("connections", () => {
   it("lists connections with secrets masked", async () => {
     const list = await request(ctx.app).get("/api/connections").set("X-Org-Id", ctx.orgId);
     expect(list.status).toBe(200);
-    expect(list.body).toHaveLength(4);
+    expect(list.body).toHaveLength(PLATFORMS.length);
     for (const conn of list.body) {
       expect(conn.credentials.clientSecret).toBe("");
       expect(conn.credentials.accessToken).toBe("");

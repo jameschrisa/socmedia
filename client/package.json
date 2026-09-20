@@ -17,6 +17,8 @@
     "@socmedia/shared": "*",
     "@tanstack/react-query": "^5.66.0",
     "@types/qrcode": "^1.5.6",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",

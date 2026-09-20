@@ -55,7 +55,7 @@ function connection(platform: Platform, overrides: Partial<PlatformConnection> =
   };
 }
 
-const connections = [connection("tiktok"), connection("youtube"), connection("linkedin"), connection("instagram")];
+const connections = [connection("tiktok"), connection("youtube"), connection("linkedin"), connection("instagram"), connection("x")];
 
 function baseRoutes() {
   return {
@@ -116,6 +116,21 @@ describe("ComposerDrawer", () => {
 
     const counter = screen.getByTestId("caption-counter");
     await waitFor(() => expect(counter.className).toContain("text-red-600"));
+  });
+
+  it("turns the caption counter red once over the X limit", async () => {
+    mockFetch(baseRoutes());
+    useAppStore.setState({ composerOpen: true });
+    renderWithProviders(<ComposerDrawer />);
+
+    fireEvent.click(await screen.findByLabelText("Include X"));
+    const textarea = screen.getByPlaceholderText("Write your caption…");
+    const longCaption = "x".repeat(281);
+    fireEvent.change(textarea, { target: { value: longCaption } });
+
+    const counter = screen.getByTestId("caption-counter");
+    await waitFor(() => expect(counter.className).toContain("text-red-600"));
+    expect(counter).toHaveTextContent("281/280");
   });
 
   it("shows the YouTube title error in the validation panel", async () => {

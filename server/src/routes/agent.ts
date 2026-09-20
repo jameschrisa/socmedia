@@ -1,14 +1,15 @@
 import { Router } from "express";
 import { nanoid } from "nanoid";
-import { agentCommandSchema, type AgentAction, type AgentCommandResult } from "@socmedia/shared";
+import { PLATFORMS, agentCommandSchema, type AgentAction, type AgentCommandResult, type Platform, type PlatformDocHit } from "@socmedia/shared";
 import { config } from "../config";
 import type { Db } from "../db/database";
 import { activeProvider } from "../services/aiSettings";
 import { runMockAgent } from "../services/agentMock";
 import { runAnthropicAgent, runMoonshotAgent } from "../services/agentRuntime";
-import type { AgentToolContext } from "../services/agentTools";
+import type { AgentToolContext, DiagnoseConnectionData } from "../services/agentTools";
 import { runTool } from "../services/agentTools";
 import { log } from "../services/logger";
+import { platformDocsStatus, searchPlatformDocs } from "../services/platformDocs";
 import { asyncHandler } from "../utils/asyncHandler";
 
 function systemPrompt(ctx: AgentToolContext): string {
@@ -18,6 +19,9 @@ function systemPrompt(ctx: AgentToolContext): string {
     `Today's date is ${today}. The organization's timezone is ${ctx.org.timezone}.`,
     "Use the provided tools to look up real data before answering; never invent post, job, media, account or user ids.",
     "When you make a change, confirm exactly what changed and include the relevant id(s).",
+    "When a user reports a connection, account or publishing problem: first inspect the relevant connection " +
+      "(list_accounts, diagnose_connection, recent_logs, list_jobs), then call platform_docs with the exact error " +
+      "string before answering. Cite the doc file and its source URL in your reply.",
     "Keep replies concise (a few sentences or a short list) and don't restate raw tool output verbatim.",
   ].join("\n");
 }
@@ -51,6 +55,8 @@ async function handleSlashCommand(ctx: AgentToolContext, raw: string): Promise<{
           "/publish <postId>: publish a post now (write role)",
           "/retry <jobId>: retry a failed job (write role)",
           "/logs [level] [n]: recent log lines",
+          "/docs <platform?> <query>: search the platform developer-docs knowledge base",
+          "/diagnose <connectionId|platform>: bundle a connection's status, last test, recent jobs and doc hits",
           "/whoami: show your account",
           "Anything else is sent to the AI agent.",
         ].join("\n"),
@@ -140,6 +146,58 @@ async function handleSlashCommand(ctx: AgentToolContext, raw: string): Promise<{
       return { reply: entries.map((e) => `${e.at}  ${e.level.padEnd(5)} ${e.source.padEnd(10)} ${e.message}`).join("\n"), actions };
     }
 
+    case "docs": {
+      if (args.length === 0) return { reply: "Usage: /docs <platform?> <query>", actions };
+      let platform: string | undefined;
+      let queryArgs = args;
+      if (PLATFORMS.includes(args[0].toLowerCase() as Platform)) {
+        platform = args[0].toLowerCase();
+        queryArgs = args.slice(1);
+      }
+      const query = queryArgs.join(" ").trim();
+      if (!query) return { reply: "Usage: /docs <platform?> <query>", actions };
+      const result = await runAndTrack("platform_docs", platform ? { platform, query } : { query });
+      const hits = (result.data as PlatformDocHit[]) ?? [];
+      if (hits.length === 0) return { reply: `No doc hits for "${query}".`, actions };
+      return {
+        reply: hits
+          .map((h, i) => `${i + 1}. [${h.platform}] ${h.file} — ${h.heading}${h.sources[0] ? ` (${h.sources[0]})` : ""}`)
+          .join("\n"),
+        actions,
+      };
+    }
+
+    case "diagnose": {
+      const arg = args[0];
+      if (!arg) return { reply: "Usage: /diagnose <connectionId|platform>", actions };
+      let connectionId = arg;
+      if (PLATFORMS.includes(arg.toLowerCase() as Platform)) {
+        const accountsResult = await runAndTrack("list_accounts", {});
+        const accounts = (accountsResult.data as { id: string; platform: string }[]) ?? [];
+        const match = accounts.find((a) => a.platform === arg.toLowerCase());
+        if (!match) return { reply: `No account found for platform "${arg}".`, actions };
+        connectionId = match.id;
+      }
+      const result = await runAndTrack("diagnose_connection", { connectionId });
+      if (!result.ok) return { reply: result.summary, actions };
+      const data = result.data as DiagnoseConnectionData;
+      const lines = [
+        `${data.connection.platform} "${data.connection.label || data.connection.displayName}": ${data.connection.status} (${data.connection.mode})`,
+        `Scopes: ${data.connection.scopes.join(", ") || "none"}. Token expires: ${data.connection.tokenExpiresAt ?? "n/a"}. Access token: ${
+          data.connection.accessTokenMasked || "none"
+        }.`,
+        data.lastTest ? `Last test: ${data.lastTest.ok ? "ok" : "FAILED"} — ${data.lastTest.message}` : "Last test: never run.",
+        data.recentJobs.length === 0
+          ? "Recent jobs: none."
+          : `Recent jobs: ${data.recentJobs.map((j) => `${j.status}${j.error ? ` (${j.error})` : ""}`).join(", ")}`,
+      ];
+      if (data.docHits.length > 0) {
+        lines.push("Top doc matches:");
+        for (const h of data.docHits) lines.push(`- ${h.file} — ${h.heading}${h.sources[0] ? ` (${h.sources[0]})` : ""}`);
+      }
+      return { reply: lines.join("\n"), actions };
+    }
+
     case "whoami":
       return {
         reply: `${ctx.user.name} <${ctx.user.email}>: role: ${ctx.user.role}: orgs: ${
@@ -207,6 +265,39 @@ export function agentRouter(db: Db): Router {
         data: { tools: actions.map((a) => a.tool), mock },
       });
       res.json(result);
+    })
+  );
+
+  return router;
+}
+
+/**
+ * `GET /api/docs/platforms/search` and `GET /api/docs/platforms/status` (signed-in, not org-scoped):
+ * the same knowledge base `platform_docs` searches, exposed for the client's Documentation panel.
+ */
+export function platformDocsRouter(_db: Db): Router {
+  const router = Router();
+
+  router.get(
+    "/search",
+    asyncHandler(async (req, res) => {
+      const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+      if (!q) {
+        res.json({ hits: [] });
+        return;
+      }
+      const platform = typeof req.query.platform === "string" && req.query.platform ? req.query.platform : undefined;
+      const limitRaw = req.query.limit;
+      const limit = typeof limitRaw === "string" && /^\d+$/.test(limitRaw) ? Math.min(20, Math.max(1, Number(limitRaw))) : 5;
+      const hits = searchPlatformDocs({ platform, query: q, limit });
+      res.json({ hits });
+    })
+  );
+
+  router.get(
+    "/status",
+    asyncHandler(async (_req, res) => {
+      res.json(platformDocsStatus());
     })
   );
 

@@ -1,5 +1,6 @@
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { PLATFORMS } from "@socmedia/shared";
 import { cleanupTestContext, createTestContext, type TestContext } from "./testApp";
 import { DEMO_PROFILES } from "../db/seed";
 
@@ -22,8 +23,9 @@ describe("demo organizations", () => {
     expect(org.name).toBe("Larkspur Health");
     const h = { "X-Org-Id": org.id };
     const conns = (await request(ctx.app).get("/api/connections").set(h)).body;
-    expect(conns).toHaveLength(4);
+    expect(conns).toHaveLength(PLATFORMS.length);
     expect(conns.every((c: any) => c.status === "connected" && c.handle === "@larkspurhealth")).toBe(true);
+    expect(conns.some((c: any) => c.platform === "x")).toBe(true);
     const posts = (await request(ctx.app).get("/api/posts?includeUnscheduled=1").set(h)).body;
     expect(posts.length).toBe(DEMO_PROFILES.larkspur!.posts.length);
     expect(new Set(posts.map((p: any) => p.status))).toEqual(expect.any(Set));
