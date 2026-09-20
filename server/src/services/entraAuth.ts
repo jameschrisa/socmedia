@@ -6,6 +6,9 @@ export const ENTRA_STATE_COOKIE = "suprstar_entra_state";
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const JWKS_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 const CLOCK_SKEW_SECONDS = 120;
+/** Tenant values that mean "any directory", where `tid` cannot be pinned to a configured value. */
+const MULTI_TENANT_ALIASES = new Set(["organizations", "common", "consumers"]);
+const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type FetchLike = typeof fetch;
 
@@ -215,11 +218,18 @@ export async function verifyEntraIdToken(idToken: string, expectedNonce: string)
   if (!signatureValid) throw new Error("id_token signature verification failed");
 
   if (claims.aud !== config.entraClientId) throw new Error("id_token aud does not match our client id");
-  if (!claims.iss || !claims.iss.startsWith("https://login.microsoftonline.com/")) {
-    throw new Error("id_token iss is not a Microsoft identity platform issuer");
-  }
-  const specificTenant = config.entraTenantId && config.entraTenantId !== "organizations" ? config.entraTenantId : "";
+
+  const specificTenant = config.entraTenantId && !MULTI_TENANT_ALIASES.has(config.entraTenantId) ? config.entraTenantId : "";
   if (specificTenant && claims.tid !== specificTenant) throw new Error("id_token tid does not match the configured tenant");
+
+  // The issuer must be the exact v2.0 issuer for the tenant the token claims to come from. A prefix
+  // check alone would accept a crafted `iss` in multi-tenant mode, where `tid` is not pinned to a
+  // configured value; binding `iss` to `tid` keeps the two from disagreeing.
+  const issuerTenant = specificTenant || claims.tid;
+  if (!issuerTenant || !GUID_RE.test(issuerTenant)) throw new Error("id_token tid is not a tenant id");
+  if (claims.iss !== `https://login.microsoftonline.com/${issuerTenant}/v2.0`) {
+    throw new Error("id_token iss does not match the issuing tenant");
+  }
 
   const nowSeconds = Date.now() / 1000;
   if (typeof claims.exp !== "number" || claims.exp + CLOCK_SKEW_SECONDS < nowSeconds) throw new Error("id_token has expired");

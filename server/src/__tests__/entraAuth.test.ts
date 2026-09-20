@@ -210,6 +210,39 @@ describe("Microsoft Entra ID SSO", () => {
     expect(callback.headers.location).toBe("http://localhost:5173/?auth=error&reason=entra");
   });
 
+  it("rejects a token whose iss is not the tenant's v2.0 issuer with reason=entra", async () => {
+    const { cookie, state, nonce } = await getStateCookie(ctx);
+    const idToken = signIdToken(defaultClaims({ nonce, iss: `https://login.microsoftonline.com/${TENANT_ID}/v2.0.evil.example` }));
+    stubEntraFetch(idToken);
+    const callback = await request(ctx.app).get(`/api/auth/entra/callback?code=fake-code&state=${state}`).set("Cookie", cookie);
+    expect(callback.headers.location).toBe("http://localhost:5173/?auth=error&reason=entra");
+  });
+
+  it("rejects an iss that disagrees with tid in multi-tenant mode with reason=entra", async () => {
+    // With tenant "organizations" the tid claim is not pinned, so iss must still name the same
+    // tenant the token claims to come from. A token whose iss names a different tenant is a forgery.
+    config.entraTenantId = "organizations";
+    const { cookie, state, nonce } = await getStateCookie(ctx);
+    const idToken = signIdToken(
+      defaultClaims({ nonce, iss: "https://login.microsoftonline.com/33333333-3333-3333-3333-333333333333/v2.0" })
+    );
+    stubEntraFetch(idToken);
+    const callback = await request(ctx.app).get(`/api/auth/entra/callback?code=fake-code&state=${state}`).set("Cookie", cookie);
+    expect(callback.headers.location).toBe("http://localhost:5173/?auth=error&reason=entra");
+  });
+
+  it("accepts a token from any tenant in multi-tenant mode when iss and tid agree", async () => {
+    config.entraTenantId = "organizations";
+    const { cookie, state, nonce } = await getStateCookie(ctx);
+    const otherTenant = "33333333-3333-3333-3333-333333333333";
+    const idToken = signIdToken(
+      defaultClaims({ nonce, tid: otherTenant, iss: `https://login.microsoftonline.com/${otherTenant}/v2.0` })
+    );
+    stubEntraFetch(idToken);
+    const callback = await request(ctx.app).get(`/api/auth/entra/callback?code=fake-code&state=${state}`).set("Cookie", cookie);
+    expect(callback.headers.location).toBe("http://localhost:5173/");
+  });
+
   it("rejects an expired token with reason=entra", async () => {
     const { cookie, state, nonce } = await getStateCookie(ctx);
     const idToken = signIdToken(defaultClaims({ nonce, exp: Math.floor(Date.now() / 1000) - 3600 }));
