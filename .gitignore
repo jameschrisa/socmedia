@@ -9,3 +9,5 @@ test-results
 playwright-report
 .DS_Store
 .vercel
+# operator credentials (see ops/README.md) — never committed, never pasted into a chat
+ops/.env.ops
