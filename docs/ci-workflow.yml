@@ -1,0 +1,94 @@
+name: CI
+
+# Every push to main and every pull request runs the full battery. Deploys are gated on it
+# once RENDER_DEPLOY_HOOK / VERCEL_DEPLOY_HOOK exist as repository secrets and auto-deploy is
+# turned off on both hosts (see docs/CI.md); until then the deploy job reports and does nothing.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit and integration tests
+        run: npm test
+        env:
+          BACKUP_ENABLED: "false"
+      - name: Production build
+        run: npm run build
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    needs: test
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run Playwright
+        run: npx playwright test --forbid-only --reporter=list,html
+        env:
+          CI: "true"
+          BACKUP_ENABLED: "false"
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: [test, e2e]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    timeout-minutes: 10
+    env:
+      RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+      VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+    steps:
+      - name: Deploy the API
+        if: env.RENDER_DEPLOY_HOOK != ''
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK" > /dev/null && echo "Render deploy triggered"
+      - name: Deploy the client
+        if: env.VERCEL_DEPLOY_HOOK != ''
+        run: curl -fsS -X POST "$VERCEL_DEPLOY_HOOK" > /dev/null && echo "Vercel deploy triggered"
+      - name: Explain when hooks are absent
+        if: env.RENDER_DEPLOY_HOOK == '' || env.VERCEL_DEPLOY_HOOK == ''
+        run: echo "A deploy hook is not configured, so that host still deploys on its own. See docs/CI.md."
