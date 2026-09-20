@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { CaptionResponse, IdeaResponse, Platform } from "@socmedia/shared";
 
-export type AiTabId = "captions" | "ideas" | "hashtags" | "improve";
+export type AiTabId = "captions" | "ideas" | "hashtags" | "improve" | "bestTimes";
 
 export interface HashtagsResult {
   hashtags: string[];

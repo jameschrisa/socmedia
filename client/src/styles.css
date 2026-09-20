@@ -95,7 +95,8 @@
     pointer-events: none;
     background: radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(8,9,14,0.75));
   }
-  h1, h2, .font-display { font-family: "Playfair Display", Georgia, serif; font-weight: 500; letter-spacing: -0.01em; }
+  /* Titles use the same sans as copy and labels, a touch heavier and tighter so hierarchy comes from weight, not a serif. */
+  h1, h2, .font-display { font-family: "Outfit", ui-sans-serif, system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }
   ::selection { background: rgba(89, 216, 230, 0.35); }
   input[type="color"] { background: transparent; }
   select option { background: var(--surface); color: var(--c-ink-900); }

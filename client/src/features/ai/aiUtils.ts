@@ -1,4 +1,22 @@
 import type { AiTone, ContentIdea } from "@socmedia/shared";
+import type { AiTabId } from "./aiStore";
+
+/** The five AI Assistant tabs, addressable by hash (`/assistant#captions`, `/assistant#best-times`, etc). */
+export const ASSISTANT_TAB_HASH: Record<AiTabId, string> = {
+  captions: "#captions",
+  ideas: "#ideas",
+  hashtags: "#hashtags",
+  improve: "#improve",
+  bestTimes: "#best-times",
+};
+
+export const ASSISTANT_TAB_FOR_HASH: Record<string, AiTabId> = {
+  "#captions": "captions",
+  "#ideas": "ideas",
+  "#hashtags": "hashtags",
+  "#improve": "improve",
+  "#best-times": "bestTimes",
+};
 
 const TONE_LABELS: Record<AiTone, string> = {
   professional: "Professional",

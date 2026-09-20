@@ -51,6 +51,19 @@ describe("TopNav", () => {
     expect(screen.queryByRole("link", { name: "Remote Posting" })).not.toBeInTheDocument();
   });
 
+  it("shows the AI Assistant tab for writers and hides it for viewers", async () => {
+    mockFetch({ "GET /api/auth/me": authRoute("editor"), "GET /api/orgs": () => [] });
+    renderWithProviders(<TopNav />);
+    expect(await screen.findByRole("link", { name: "AI Assistant" })).toHaveAttribute("href", "/assistant");
+  });
+
+  it("hides the AI Assistant tab for viewers", async () => {
+    mockFetch({ "GET /api/auth/me": authRoute("viewer"), "GET /api/orgs": () => [] });
+    renderWithProviders(<TopNav />);
+    await screen.findByTestId("user-menu-trigger");
+    expect(screen.queryByRole("link", { name: "AI Assistant" })).not.toBeInTheDocument();
+  });
+
   it("does not render a user menu when there is no signed-in user", async () => {
     mockFetch({ "GET /api/orgs": () => [] });
     renderWithProviders(<TopNav />);

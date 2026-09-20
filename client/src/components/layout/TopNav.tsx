@@ -14,6 +14,7 @@ const tabs = [
   { to: "/calendar", label: "Calendar" },
   { to: "/studio", label: "Studio" },
   { to: "/remote", label: "Remote Posting", requires: "write" as const },
+  { to: "/assistant", label: "AI Assistant", requires: "write" as const },
   { to: "/connections", label: "Social Profiles" },
   { to: "/analytics", label: "Analytics" },
   { to: "/settings", label: "Settings" },

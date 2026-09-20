@@ -84,12 +84,13 @@ test.describe("suprstar smoke", () => {
   test("AI assistant generates captions (mock or live)", async ({ page }) => {
     await gotoApp(page);
     await page.getByTestId("rail-ai").click();
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-    const brief = dialog.getByRole("textbox").first();
+    // The assistant is a dedicated page now, not a drawer.
+    await expect(page).toHaveURL(/\/assistant/);
+    await expect(page.getByTestId("assistant-tabs")).toBeVisible();
+    const brief = page.getByRole("textbox").first();
     await brief.fill("Announce our new tax-loss harvesting report for financial advisors");
-    await dialog.getByRole("button", { name: /generate/i }).first().click();
-    await expect(dialog.getByRole("button", { name: /use in composer/i }).first()).toBeVisible({ timeout: 30_000 });
+    await page.getByRole("button", { name: /generate/i }).first().click();
+    await expect(page.getByRole("button", { name: /use in composer/i }).first()).toBeVisible({ timeout: 30_000 });
   });
 
   test("analytics page shows KPIs after sync", async ({ page }) => {

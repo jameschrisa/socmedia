@@ -44,7 +44,7 @@ export default {
       borderRadius: { none: "0", sm: "0", DEFAULT: "0", md: "0", lg: "0", xl: "0", "2xl": "0", "3xl": "0", xl2: "0", card: "0", row: "0", full: "9999px" },
       fontFamily: {
         sans: ["Outfit", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
-        display: ["Playfair Display", "Georgia", "serif"],
+        display: ["Outfit", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       keyframes: {
         shimmer: { "0%": { backgroundPosition: "-400px 0" }, "100%": { backgroundPosition: "400px 0" } },

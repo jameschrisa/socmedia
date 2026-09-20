@@ -7,6 +7,7 @@ import { OverviewPage } from "@/features/overview/OverviewPage";
 import { CalendarPage } from "@/features/calendar/CalendarPage";
 import { StudioPage } from "@/features/studio/StudioPage";
 import { RemotePostingPage } from "@/features/remote/RemotePostingPage";
+import { AssistantPage } from "@/features/ai/AssistantPage";
 import { ConnectionsPage } from "@/features/connections/ConnectionsPage";
 import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="calendar" element={<CalendarPage />} />
             <Route path="studio" element={<StudioPage />} />
             <Route path="remote" element={<RemotePostingPage />} />
+            <Route path="assistant" element={<AssistantPage />} />
             <Route path="connections" element={<ConnectionsPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="settings" element={<SettingsPage />} />

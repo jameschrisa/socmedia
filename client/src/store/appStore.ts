@@ -11,9 +11,6 @@ interface AppState {
   setCalendarView: (v: ViewMode) => void;
   theme: ThemePref;
   setTheme: (t: ThemePref) => void;
-  aiPanelOpen: boolean;
-  setAiPanelOpen: (open: boolean) => void;
-  toggleAiPanel: () => void;
   composerPostId: string | null;      // post being edited in the composer drawer
   composerOpen: boolean;
   openComposer: (postId?: string | null, defaults?: Partial<ComposerDefaults>) => void;
@@ -47,16 +44,13 @@ const emptyDefaults: ComposerDefaults = { scheduledAt: null, mediaIds: [] };
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       currentOrgId: null,
       setCurrentOrgId: (id) => set({ currentOrgId: id }),
       calendarView: "month",
       setCalendarView: (v) => set({ calendarView: v }),
       theme: "dark",
       setTheme: (theme) => set({ theme }),
-      aiPanelOpen: false,
-      setAiPanelOpen: (open) => set({ aiPanelOpen: open }),
-      toggleAiPanel: () => set({ aiPanelOpen: !get().aiPanelOpen }),
       composerPostId: null,
       composerOpen: false,
       composerDefaults: emptyDefaults,

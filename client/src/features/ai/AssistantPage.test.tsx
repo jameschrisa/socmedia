@@ -5,12 +5,11 @@ import { mockFetch, renderWithProviders } from "@/test-utils";
 import { useAppStore } from "@/store/appStore";
 import { useAiBridge } from "./aiBridge";
 import { useAiStore } from "./aiStore";
-import { AiPanel } from "./AiPanel";
+import { AssistantPage } from "./AssistantPage";
 
 function resetStores() {
   useAppStore.setState({
     currentOrgId: "org1",
-    aiPanelOpen: true,
     composerOpen: false,
     composerPostId: null,
     composerDefaults: { scheduledAt: null, mediaIds: [] },
@@ -35,21 +34,23 @@ beforeEach(() => {
   resetStores();
 });
 
-describe("AiPanel", () => {
-  it("renders the four generation tabs", () => {
+describe("AssistantPage", () => {
+  it("renders the five tabs", () => {
     mockFetch(bestTimesRoute);
-    renderWithProviders(<AiPanel />);
+    renderWithProviders(<AssistantPage />, { route: "/assistant" });
+    expect(screen.getByTestId("assistant-tabs")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Captions" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Ideas" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Hashtags" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Improve" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Best times" })).toBeInTheDocument();
   });
 
-  it("renders nothing when the panel is closed", () => {
+  it("selects the tab named by the URL hash", async () => {
     mockFetch(bestTimesRoute);
-    useAppStore.setState({ aiPanelOpen: false });
-    renderWithProviders(<AiPanel />);
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    renderWithProviders(<AssistantPage />, { route: "/assistant#hashtags" });
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Hashtags" })).toHaveAttribute("aria-selected", "true"));
+    expect(screen.getByLabelText("Count")).toBeInTheDocument();
   });
 
   it("generates captions for the selected platforms/tone and shows char counts", async () => {
@@ -62,7 +63,7 @@ describe("AiPanel", () => {
         mock: false,
       }),
     });
-    renderWithProviders(<AiPanel />);
+    renderWithProviders(<AssistantPage />, { route: "/assistant" });
 
     await user.type(screen.getByLabelText("Brief"), "Announce our launch");
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
@@ -87,7 +88,7 @@ describe("AiPanel", () => {
         mock: false,
       }),
     });
-    renderWithProviders(<AiPanel />);
+    renderWithProviders(<AssistantPage />, { route: "/assistant" });
 
     await user.type(screen.getByLabelText("Brief"), "Announce our launch");
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
@@ -109,7 +110,7 @@ describe("AiPanel", () => {
         mock: false,
       }),
     });
-    renderWithProviders(<AiPanel />);
+    renderWithProviders(<AssistantPage />, { route: "/assistant" });
 
     await user.click(screen.getByRole("tab", { name: "Ideas" }));
     await user.type(screen.getByLabelText("Topic"), "Product launch");
@@ -132,7 +133,7 @@ describe("AiPanel", () => {
       ...bestTimesRoute,
       "POST /api/ai/hashtags": () => ({ hashtags: ["#one", "#two", "#three"], model: "m", mock: false }),
     });
-    renderWithProviders(<AiPanel />);
+    renderWithProviders(<AssistantPage />, { route: "/assistant" });
 
     await user.click(screen.getByRole("tab", { name: "Hashtags" }));
     await user.type(screen.getByLabelText("Caption"), "Our new launch is here");
@@ -152,7 +153,7 @@ describe("AiPanel", () => {
       ...bestTimesRoute,
       "POST /api/ai/improve": () => ({ caption: "A much better caption", hashtags: ["#better"], model: "m", mock: false }),
     });
-    renderWithProviders(<AiPanel />);
+    renderWithProviders(<AssistantPage />, { route: "/assistant" });
 
     await user.click(screen.getByRole("tab", { name: "Improve" }));
     await user.type(screen.getByLabelText("Caption"), "Meh caption");
@@ -171,11 +172,25 @@ describe("AiPanel", () => {
         mock: true,
       }),
     });
-    renderWithProviders(<AiPanel />);
+    renderWithProviders(<AssistantPage />, { route: "/assistant" });
 
     await user.type(screen.getByLabelText("Brief"), "Announce our launch");
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
 
     await waitFor(() => expect(screen.getByText(/offline mock/i)).toBeInTheDocument());
+  });
+
+  it("renders the Best times tab with a platform picker and heatmap", async () => {
+    mockFetch({
+      "POST /api/ai/best-times": () => ({
+        slots: [{ weekday: 2, hour: 9, score: 80 }, { weekday: 4, hour: 18, score: 95 }],
+      }),
+    });
+    renderWithProviders(<AssistantPage />, { route: "/assistant#best-times" });
+
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Best times" })).toHaveAttribute("aria-selected", "true"));
+    expect(screen.getByLabelText("Platform")).toBeInTheDocument();
+    expect(await screen.findByTestId("best-times-heatmap")).toBeInTheDocument();
+    expect(screen.getByText("Top times to post")).toBeInTheDocument();
   });
 });

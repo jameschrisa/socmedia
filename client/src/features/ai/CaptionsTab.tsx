@@ -9,7 +9,7 @@ import { useAppStore } from "@/store/appStore";
 import { useCurrentOrgId } from "@/hooks/useOrg";
 import { useAiBridge } from "./aiBridge";
 import { useAiStore } from "./aiStore";
-import { ApiErrorNotice, PlatformChips, RecentList, ThinkingSkeleton } from "./aiShared";
+import { ApiErrorNotice, PlatformChips, RecentList, ResultsPlaceholder, ThinkingSkeleton } from "./aiShared";
 import { charStatus, toneLabel } from "./aiUtils";
 
 const TONES: AiTone[] = ["professional", "casual", "playful", "inspirational", "educational", "bold"];
@@ -102,93 +102,101 @@ export function CaptionsTab() {
   }
 
   return (
-    <div className="space-y-4">
-      <Field label="Brief" htmlFor="ai-caption-brief" hint="What's the post about? Give the AI something to work with.">
-        <Textarea
-          id="ai-caption-brief"
-          value={brief}
-          onChange={(e) => setBrief(e.target.value)}
-          placeholder="e.g. Announcing our new fall product line, playful and exciting"
-        />
-      </Field>
-
-      <Field label="Platforms">
-        <PlatformChips value={platforms} onChange={setPlatforms} />
-      </Field>
-
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Tone" htmlFor="ai-caption-tone">
-          <Select id="ai-caption-tone" value={tone} onChange={(e) => setTone(e.target.value as AiTone)}>
-            {TONES.map((t) => (
-              <option key={t} value={t}>
-                {toneLabel(t)}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Language" htmlFor="ai-caption-language">
-          <input
-            id="ai-caption-language"
-            className="input"
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
+    <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+      <div className="space-y-4">
+        <Field label="Brief" htmlFor="ai-caption-brief" hint="What's the post about? Give the AI something to work with.">
+          <Textarea
+            id="ai-caption-brief"
+            value={brief}
+            onChange={(e) => setBrief(e.target.value)}
+            placeholder="e.g. Announcing our new fall product line, playful and exciting"
           />
         </Field>
-      </div>
 
-      <Field label="Brand voice" htmlFor="ai-caption-brand-voice" hint="Saved for this workspace and reused next time.">
-        <Textarea
-          id="ai-caption-brand-voice"
-          value={brandVoice}
-          onChange={(e) => setBrandVoice(e.target.value)}
-          placeholder="e.g. Warm, confident, a little cheeky. Avoid corporate jargon."
-          className="min-h-[64px]"
-        />
-      </Field>
+        <Field label="Platforms">
+          <PlatformChips value={platforms} onChange={setPlatforms} />
+        </Field>
 
-      <div className="flex flex-wrap items-center gap-5">
-        <label className="flex items-center gap-2 text-sm text-ink-700">
-          <Toggle checked={includeHashtags} onChange={setIncludeHashtags} label="Include hashtags" size="sm" />
-          Hashtags
-        </label>
-        <label className="flex items-center gap-2 text-sm text-ink-700">
-          <Toggle checked={includeCta} onChange={setIncludeCta} label="Include CTA" size="sm" />
-          Call to action
-        </label>
-        <div className="flex items-center gap-2 text-sm text-ink-700">
-          <span>Variants</span>
-          <div className="flex items-center rounded-lg border border-ink-200">
-            <button type="button" aria-label="Fewer variants" className="px-2 py-1 text-ink-500 hover:text-ink-900" onClick={() => setVariants((v) => Math.max(1, v - 1))}>
-              <Minus className="h-3.5 w-3.5" />
-            </button>
-            <span className="w-6 text-center font-semibold">{variants}</span>
-            <button type="button" aria-label="More variants" className="px-2 py-1 text-ink-500 hover:text-ink-900" onClick={() => setVariants((v) => Math.min(5, v + 1))}>
-              <Plus className="h-3.5 w-3.5" />
-            </button>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Tone" htmlFor="ai-caption-tone">
+            <Select id="ai-caption-tone" value={tone} onChange={(e) => setTone(e.target.value as AiTone)}>
+              {TONES.map((t) => (
+                <option key={t} value={t}>
+                  {toneLabel(t)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Language" htmlFor="ai-caption-language">
+            <input
+              id="ai-caption-language"
+              className="input"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+            />
+          </Field>
+        </div>
+
+        <Field label="Brand voice" htmlFor="ai-caption-brand-voice" hint="Saved for this workspace and reused next time.">
+          <Textarea
+            id="ai-caption-brand-voice"
+            value={brandVoice}
+            onChange={(e) => setBrandVoice(e.target.value)}
+            placeholder="e.g. Warm, confident, a little cheeky. Avoid corporate jargon."
+            className="min-h-[64px]"
+          />
+        </Field>
+
+        <div className="flex flex-wrap items-center gap-5">
+          <label className="flex items-center gap-2 text-sm text-ink-700">
+            <Toggle checked={includeHashtags} onChange={setIncludeHashtags} label="Include hashtags" size="sm" />
+            Hashtags
+          </label>
+          <label className="flex items-center gap-2 text-sm text-ink-700">
+            <Toggle checked={includeCta} onChange={setIncludeCta} label="Include CTA" size="sm" />
+            Call to action
+          </label>
+          <div className="flex items-center gap-2 text-sm text-ink-700">
+            <span>Variants</span>
+            <div className="flex items-center rounded-lg border border-ink-200">
+              <button type="button" aria-label="Fewer variants" className="px-2 py-1 text-ink-500 hover:text-ink-900" onClick={() => setVariants((v) => Math.max(1, v - 1))}>
+                <Minus className="h-3.5 w-3.5" />
+              </button>
+              <span className="w-6 text-center font-semibold">{variants}</span>
+              <button type="button" aria-label="More variants" className="px-2 py-1 text-ink-500 hover:text-ink-900" onClick={() => setVariants((v) => Math.min(5, v + 1))}>
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         </div>
+
+        <Button icon={<Sparkles className="h-4 w-4" />} onClick={generate} loading={mutation.isPending} disabled={!brief.trim() || platforms.length === 0}>
+          Generate
+        </Button>
       </div>
 
-      <Button icon={<Sparkles className="h-4 w-4" />} onClick={generate} loading={mutation.isPending} disabled={!brief.trim() || platforms.length === 0}>
-        Generate
-      </Button>
+      <div className="space-y-4">
+        {mutation.isPending && <ThinkingSkeleton count={Math.min(variants, 3)} />}
+        {mutation.isError && <ApiErrorNotice error={mutation.error} onRetry={generate} />}
 
-      {mutation.isPending && <ThinkingSkeleton count={Math.min(variants, 3)} />}
-      {mutation.isError && <ApiErrorNotice error={mutation.error} onRetry={generate} />}
+        {!mutation.isPending && grouped.length > 0 && (
+          <div className="space-y-4">
+            {grouped.map(([platform, vs]) => (
+              <div key={platform} className="space-y-2">
+                {vs.map((v, i) => (
+                  <CaptionCard key={`${platform}-${i}`} variant={v} onUse={() => useInComposer(v)} onCopy={() => copyCaption(v)} onImprove={() => improveThis(v)} onRegenerate={generate} />
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
 
-      {!mutation.isPending && grouped.length > 0 && (
-        <div className="space-y-4">
-          {grouped.map(([platform, vs]) => (
-            <div key={platform} className="space-y-2">
-              {vs.map((v, i) => (
-                <CaptionCard key={`${platform}-${i}`} variant={v} onUse={() => useInComposer(v)} onCopy={() => copyCaption(v)} onImprove={() => improveThis(v)} onRegenerate={generate} />
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
+        {!mutation.isPending && !mutation.isError && grouped.length === 0 && (
+          <ResultsPlaceholder text="Generated captions will appear here." />
+        )}
 
-      <RecentList tab="captions" />
+        <RecentList tab="captions" />
+      </div>
     </div>
   );
 }

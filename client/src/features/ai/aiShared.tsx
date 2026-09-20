@@ -69,6 +69,15 @@ export function ApiErrorNotice({ error, onRetry }: { error: unknown; onRetry: ()
   );
 }
 
+/** Placeholder shown in the results column before anything has been generated yet. */
+export function ResultsPlaceholder({ text }: { text: string }) {
+  return (
+    <div className="flex min-h-[10rem] items-center justify-center border border-dashed border-ink-200 p-6 text-center text-sm text-ink-400">
+      {text}
+    </div>
+  );
+}
+
 /** Compact "Recent" list of past generations for a given tab, backed by the shared history store. */
 export function RecentList({ tab }: { tab: AiTabId }) {
   const history = useAiStore((s) => s.history).filter((h) => h.tab === tab);

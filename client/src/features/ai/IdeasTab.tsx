@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { useAppStore } from "@/store/appStore";
 import { useAiBridge } from "./aiBridge";
 import { useAiStore } from "./aiStore";
-import { ApiErrorNotice, PlatformChips, RecentList, ThinkingSkeleton } from "./aiShared";
+import { ApiErrorNotice, PlatformChips, RecentList, ResultsPlaceholder, ThinkingSkeleton } from "./aiShared";
 import { buildBriefFromIdea } from "./aiUtils";
 
 export function IdeasTab() {
@@ -59,48 +59,56 @@ export function IdeasTab() {
   }
 
   return (
-    <div className="space-y-4">
-      <Field label="Topic" htmlFor="ai-idea-topic">
-        <Textarea id="ai-idea-topic" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Behind-the-scenes of our product roadmap" />
-      </Field>
+    <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+      <div className="space-y-4">
+        <Field label="Topic" htmlFor="ai-idea-topic">
+          <Textarea id="ai-idea-topic" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Behind-the-scenes of our product roadmap" />
+        </Field>
 
-      <Field label="Audience" htmlFor="ai-idea-audience" hint="Optional. Who is this for?">
-        <input id="ai-idea-audience" className="input" value={audience} onChange={(e) => setAudience(e.target.value)} placeholder="e.g. small business owners" />
-      </Field>
+        <Field label="Audience" htmlFor="ai-idea-audience" hint="Optional. Who is this for?">
+          <input id="ai-idea-audience" className="input" value={audience} onChange={(e) => setAudience(e.target.value)} placeholder="e.g. small business owners" />
+        </Field>
 
-      <Field label="Platforms">
-        <PlatformChips value={platforms} onChange={setPlatforms} />
-      </Field>
+        <Field label="Platforms">
+          <PlatformChips value={platforms} onChange={setPlatforms} />
+        </Field>
 
-      <div className="flex items-center gap-2 text-sm text-ink-700">
-        <span>Ideas</span>
-        <div className="flex items-center rounded-lg border border-ink-200">
-          <button type="button" aria-label="Fewer ideas" className="px-2 py-1 text-ink-500 hover:text-ink-900" onClick={() => setCount((c) => Math.max(3, c - 1))}>
-            <Minus className="h-3.5 w-3.5" />
-          </button>
-          <span className="w-6 text-center font-semibold">{count}</span>
-          <button type="button" aria-label="More ideas" className="px-2 py-1 text-ink-500 hover:text-ink-900" onClick={() => setCount((c) => Math.min(12, c + 1))}>
-            <Plus className="h-3.5 w-3.5" />
-          </button>
+        <div className="flex items-center gap-2 text-sm text-ink-700">
+          <span>Ideas</span>
+          <div className="flex items-center rounded-lg border border-ink-200">
+            <button type="button" aria-label="Fewer ideas" className="px-2 py-1 text-ink-500 hover:text-ink-900" onClick={() => setCount((c) => Math.max(3, c - 1))}>
+              <Minus className="h-3.5 w-3.5" />
+            </button>
+            <span className="w-6 text-center font-semibold">{count}</span>
+            <button type="button" aria-label="More ideas" className="px-2 py-1 text-ink-500 hover:text-ink-900" onClick={() => setCount((c) => Math.min(12, c + 1))}>
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
+
+        <Button icon={<Sparkles className="h-4 w-4" />} onClick={generate} loading={mutation.isPending} disabled={!topic.trim() || platforms.length === 0}>
+          Generate
+        </Button>
       </div>
 
-      <Button icon={<Sparkles className="h-4 w-4" />} onClick={generate} loading={mutation.isPending} disabled={!topic.trim() || platforms.length === 0}>
-        Generate
-      </Button>
+      <div className="space-y-4">
+        {mutation.isPending && <ThinkingSkeleton count={2} />}
+        {mutation.isError && <ApiErrorNotice error={mutation.error} onRetry={generate} />}
 
-      {mutation.isPending && <ThinkingSkeleton count={2} />}
-      {mutation.isError && <ApiErrorNotice error={mutation.error} onRetry={generate} />}
+        {!mutation.isPending && result && result.ideas.length > 0 && (
+          <div className="space-y-3">
+            {result.ideas.map((idea, i) => (
+              <IdeaCard key={i} idea={idea} onDraft={() => draftThis(idea)} onWriteCaptions={() => writeCaptions(idea)} />
+            ))}
+          </div>
+        )}
 
-      {!mutation.isPending && result && result.ideas.length > 0 && (
-        <div className="space-y-3">
-          {result.ideas.map((idea, i) => (
-            <IdeaCard key={i} idea={idea} onDraft={() => draftThis(idea)} onWriteCaptions={() => writeCaptions(idea)} />
-          ))}
-        </div>
-      )}
+        {!mutation.isPending && !mutation.isError && (!result || result.ideas.length === 0) && (
+          <ResultsPlaceholder text="Generated ideas will appear here." />
+        )}
 
-      <RecentList tab="ideas" />
+        <RecentList tab="ideas" />
+      </div>
     </div>
   );
 }

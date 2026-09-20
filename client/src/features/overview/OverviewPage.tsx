@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { addDays, format } from "date-fns";
@@ -32,7 +32,7 @@ export function OverviewPage() {
   const qc = useQueryClient();
   const { currentOrg } = useOrgs();
   const openComposer = useAppStore((s) => s.openComposer);
-  const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen);
+  const navigate = useNavigate();
 
   const now = useMemo(() => new Date(), []);
   const range = useMemo(() => rangeFor("30d", now), [now]);
@@ -82,7 +82,7 @@ export function OverviewPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openComposer(null)}>New post</Button>
-          <Button variant="outline" size="sm" icon={<Sparkles className="h-4 w-4 text-brand-500" />} onClick={() => setAiPanelOpen(true)}>Open AI Assistant</Button>
+          <Button variant="outline" size="sm" icon={<Sparkles className="h-4 w-4 text-brand-500" />} onClick={() => navigate("/assistant")}>Open AI Assistant</Button>
           <Link to="/calendar" className={linkButtonClass}><CalendarDays className="h-4 w-4" />Calendar</Link>
           <Link to="/studio" className={linkButtonClass}><Clapperboard className="h-4 w-4" />Studio</Link>
           <Link to="/connections" className={linkButtonClass}><Users className="h-4 w-4" />Social Profiles</Link>

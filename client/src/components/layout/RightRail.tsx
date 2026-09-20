@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, CalendarCheck2, Sparkles, HeartHandshake, ExternalLink, MessageSquare, Search, Terminal, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { PLATFORMS, PLATFORM_SPECS, type Platform } from "@socmedia/shared";
 import { Badge, Button, Portal, useAnchorPosition } from "@/components/ui";
-import { useAppStore } from "@/store/appStore";
 import { useAuth } from "@/hooks/useAuth";
 import { useInboundMessages, useInboundStatus } from "@/hooks/useInbound";
 import { CHANNEL_LABEL, CHANNEL_STATE_DOT, CHANNEL_STATE_LABEL, MESSAGE_STATUS_DOT, maskSenderId, mediaCountLabel } from "@/features/remote/inbound/inboundUtils";
@@ -89,7 +88,7 @@ function PlatformDocsSearch() {
  * open in a popover beside the rail so they never take space from the page content.
  */
 export function RightRail() {
-  const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen);
+  const navigate = useNavigate();
   const openConsole = useOpenConsole();
   const { can } = useAuth();
   const [open, setOpen] = useState<PanelId | null>(null);
@@ -104,7 +103,7 @@ export function RightRail() {
 
   const items: { id: PanelId | "ai" | "console"; label: string; icon: React.ReactNode; tone: string; onClick: () => void }[] = [
     ...(can.write
-      ? [{ id: "ai" as const, label: "AI Assistant", icon: <Sparkles className="h-4 w-4" />, tone: "text-brand-600 bg-brand-50 hover:bg-brand-100", onClick: () => { setOpen(null); setAiPanelOpen(true); } }]
+      ? [{ id: "ai" as const, label: "AI Assistant", icon: <Sparkles className="h-4 w-4" />, tone: "text-brand-600 bg-brand-50 hover:bg-brand-100", onClick: () => { setOpen(null); navigate("/assistant"); } }]
       : []),
     { id: "console", label: "Console", icon: <Terminal className="h-4 w-4" />, tone: "text-ink-600 bg-ink-50 hover:bg-ink-100", onClick: () => { setOpen(null); openConsole(); } },
     { id: "docs", label: "Documentation", icon: <BookOpen className="h-4 w-4" />, tone: "text-ink-600 bg-ink-50 hover:bg-ink-100", onClick: () => toggle("docs") },
@@ -171,7 +170,7 @@ export function RightRail() {
                   <div className="flex h-9 w-9 items-center justify-center bg-pink-50 text-pink-600"><HeartHandshake className="h-4 w-4" /></div>
                   <h3 className="mt-3 text-sm font-semibold">Approvals</h3>
                   <p className="mt-1 text-sm text-ink-500">Posts marked “needs approval” show on the calendar in amber until a reviewer approves them from the Overview or the post peek.</p>
-                  <Button className="mt-4" size="sm" variant="secondary" icon={<Sparkles className="h-4 w-4" />} onClick={() => { setOpen(null); setAiPanelOpen(true); }}>Plan a week with AI</Button>
+                  <Button className="mt-4" size="sm" variant="secondary" icon={<Sparkles className="h-4 w-4" />} onClick={() => { setOpen(null); navigate("/assistant#captions"); }}>Plan a week with AI</Button>
                 </>
               )}
               {open === "inbound" && (

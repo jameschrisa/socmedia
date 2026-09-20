@@ -158,7 +158,7 @@ export function SettingsPage() {
         </section>
       )}
 
-      <section className="space-y-3">
+      <section id="ai-providers" className="space-y-3">
         <SectionTitle>AI providers</SectionTitle>
         <AiProviderSettings />
       </section>
