@@ -236,3 +236,33 @@ export type AllowedDomainInput = z.infer<typeof allowedDomainSchema>;
 export type AccessPolicyInput = z.infer<typeof accessPolicySchema>;
 export type AccessRequestCreateInput = z.infer<typeof accessRequestCreateSchema>;
 export type AccessRequestApproveInput = z.infer<typeof accessRequestApproveSchema>;
+
+/* ---------- Inbound messaging ---------- */
+export const inboundChannelSchema = z.enum(["twilio", "telegram", "test"]);
+export const inboundChannelConfigUpdateSchema = z.object({
+  enabled: z.boolean().optional(),
+  /** Provider secrets/settings; masked values (••••) are ignored so re-saving does not wipe them. */
+  settings: z.record(z.string(), z.string().max(500)).default({}),
+});
+export const inboundBindingCreateSchema = z.object({
+  channel: inboundChannelSchema,
+  senderId: z.string().trim().min(1).max(120),
+  senderLabel: z.string().trim().max(80).optional(),
+  connectionIds: z.array(z.string()).default([]),
+  publishMode: z.enum(["all", "queue"]).default("all"),
+  confirmBeforePosting: z.boolean().default(false),
+});
+export const inboundBindingUpdateSchema = inboundBindingCreateSchema.omit({ channel: true, senderId: true }).partial().extend({
+  status: z.enum(["verified", "revoked"]).optional(),
+});
+/** Body for the signed "test" channel and the wizard's send-test action. */
+export const inboundTestMessageSchema = z.object({
+  senderId: z.string().trim().min(1).max(120),
+  text: z.string().max(4000).default(""),
+  /** Data URL or absolute URL of an image; the wizard sends a small generated image. */
+  imageUrl: z.string().max(5_000_000).optional(),
+});
+export const transcriptionSettingsSchema = z.object({
+  provider: z.enum(["none", "openai", "deepgram"]),
+  apiKey: z.string().max(500).optional(),
+});

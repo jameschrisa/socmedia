@@ -499,3 +499,109 @@ export interface PlatformDocHit {
   score: number;
   sources: string[];    // URLs from the front matter
 }
+
+/* ---------- Inbound messaging (post from a chat channel without the UI) ---------- */
+export type InboundChannel = "twilio" | "telegram" | "test";
+
+/** Public view of a channel's configuration; secrets are masked. */
+export interface InboundChannelConfig {
+  channel: InboundChannel;
+  enabled: boolean;
+  /** Where the provider must deliver events; shown by the wizard. */
+  webhookUrl: string;
+  /** Provider-specific, masked (e.g. Twilio accountSid + authToken + fromNumber; Telegram botToken + botUsername). */
+  settings: Record<string, string>;
+  /** True when the server has registered the webhook with the provider itself (Telegram setWebhook). */
+  webhookRegistered?: boolean;
+  updatedAt?: string | null;
+}
+
+export type InboundBindingStatus = "pending" | "verified" | "revoked";
+
+/** Ties a chat sender (phone number or chat id) to a suprstar user, an organization and target accounts. */
+export interface InboundBinding {
+  id: string;
+  channel: InboundChannel;
+  /** E.164 phone number for Twilio, chat id for Telegram, any string for the test channel. */
+  senderId: string;
+  senderLabel?: string | null;
+  userId: string;
+  orgId: string;
+  connectionIds: string[];       // empty means every enabled image-capable account
+  publishMode: PublishMode;
+  /** When true the bot echoes what it will post and waits for a "yes" reply. */
+  confirmBeforePosting: boolean;
+  status: InboundBindingStatus;
+  /** Present only in the create response, so the person can type it into the chat. */
+  verificationCode?: string;
+  createdAt: string;
+  verifiedAt?: string | null;
+  lastMessageAt?: string | null;
+}
+
+export type InboundMessageStatus =
+  | "received"
+  | "unknown_sender"
+  | "awaiting_confirmation"
+  | "processing"
+  | "published"
+  | "draft"
+  | "command"
+  | "failed"
+  | "ignored";
+
+export interface InboundTimelineEntry {
+  at: string;
+  status: InboundMessageStatus | "reply_sent" | "reply_failed";
+  message: string;
+}
+
+/** One inbound chat message and everything suprstar did with it. */
+export interface InboundMessage {
+  id: string;
+  channel: InboundChannel;
+  providerMessageId: string;
+  senderId: string;
+  bindingId?: string | null;
+  orgId?: string | null;
+  userId?: string | null;
+  text: string;
+  mediaCount: number;
+  hasAudio: boolean;
+  status: InboundMessageStatus;
+  postId?: string | null;
+  mediaIds: string[];
+  /** Live links per account after publishing. */
+  links: QuickPostLink[];
+  /** What was sent back in the chat by the system or the agent. */
+  reply?: string | null;
+  repliedBy?: "system" | "agent" | null;
+  error?: string | null;
+  timeline: InboundTimelineEntry[];
+  receivedAt: string;
+  completedAt?: string | null;
+}
+
+export interface InboundChannelStatus {
+  channel: InboundChannel;
+  configured: boolean;
+  enabled: boolean;
+  /** "listening" when configured, enabled and (for Telegram) the webhook is registered; otherwise "off" or "error". */
+  state: "listening" | "off" | "error";
+  detail?: string | null;
+  webhookUrl: string;
+  lastEventAt?: string | null;
+  counts: { today: number; published: number; failed: number; pending: number };
+}
+
+export interface InboundStatus {
+  channels: InboundChannelStatus[];
+  bindings: number;
+  /** Whether voice notes can be transcribed server-side. */
+  transcription: { configured: boolean; provider: "none" | "openai" | "deepgram" };
+}
+
+/** Server-sent event on /api/inbound/stream. */
+export type InboundEvent =
+  | { type: "message"; message: InboundMessage }
+  | { type: "status"; status: InboundStatus };
