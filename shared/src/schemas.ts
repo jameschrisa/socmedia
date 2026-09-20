@@ -182,7 +182,7 @@ export type ClipRequestInput = z.infer<typeof clipRequestSchema>;
 
 /* ---------- Console, agent and quick post ---------- */
 export const logLevelSchema = z.enum(["debug", "info", "warn", "error"]);
-export const logSourceSchema = z.enum(["http", "auth", "scheduler", "publisher", "media", "agent", "quick", "inbound", "system"]);
+export const logSourceSchema = z.enum(["http", "auth", "scheduler", "publisher", "media", "agent", "quick", "inbound", "system", "backup"]);
 export const logQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(2000).default(200),
   level: logLevelSchema.optional(),
@@ -271,3 +271,6 @@ export type InboundBindingCreateInput = z.infer<typeof inboundBindingCreateSchem
 export type InboundBindingUpdateInput = z.infer<typeof inboundBindingUpdateSchema>;
 export type InboundTestMessageInput = z.infer<typeof inboundTestMessageSchema>;
 export type TranscriptionSettingsInput = z.infer<typeof transcriptionSettingsSchema>;
+
+/** Admin "send a test email" action, used to prove the mail provider works before relying on it. */
+export const mailTestSchema = z.object({ to: emailSchema });

@@ -12,6 +12,7 @@ import type {
   InboundChannel, InboundChannelConfig, InboundChannelConfigUpdateInput, InboundBinding, InboundBindingCreateInput,
   InboundBindingUpdateInput, InboundMessage, InboundMessageStatus, InboundStatus, InboundTestMessageInput,
   InboundTranscriptionSettings, TranscriptionSettingsInput,
+  MailStatus,
 } from "@socmedia/shared";
 import { useAppStore } from "@/store/appStore";
 
@@ -89,6 +90,8 @@ export const api = {
     aiModels: (provider: "anthropic" | "moonshot") => request<{ provider: string; models: string[] }>(`/settings/ai/models?provider=${provider}`, {}, { org: false }),
     getAccessPolicy: () => request<AccessPolicy>("/settings/access-policy", {}, { org: false }),
     updateAccessPolicy: (input: AccessPolicy) => request<AccessPolicy>("/settings/access-policy", { method: "PUT", body: json(input) }, { org: false }),
+    getMail: () => request<MailStatus>("/settings/mail", {}, { org: false }),
+    sendMailTest: (input: { to: string }) => request<MailStatus>("/settings/mail/test", { method: "POST", body: json(input) }, { org: false }),
   },
 
   orgs: {

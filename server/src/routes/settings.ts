@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { accessPolicySchema, aiSettingsUpdateSchema, publishingSettingsSchema, type PublishingSettings } from "@socmedia/shared";
+import { accessPolicySchema, aiSettingsUpdateSchema, mailTestSchema, publishingSettingsSchema, type PublishingSettings } from "@socmedia/shared";
 import { OrganizationsRepo } from "../db/repositories/organizations";
 import { SettingsRepo } from "../db/repositories/settings";
 import type { Db } from "../db/database";
@@ -9,6 +9,7 @@ import { getAccessPolicy, saveAccessPolicy } from "../services/accessPolicy";
 import { listModels, testProvider } from "../services/aiProviders";
 import { getPublicAiSettings, saveAiSettings } from "../services/aiSettings";
 import { log } from "../services/logger";
+import { checkMailTestRateLimit, fullMailStatus, sendMailTest } from "../services/mailer";
 import { asyncHandler } from "../utils/asyncHandler";
 
 const providerParam = z.object({ provider: z.enum(["anthropic", "moonshot"]) });
@@ -86,6 +87,25 @@ export function settingsRouter(db: Db): Router {
     asyncHandler(async (req, res) => {
       const { provider } = providerParam.parse({ provider: req.query.provider });
       res.json({ provider, models: await listModels(db, provider) });
+    })
+  );
+
+  router.get("/mail", (_req, res) => {
+    res.json(fullMailStatus());
+  });
+
+  router.post(
+    "/mail/test",
+    asyncHandler(async (req, res) => {
+      const input = mailTestSchema.parse(req.body);
+      const rateLimitKey = req.user?.id ?? "anon";
+      if (!checkMailTestRateLimit(rateLimitKey)) {
+        res.status(429).json({ error: "Too many test emails. Try again in a bit." });
+        return;
+      }
+      const status = await sendMailTest(input.to);
+      log.info("auth", `Mail test requested for ${input.to}`, { userId: req.user?.id, data: { to: input.to, ok: status.lastTestOk } });
+      res.json(status);
     })
   );
 

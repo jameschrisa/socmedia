@@ -66,6 +66,17 @@ export function resolveSignOnUser(db: Db, rawEmail: string): SignOnResult {
   if (existing) {
     if (!existing.active) return { ok: false, reason: "inactive" };
     if (policy.allowInvitedUsersAnyDomain || allowedDomain) {
+      // An invited account carries a temporary password and a "must change it" flag. Proving who
+      // you are through Microsoft, Google or an emailed link is at least as strong as knowing that
+      // temporary password, so clear the flag rather than demanding a password the person may
+      // never have been given.
+      if (existing.mustChangePassword) {
+        usersRepo.update(existing.id, { mustChangePassword: false });
+        log.info("auth", `Cleared the pending password change for ${email} after a federated sign-in`, {
+          userId: existing.id,
+          data: { email },
+        });
+      }
       return { ok: true, user: usersRepo.get(existing.id)!, provisioned: false };
     }
     return { ok: false, reason: "domain" };

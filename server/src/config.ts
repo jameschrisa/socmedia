@@ -28,6 +28,10 @@ export const config = {
   /** Google SSO (see server/src/services/googleAuth.ts). Both must be set for /auth/google/* to work. */
   googleClientId: process.env.GOOGLE_CLIENT_ID || "",
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+  /** Microsoft Entra ID SSO (see server/src/services/entraAuth.ts). Client id + secret must both be set for /auth/entra/* to work; tenant defaults to "organizations" (any work/school account). */
+  entraClientId: process.env.ENTRA_CLIENT_ID || "",
+  entraClientSecret: process.env.ENTRA_CLIENT_SECRET || "",
+  entraTenantId: process.env.ENTRA_TENANT_ID || "organizations",
   /** Outbound mail (see server/src/services/mailer.ts): "resend" | "smtp" | "log" (default). */
   mailProvider: (process.env.MAIL_PROVIDER || "log").toLowerCase(),
   mailFrom: process.env.MAIL_FROM || "",
@@ -35,6 +39,21 @@ export const config = {
   smtpUrl: process.env.SMTP_URL || "",
   /** In-app OS terminal (see server/src/services/terminal.ts). "on" | "off"; env OS_TERMINAL; default on outside production. */
   osTerminal: ((process.env.OS_TERMINAL || (process.env.NODE_ENV === "production" ? "off" : "on")).toLowerCase() === "off" ? "off" : "on") as "on" | "off",
+
+  /** Backups (see server/src/services/backup.ts). Default on; "false"/"0" disables the scheduler (tests, local dev). */
+  backupEnabled: !["false", "0"].includes((process.env.BACKUP_ENABLED || "").toLowerCase()),
+  /** How often the backup scheduler checks whether a fresh archive is due. Not itself the backup cadence. */
+  backupIntervalHours: num("BACKUP_INTERVAL_HOURS", 24),
+  /** Local archives kept after rotation; older ones are pruned. */
+  backupKeep: num("BACKUP_KEEP", 7),
+  /** S3-compatible offsite storage (AWS S3, Cloudflare R2, Backblaze B2). Offsite upload is skipped entirely when bucket is unset. */
+  backupS3Bucket: process.env.BACKUP_S3_BUCKET || "",
+  backupS3Region: process.env.BACKUP_S3_REGION || "auto",
+  /** Set for R2/B2; forces path-style addressing. Leave unset for real AWS S3. */
+  backupS3Endpoint: process.env.BACKUP_S3_ENDPOINT || "",
+  backupS3AccessKeyId: process.env.BACKUP_S3_ACCESS_KEY_ID || "",
+  backupS3SecretAccessKey: process.env.BACKUP_S3_SECRET_ACCESS_KEY || "",
+  backupS3Prefix: process.env.BACKUP_S3_PREFIX || "suprstar",
 };
 
 export type Config = typeof config;

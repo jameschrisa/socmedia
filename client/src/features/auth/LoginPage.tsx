@@ -20,6 +20,7 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   domain: "Only approved email domains can sign in. Request access below.",
   inactive: "This account has been deactivated.",
   google: "Google sign-in did not complete. Try again.",
+  entra: "Microsoft sign-in did not complete. Try again.",
   state: "The sign-in session expired. Try again.",
 };
 
@@ -59,6 +60,31 @@ function GoogleButton() {
     >
       <GoogleGlyph className="h-4 w-4 shrink-0" />
       Continue with Google
+    </a>
+  );
+}
+
+/** Official Microsoft four-square mark. */
+function MicrosoftGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 23 23" className={className} aria-hidden>
+      <rect x="1" y="1" width="10" height="10" fill="#F25022" />
+      <rect x="12" y="1" width="10" height="10" fill="#7FBA00" />
+      <rect x="1" y="12" width="10" height="10" fill="#00A4EF" />
+      <rect x="12" y="12" width="10" height="10" fill="#FFB900" />
+    </svg>
+  );
+}
+
+/** "Continue with Microsoft" is a full-page navigation to the Entra ID authorize URL. */
+function MicrosoftButton() {
+  return (
+    <a
+      href="/api/auth/entra/start"
+      className="auth-tap inline-flex w-full items-center justify-center gap-2 h-9 px-4 text-sm font-medium transition-[background-color,border-color,color,transform] duration-150 active:translate-y-px focus-ring glass-veil text-ink-800 hover:bg-glass-strong hover:border-ink-300"
+    >
+      <MicrosoftGlyph className="h-4 w-4 shrink-0" />
+      Continue with Microsoft
     </a>
   );
 }
@@ -174,7 +200,8 @@ function SignInView({ login }: { login: LoginMutation }) {
   const { providers } = useAuth();
   const urlError = useAuthErrorFromUrl();
   const [email, setEmail] = useState("");
-  const hasPrimary = providers.magicLink || providers.google;
+  const hasSocial = providers.google || providers.entra;
+  const hasPrimary = providers.magicLink || hasSocial;
   // `null` until the person picks a method themselves; until then, follow whatever the server
   // says is available (which may still be loading its default the first time this renders).
   const [manualShowPassword, setManualShowPassword] = useState<boolean | null>(null);
@@ -198,9 +225,14 @@ function SignInView({ login }: { login: LoginMutation }) {
       ) : (
         <div className="space-y-4">
           {providers.magicLink && <MagicLinkForm email={email} setEmail={setEmail} />}
-          {providers.magicLink && (providers.google || providers.password) && <Divider />}
-          {providers.google && <GoogleButton />}
-          {providers.password && (providers.magicLink || providers.google) && (
+          {providers.magicLink && (hasSocial || providers.password) && <Divider />}
+          {hasSocial && (
+            <div className="space-y-2">
+              {providers.google && <GoogleButton />}
+              {providers.entra && <MicrosoftButton />}
+            </div>
+          )}
+          {providers.password && (providers.magicLink || hasSocial) && (
             <button type="button" className="auth-tap link focus-ring block w-full text-center text-sm" onClick={() => setManualShowPassword(true)}>
               Use a password instead
             </button>

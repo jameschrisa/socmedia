@@ -6,6 +6,8 @@ export interface UserRecord extends User {
   passwordHash: string;
   /** Google's stable account id, set the first time this user signs in with Google. */
   googleSub?: string | null;
+  /** Microsoft Entra ID's stable account id (`oid`), set the first time this user signs in with Entra. */
+  entraSub?: string | null;
 }
 
 function serializeOrgIds(orgIds: string[] | "*"): string {
@@ -37,7 +39,7 @@ function rowToUser(row: Row): User {
 }
 
 function rowToUserRecord(row: Row): UserRecord {
-  return { ...rowToUser(row), passwordHash: row.passwordHash, googleSub: row.googleSub ?? null };
+  return { ...rowToUser(row), passwordHash: row.passwordHash, googleSub: row.googleSub ?? null, entraSub: row.entraSub ?? null };
 }
 
 export interface CreateUserInput {
@@ -52,6 +54,7 @@ export interface CreateUserInput {
   createdAt: string;
   lastLoginAt?: string | null;
   googleSub?: string | null;
+  entraSub?: string | null;
 }
 
 export interface UpdateUserPatch {
@@ -63,6 +66,7 @@ export interface UpdateUserPatch {
   mustChangePassword?: boolean;
   lastLoginAt?: string | null;
   googleSub?: string | null;
+  entraSub?: string | null;
 }
 
 export class UsersRepo {
@@ -103,8 +107,8 @@ export class UsersRepo {
   create(input: CreateUserInput): User {
     this.db
       .prepare(
-        `INSERT INTO users (id, email, name, role, orgIds, passwordHash, active, mustChangePassword, createdAt, lastLoginAt, googleSub)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO users (id, email, name, role, orgIds, passwordHash, active, mustChangePassword, createdAt, lastLoginAt, googleSub, entraSub)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         input.id,
@@ -117,7 +121,8 @@ export class UsersRepo {
         input.mustChangePassword ? 1 : 0,
         input.createdAt,
         input.lastLoginAt ?? null,
-        input.googleSub ?? null
+        input.googleSub ?? null,
+        input.entraSub ?? null
       );
     return this.get(input.id)!;
   }
@@ -128,7 +133,7 @@ export class UsersRepo {
     const merged: UserRecord = { ...existing, ...patch };
     this.db
       .prepare(
-        `UPDATE users SET name=?, role=?, orgIds=?, passwordHash=?, active=?, mustChangePassword=?, lastLoginAt=?, googleSub=? WHERE id=?`
+        `UPDATE users SET name=?, role=?, orgIds=?, passwordHash=?, active=?, mustChangePassword=?, lastLoginAt=?, googleSub=?, entraSub=? WHERE id=?`
       )
       .run(
         merged.name,
@@ -139,6 +144,7 @@ export class UsersRepo {
         merged.mustChangePassword ? 1 : 0,
         merged.lastLoginAt ?? null,
         merged.googleSub ?? null,
+        merged.entraSub ?? null,
         id
       );
     return this.get(id);

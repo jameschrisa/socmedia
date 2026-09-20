@@ -10,7 +10,7 @@ export type Capability = keyof Capabilities;
 const NO_CAPABILITIES: Capabilities = { manageUsers: false, manageOrgs: false, manageSettings: false, write: false };
 
 /** Sign-in page renders before we know what the server offers, so default to the one method every deployment has. */
-const DEFAULT_PROVIDERS: AuthProviders = { password: true, magicLink: false, google: false };
+const DEFAULT_PROVIDERS: AuthProviders = { password: true, magicLink: false, google: false, entra: false };
 
 const SIGNED_OUT: AuthState = { authenticated: false, needsSetup: false, user: null };
 

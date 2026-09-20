@@ -31,3 +31,22 @@ services:
         sync: false   # set to this service's public URL after the first deploy, e.g. https://pulse-api.onrender.com
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Backups (see docs/API.md "Backups"). Local archives always run; these only add offsite copies.
+      - key: BACKUP_ENABLED
+        value: "true"
+      - key: BACKUP_INTERVAL_HOURS
+        value: "24"
+      - key: BACKUP_KEEP
+        value: "7"
+      - key: BACKUP_S3_BUCKET
+        sync: false
+      - key: BACKUP_S3_REGION
+        sync: false
+      - key: BACKUP_S3_ENDPOINT
+        sync: false   # set for Cloudflare R2 / Backblaze B2; leave unset for real AWS S3
+      - key: BACKUP_S3_ACCESS_KEY_ID
+        sync: false
+      - key: BACKUP_S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: BACKUP_S3_PREFIX
+        sync: false

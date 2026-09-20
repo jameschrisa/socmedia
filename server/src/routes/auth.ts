@@ -20,6 +20,16 @@ import {
   SESSION_COOKIE_NAME,
 } from "../services/auth";
 import {
+  entraAuthorizeUrl,
+  entraConfigured,
+  entraStateCookieOptions,
+  exchangeEntraCode,
+  generateEntraState,
+  nonceFromState,
+  verifyEntraIdToken,
+  ENTRA_STATE_COOKIE,
+} from "../services/entraAuth";
+import {
   exchangeGoogleCode,
   fetchGoogleUserInfo,
   generateGoogleState,
@@ -61,6 +71,7 @@ export function authRouter(db: Db): Router {
         password: true,
         magicLink: magicLinkAvailable(),
         google: googleConfigured(),
+        entra: entraConfigured(),
       },
       allowedDomains: policy.domains.map((d) => d.domain),
     };
@@ -289,6 +300,67 @@ export function authRouter(db: Db): Router {
       usersRepo.update(outcome.user.id, { googleSub: sub, lastLoginAt: now });
       signIn(res, db, outcome.user.id);
       log.info("auth", `Google sign-in: ${email}`, { userId: outcome.user.id, data: { email, provisioned: outcome.provisioned } });
+      res.redirect(authRedirect());
+    })
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /* Microsoft Entra ID SSO                                                  */
+  /* ---------------------------------------------------------------------- */
+
+  router.get("/entra/start", (_req, res) => {
+    if (!entraConfigured()) {
+      res.status(404).json({ error: "Microsoft sign-in is not configured" });
+      return;
+    }
+    const { state, nonce } = generateEntraState();
+    res.cookie(ENTRA_STATE_COOKIE, state, entraStateCookieOptions());
+    res.redirect(entraAuthorizeUrl(state, nonce));
+  });
+
+  router.get(
+    "/entra/callback",
+    asyncHandler(async (req, res) => {
+      if (!entraConfigured()) {
+        res.status(404).json({ error: "Microsoft sign-in is not configured" });
+        return;
+      }
+      const cookies = parseCookies(req.headers.cookie);
+      const cookieState = cookies[ENTRA_STATE_COOKIE];
+      const queryState = typeof req.query.state === "string" ? req.query.state : "";
+      res.clearCookie(ENTRA_STATE_COOKIE, { path: "/" });
+      const code = typeof req.query.code === "string" ? req.query.code : "";
+      if (!cookieState || !queryState || cookieState !== queryState || !code) {
+        res.redirect(authRedirect("state"));
+        return;
+      }
+
+      let email: string;
+      let subject: string;
+      try {
+        const nonce = nonceFromState(cookieState);
+        const tokens = await exchangeEntraCode(code);
+        if (!tokens.id_token) throw new Error("Entra token response is missing id_token");
+        const identity = await verifyEntraIdToken(tokens.id_token, nonce);
+        email = identity.email;
+        subject = identity.subject;
+      } catch (err) {
+        log.warn("auth", "Microsoft sign-in failed during token exchange or id_token validation", {
+          data: { error: err instanceof Error ? err.message : String(err) },
+        });
+        res.redirect(authRedirect("entra"));
+        return;
+      }
+
+      const outcome = resolveSignOnUser(db, email);
+      if (!outcome.ok) {
+        res.redirect(authRedirect(outcome.reason));
+        return;
+      }
+      const now = new Date().toISOString();
+      usersRepo.update(outcome.user.id, { entraSub: subject, lastLoginAt: now });
+      signIn(res, db, outcome.user.id);
+      log.info("auth", `Microsoft sign-in: ${email}`, { userId: outcome.user.id, data: { email, provisioned: outcome.provisioned } });
       res.redirect(authRedirect());
     })
   );

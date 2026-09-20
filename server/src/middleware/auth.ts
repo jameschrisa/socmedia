@@ -90,8 +90,8 @@ const PUBLIC_POST_PATHS = new Set(["/api/auth/setup", "/api/auth/login", "/api/a
  */
 const INBOUND_TELEGRAM_PATH_RE = /^\/api\/inbound\/telegram\/[^/]+\/?$/;
 
-/** Magic-link and Google SSO endpoints: by definition unauthenticated (they establish the session). */
-const AUTH_SELF_SERVE_PATH_RE = /^\/api\/auth\/(magic|google)\/[^/]+\/?$/;
+/** Magic-link, Google and Entra SSO endpoints: by definition unauthenticated (they establish the session). */
+const AUTH_SELF_SERVE_PATH_RE = /^\/api\/auth\/(magic|google|entra)\/[^/]+\/?$/;
 
 /**
  * Quick-post-from-a-phone: the token secret in the URL *is* the credential, so `GET/POST

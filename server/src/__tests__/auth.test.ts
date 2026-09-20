@@ -21,7 +21,7 @@ describe("auth", () => {
       expect(before.body).toEqual({
         needsSetup: true,
         authenticated: false,
-        providers: { password: true, magicLink: true, google: false },
+        providers: { password: true, magicLink: true, google: false, entra: false },
         allowedDomains: ["enelhealth.com", "f3insights.com"],
       });
 

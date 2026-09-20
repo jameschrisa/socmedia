@@ -6,10 +6,10 @@ Errors: `{ error: string, details?: unknown }` with 400 (validation), 404, 409, 
 Types come from `@socmedia/shared` (`shared/src/types.ts`, zod schemas in `shared/src/schemas.ts`).
 
 ## Authentication & users
-All `/api` routes except `GET /health`, `GET /auth/status`, `GET /auth/me`, `POST /auth/setup`, `POST /auth/login`, `POST /auth/access-requests`, `GET/POST /auth/magic/*`, `GET /auth/google/*`, `GET /connections/oauth/callback` and `GET`/`POST /quick/:token` (the phone quick-post link; see "Quick post from a phone" below — its own token secret is the credential, and `/quick/tokens*` link-management routes are *not* included in this exception) require a signed-in user. `/uploads/*` stays public because the platforms pull media from those URLs in live mode. (`GET /auth/me` is listed separately below as "never 401"; it is implemented as a public route so signed-out clients can poll it without special-casing.)
+All `/api` routes except `GET /health`, `GET /auth/status`, `GET /auth/me`, `POST /auth/setup`, `POST /auth/login`, `POST /auth/access-requests`, `GET/POST /auth/magic/*`, `GET /auth/google/*`, `GET /auth/entra/*`, `GET /connections/oauth/callback` and `GET`/`POST /quick/:token` (the phone quick-post link; see "Quick post from a phone" below — its own token secret is the credential, and `/quick/tokens*` link-management routes are *not* included in this exception) require a signed-in user. `/uploads/*` stays public because the platforms pull media from those URLs in live mode. (`GET /auth/me` is listed separately below as "never 401"; it is implemented as a public route so signed-out clients can poll it without special-casing.)
 Sessions: `POST /auth/login` sets an httpOnly cookie `suprstar_session` (SameSite=Lax, Secure in production, 30 days). Unauthenticated requests get 401 `{ error: "Sign in required" }`; forbidden ones 403.
 Roles (`shared/src/types.ts` `ROLE_CAPABILITIES`): `owner` and `admin` manage users, organizations and workspace settings and can access every org; `editor` can create/edit/publish within their orgs; `viewer` is read-only (GET) within their orgs. Org-scoped routes check membership (`orgIds` includes the org, or `"*"`) → 403 otherwise. Mutating routes (POST/PATCH/PUT/DELETE) require `editor` or above; `/settings/*`, `/users/*`, org create/update/delete and connection create/delete/credentials require `admin`+. Owners cannot be demoted or deactivated by admins; the last active owner cannot be removed.
-- `GET /auth/status` (public) → `{ needsSetup: boolean, authenticated: boolean, providers: AuthProviders, allowedDomains: string[] }`. `providers = { password: true, magicLink, google }`: `magicLink` is true when a real mailer (Resend/SMTP) is configured, or outside production where links fall back to the activity log; `google` is true when `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are set. `allowedDomains` lists the sign-in policy's domains (see "Access policy" below), for the sign-in page's hint text.
+- `GET /auth/status` (public) → `{ needsSetup: boolean, authenticated: boolean, providers: AuthProviders, allowedDomains: string[] }`. `providers = { password: true, magicLink, google, entra }`: `magicLink` is true when a real mailer (Resend/SMTP) is configured, or outside production where links fall back to the activity log; `google` is true when `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are set; `entra` is true when `ENTRA_CLIENT_ID`/`ENTRA_CLIENT_SECRET` are set. `allowedDomains` lists the sign-in policy's domains (see "Access policy" below), for the sign-in page's hint text.
 - `POST /auth/setup` (public, only while no users exist, else 409) body `setupSchema` → creates the first `owner` with `orgIds: "*"`, signs them in, returns `AuthState`. Env `ADMIN_EMAIL` + `ADMIN_PASSWORD` (+ optional `ADMIN_NAME`) create this owner automatically on boot when no users exist.
 - `POST /auth/login` body `loginSchema` → `AuthState` (401 on bad credentials or inactive user; updates `lastLoginAt`)
 - `POST /auth/logout` → 204 (clears the cookie, deletes the session)
@@ -31,6 +31,11 @@ Roles (`shared/src/types.ts` `ROLE_CAPABILITIES`): `owner` and `admin` manage us
 - `GET /auth/google/callback?code&state` (public) → verifies `state` against the cookie, exchanges `code` for an access token, fetches the Google profile, requires `email_verified === true`, then applies the same access-policy/provisioning logic as magic links, stores `googleSub` on the user, sets `lastLoginAt`, signs in, and 302s to `${CLIENT_URL}/`. Failure reasons (same `?auth=error&reason=` redirect as magic links): `state` (missing/mismatched state or code), `google` (token exchange, userinfo, or unverified-email failure), `domain`, `inactive`.
 - Both routes return 404 `{ error: "Google sign-in is not configured" }` when `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are unset.
 
+### Microsoft Entra ID SSO
+- `GET /auth/entra/start` (public) → sets a 10-minute httpOnly `suprstar_entra_state` cookie (SameSite=Lax; the value is `<random>.<nonce>`, so the callback recovers the nonce from the same cookie it checks for CSRF without a second cookie) and 302s to the tenant's authorize endpoint `https://login.microsoftonline.com/{ENTRA_TENANT_ID}/oauth2/v2.0/authorize` (`response_type=code`, `response_mode=query`, `scope=openid profile email`, `redirect_uri=${CLIENT_URL}/api/auth/entra/callback`, plus `state` and `nonce`).
+- `GET /auth/entra/callback?code&state` (public) → verifies `state` against the cookie, exchanges `code` at `https://login.microsoftonline.com/{ENTRA_TENANT_ID}/oauth2/v2.0/token`, then **verifies the returned `id_token`'s RS256 signature** against the tenant's JWKS (`https://login.microsoftonline.com/{ENTRA_TENANT_ID}/discovery/v2.0/keys`, cached in memory for an hour per tenant) before trusting any claim. Checked claims: `aud` (our client id), `iss` (starts with `https://login.microsoftonline.com/`), `tid` (must equal `ENTRA_TENANT_ID` when it's a specific tenant, not `organizations`), `exp` (with a small clock-skew allowance), and `nonce` (must match the one issued at `/start`). Identity: email is `email` ?? `preferred_username` ?? `upn` (lowercased; rejected if missing or without `@`), subject is `oid` ?? `sub`. Applies the same access-policy/provisioning logic as magic links and Google, stores `entraSub` on the user, sets `lastLoginAt`, signs in, and 302s to `${CLIENT_URL}/`. Failure reasons (same `?auth=error&reason=` redirect as Google/magic links): `state` (missing/mismatched state or code), `entra` (token exchange, JWKS fetch, or any id_token validation failure — bad signature, wrong `aud`/`tid`, expired, mismatched `nonce`, or an unusable email claim), `domain`, `inactive`.
+- Both routes return 404 `{ error: "Microsoft sign-in is not configured" }` when `ENTRA_CLIENT_ID`/`ENTRA_CLIENT_SECRET` are unset. Register `${CLIENT_URL}/api/auth/entra/callback` as the app's redirect URI in the Entra portal.
+
 ### Access policy (self-serve sign-in allowlist)
 Stored in `app_settings` under key `access_policy`; default is `{ domains: [{ domain: "enelhealth.com", role: "editor", orgSlugs: ["enel-health"] }, { domain: "f3insights.com", role: "editor", orgSlugs: ["f3i"] }], allowInvitedUsersAnyDomain: true }`. Magic link and Google sign-in are allowed when (a) an active user with that email already exists and either `allowInvitedUsersAnyDomain` is true or their domain is itself allowed, or (b) the email's domain is in `domains`, in which case a user is auto-provisioned with that domain's `role` and `orgIds` (resolved from `orgSlugs`; `"*"` stays `"*"`), `mustChangePassword: false`, and a random unusable password. Deactivated users are always refused (`reason=inactive`).
 - `GET /settings/access-policy` (admin+) → `AccessPolicy`
@@ -44,6 +49,11 @@ For anyone outside the allowed domains: `POST /auth/access-requests` (public) bo
 
 ### Mailer (`server/src/services/mailer.ts`)
 `sendMail({ to, subject, text, html? })` picks a provider by env `MAIL_PROVIDER`: `resend` (HTTPS to `api.resend.com/emails` with `RESEND_API_KEY` + `MAIL_FROM`), `smtp` (via `nodemailer`, `SMTP_URL` + `MAIL_FROM`), or `log` (default: writes the message, including any magic link, to the activity log at `info` level with source `auth` — this is what developers see in place of a real inbox). If the selected provider isn't fully configured, or the send itself throws, it falls back to the log so sign-in never hard-fails because mail is down. `mailerStatus()` reports `{ provider, configured }`.
+
+### Mail self-test (`GET`/`POST /settings/mail*`, admin+)
+Makes it visible from Settings whether magic links can actually be delivered, since a hosted deployment with no mail provider would otherwise fail silently.
+- `GET /settings/mail` (admin+) → `MailStatus` = `mailerStatus()` (`provider`, `configured`) plus `from` (`MAIL_FROM` or `null`), `canSendMagicLinks` (`magicLinkAvailable()`), and the last self-test result (`lastTestAt`, `lastTestOk`, `lastTestError`; all `null` until a test has been sent). The last-test state is in-memory (resets on restart).
+- `POST /settings/mail/test` (admin+) body `mailTestSchema` `{ to }` → 200 `MailStatus` with the just-recorded result. Sends "suprstar mail test" through whichever provider is actually configured (bypassing `sendMail`'s silent log fallback, so a real provider failure is visible here). A failed send is recorded as `lastTestOk: false` with `lastTestError` set — **the endpoint still answers 200** (never throws), since the point is to report the failure, not to 500. When no provider is configured, the message goes to the activity log only and the response says so plainly in `lastTestError` rather than pretending it was delivered (`lastTestOk` is still `true`, since the log fallback itself didn't fail). Every attempt (success, failure, or log-only) is logged to source `auth`. Rate limited to 5 per signed-in user per hour → 429 `{ error }` past that.
 
 ## Health
 - `GET /health` → `{ ok: true, version, time, ai: { configured: boolean, model } }`
@@ -127,7 +137,7 @@ Background loop every `SCHEDULER_INTERVAL_MS` (default 30000) publishes posts wh
 
 ## Env
 `PORT=4000`, `DATA_DIR=./data`, `CLIENT_URL=http://localhost:5173`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL=claude-opus-5`, `SCHEDULER_INTERVAL_MS`, `SECRET_KEY` (encrypts stored secrets at rest with AES-256-GCM; default dev key).
-Sign-in: `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (Google SSO; both required, redirect URI `${CLIENT_URL}/api/auth/google/callback`), `MAIL_PROVIDER=resend|smtp|log` (default `log`), `MAIL_FROM` (resend/smtp), `RESEND_API_KEY` (resend), `SMTP_URL` (smtp, e.g. `smtps://user:pass@smtp.example.com`).
+Sign-in: `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (Google SSO; both required, redirect URI `${CLIENT_URL}/api/auth/google/callback`), `ENTRA_CLIENT_ID` / `ENTRA_CLIENT_SECRET` (Microsoft Entra ID SSO; both required, redirect URI `${CLIENT_URL}/api/auth/entra/callback`) / `ENTRA_TENANT_ID` (default `organizations`; set to a specific tenant GUID or verified domain, e.g. `f3insights.com`, to restrict sign-in to that tenant and enforce the `tid` claim check), `MAIL_PROVIDER=resend|smtp|log` (default `log`), `MAIL_FROM` (resend/smtp), `RESEND_API_KEY` (resend), `SMTP_URL` (smtp, e.g. `smtps://user:pass@smtp.example.com`).
 Console: `OS_TERMINAL=on|off` — enables/disables the in-app OS terminal (see "OS terminal" below); defaults to `on` when `NODE_ENV !== "production"` and `off` in production, so a Render deploy needs `OS_TERMINAL=on` set explicitly to expose it.
 
 ## Settings (workspace-wide, not org-scoped)
@@ -137,6 +147,7 @@ Console: `OS_TERMINAL=on|off` — enables/disables the in-app OS terminal (see "
 - `GET /settings/ai/models?provider=` → `{ provider, models: string[] }`.
 - `GET /health` now reports `ai: { configured, provider, model }` from the active settings. When the chosen provider has no key the AI endpoints fall back to the offline mock.
 - Moonshot (Kimi) is called through its OpenAI-compatible endpoint (`https://api.moonshot.ai/v1/chat/completions`, JSON mode) and validated against the same zod schemas as Anthropic's structured outputs.
+- `GET /settings/mail` and `POST /settings/mail/test` — see "Mail self-test" above.
 
 ## Activity log ("console")
 Every request, auth event, scheduler tick that published something, publish job, media mutation, org/settings change and agent/quick-post action is recorded to a singleton logger (`server/src/services/logger.ts`): an in-memory ring buffer of the last 2000 entries (used for these endpoints and the SSE stream), newline-delimited JSON files at `<dataDir>/logs/app-YYYY-MM-DD.log` (one per calendar day, pruned after 14 days at server startup), and stdout as JSON (so platforms that only capture stdout, e.g. Render, still see everything). Secrets are redacted: any data field whose name contains `password`, `token`, `secret` or `apiKey` (case-insensitive) becomes `"[redacted]"`, recursively.
@@ -299,3 +310,48 @@ No new environment variables — everything is stored in `app_settings` via `PUT
 
 ### Tests
 `server/src/__tests__/inboundAdapters.test.ts` (7 tests: Twilio signature accept/reject, Twilio MMS parse incl. a `whatsapp:` sender, Twilio reply request shape, Telegram secret-token accept/reject, Telegram photo parse via a stubbed `getFile`, Telegram `getMe`/`setWebhook` against a stubbed fetch) and `server/src/__tests__/inbound.test.ts` (10 tests: unknown sender, verification-code flow, caption+image publish, confirm-mode stage-then-YES-publish, voice-note-without-transcription draft, `/status` slash command via the agent, idempotent duplicate `providerMessageId`, `GET /status` counts/state, `GET /stream` SSE message event, and a role-guard test asserting a viewer gets 403 from `channels`/`status`). Both files stub outbound HTTP with an injectable `fetchImpl` (`setTwilioFetch`/`setTelegramFetch`/`setInboundFetch`, matching the `googleAuth.ts` pattern) so no real network calls are made.
+
+## Backups
+Not org-scoped; `owner`/`admin` only (`requireRole("admin")` at the mount point in `server/src/app.ts`). Implemented in `server/src/services/backup.ts`, routes in `server/src/routes/backups.ts`.
+
+**How a backup is made**: `createBackup(db, { reason })` takes a consistent snapshot of the live database with SQLite's `VACUUM INTO` (works against both the on-disk db and an in-memory one), then shells out to the system `tar` (`child_process.execFile`, present in the Docker runtime image) to build **one gzipped tar** containing the snapshot as `db.sqlite` plus the whole `uploads/` tree, written to `<DATA_DIR>/backups/suprstar-<YYYYMMDD>-<HHMMSS>.tar.gz` (the timestamp is UTC). `<DATA_DIR>/backups` and `<DATA_DIR>/logs` are excluded from the archive so backups never nest inside each other. The temp snapshot is always removed afterwards, even on failure.
+
+**Rotation**: after a successful backup, only the newest `BACKUP_KEEP` (default 7) local archives are kept; older ones are deleted and the prune is logged (source `backup`).
+
+**Offsite copy**: when `BACKUP_S3_BUCKET` is set, the archive is also uploaded to S3-compatible storage (AWS S3, Cloudflare R2, Backblaze B2) via `@aws-sdk/client-s3`, at key `<BACKUP_S3_PREFIX>/<archive name>`. A failed upload is logged at `error` level and recorded on the result, but **never** fails the backup itself — the local archive is still worth keeping.
+
+**Scheduler**: `startBackupScheduler(db, intervalMs)` (started in `server/src/index.ts` alongside the publish scheduler, hourly `intervalMs`) checks immediately on boot and then every `intervalMs` whether the newest local archive is older than `BACKUP_INTERVAL_HOURS` (default 24), and runs one if so — this is what performs catch-up after a restart. A shared in-flight flag stops the scheduler and a manual trigger from ever overlapping. Set `BACKUP_ENABLED=false` (or `0`) to disable the scheduler entirely (tests do this by default; see `server/vitest.config.ts`).
+
+Every run, success, failure, prune, and offsite outcome is logged to source `backup` (`LogSource` now includes `"backup"`).
+
+### Routes (`/api/backups`, owner/admin only)
+- `GET /api/backups` → `{ status: BackupStatus, backups: BackupRecord[] }`. `backups` is the local `backups/` directory, newest first.
+- `POST /api/backups` → runs one now (`reason: "manual"`), returns the `BackupRecord`; `201` on success, `500` if the archive itself failed (offsite failures don't affect this), `409` if a backup (manual or scheduled) is already running.
+- `GET /api/backups/:name` → streams the archive (`Content-Type: application/gzip`, `Content-Disposition: attachment`). `name` must match `^suprstar-\d{8}-\d{6}\.tar\.gz$` and resolve inside the backups directory → `400` otherwise (including path-traversal attempts); unknown name → `404`.
+- `DELETE /api/backups/:name` → removes one local archive (same name validation) → `204`; unknown name → `404`.
+
+`BackupRecord = { name, createdAt, sizeBytes, reason, ok, durationMs, error?, offsite: { attempted, ok, key?, error? } }`. Entries listed straight from disk (rather than just-created) have `reason: "unknown"`, `ok: true`, `durationMs: 0` and `offsite.attempted: false` since no run metadata survives a restart for them — only the file itself does.
+
+`BackupStatus = { lastAt, lastOk, lastError, lastSizeBytes, lastDurationMs, ageHours, local: { count, newest, totalBytes }, offsite: { configured, lastUploadedAt, lastError } }`. `lastAt`/`lastOk`/etc. come from in-memory state when this process has run a backup, otherwise fall back to the newest file on disk, so status is meaningful immediately after a restart; `local` and `offsite.configured` are always read fresh.
+
+## Health / backups
+`GET /health` additionally reports `backup: { lastAt, ageHours, ok }` (cheap: reads the backups directory, never runs one). `ok` is `false` when the newest archive is older than 2× `BACKUP_INTERVAL_HOURS` or the last run failed — this is what an uptime monitor should alert on.
+
+### Env
+`BACKUP_ENABLED` (default on; `false`/`0` disables the scheduler), `BACKUP_INTERVAL_HOURS` (default 24), `BACKUP_KEEP` (default 7), `BACKUP_S3_BUCKET`, `BACKUP_S3_REGION` (default `auto`), `BACKUP_S3_ENDPOINT` (optional; set for R2/B2, forces `forcePathStyle: true`), `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_S3_PREFIX` (default `suprstar`).
+
+### Archive layout
+```
+suprstar-20260920-093000.tar.gz
+├── db.sqlite       # VACUUM INTO snapshot of the live database (the running server's own file is named pulse.db, not db.sqlite)
+└── uploads/        # the whole <DATA_DIR>/uploads tree, one subdirectory per organization
+```
+
+### Restore procedure
+1. Get the archive onto disk: copy it directly, or `node scripts/fetch-backup.mjs [outputDir]` to pull the newest one from S3-compatible storage using the `BACKUP_S3_*` env vars above.
+2. Preview first: `node scripts/restore-backup.mjs <archive.tar.gz> <dataDir> --dry-run` — extracts to a temp dir, sanity-checks that `db.sqlite` opens and has an `organizations` table, and prints exactly what a real run would do without touching anything.
+3. Run it for real: `node scripts/restore-backup.mjs <archive.tar.gz> <dataDir> --force`. The script refuses to run without `--force`. It moves the *existing* data directory aside to `<dataDir>.pre-restore-<timestamp>` (never deletes it), then puts the restored `db.sqlite` (renamed to `pulse.db`, the name the server actually opens) and `uploads/` in place.
+4. Restart the service (the script reminds you to). If something's wrong, the pre-restore directory is still sitting right next to it.
+
+### Tests
+`server/src/__tests__/backup.test.ts` (13 tests): archive contents (tar-extracted, `db.sqlite` + `uploads/` present, `backups/`/`logs/` absent), the restored snapshot opens with matching tables and row counts, rotation keeps exactly `BACKUP_KEEP` archives and drops the oldest, status/health report age/size/count and flip `ok: false` on a failed run or an artificially zeroed interval, a concurrent `runBackup` call is rejected, the scheduler runs immediately when no archive exists and skips when a fresh one is present (and is a no-op when `BACKUP_ENABLED=false`), offsite upload (S3 client mocked via `vi.mock("@aws-sdk/client-s3")`) hits the expected bucket/key and a failed upload leaves the local archive with a recorded error, and route guards (owner list/create/download/delete, viewer/editor 403, a `409` on an in-flight run, `400` on a path-traversal name, `404` on an unknown one).

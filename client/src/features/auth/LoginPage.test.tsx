@@ -104,6 +104,37 @@ describe("LoginPage", () => {
     expect(screen.queryByRole("link", { name: /continue with google/i })).not.toBeInTheDocument();
   });
 
+  it("shows the Microsoft button only when the provider is enabled", async () => {
+    mockFetch({ "GET /api/auth/me": () => ({ ...SIGNED_OUT, providers: { password: true, magicLink: false, google: false, entra: true } }) });
+    renderWithProviders(<LoginPage />);
+    expect(await screen.findByRole("link", { name: /continue with microsoft/i })).toHaveAttribute("href", "/api/auth/entra/start");
+  });
+
+  it("hides the Microsoft button when the provider is disabled", async () => {
+    mockFetch({ "GET /api/auth/me": () => ({ ...SIGNED_OUT, providers: { password: true, magicLink: false, google: false, entra: false } }) });
+    renderWithProviders(<LoginPage />);
+    await screen.findByRole("heading", { name: /only authorized suprstars allowed/i });
+    expect(screen.queryByRole("link", { name: /continue with microsoft/i })).not.toBeInTheDocument();
+  });
+
+  it("shows both social buttons together and still reaches the password toggle", async () => {
+    mockFetch({ "GET /api/auth/me": () => ({ ...SIGNED_OUT, providers: { password: true, magicLink: true, google: true, entra: true } }) });
+    renderWithProviders(<LoginPage />);
+
+    expect(await screen.findByRole("link", { name: /continue with google/i })).toHaveAttribute("href", "/api/auth/google/start");
+    expect(screen.getByRole("link", { name: /continue with microsoft/i })).toHaveAttribute("href", "/api/auth/entra/start");
+    expect(screen.getByRole("button", { name: "Use a password instead" })).toBeInTheDocument();
+  });
+
+  it("shows the matching notice for a failed Microsoft sign-in redirect", async () => {
+    window.history.pushState({}, "", "/?auth=error&reason=entra");
+    mockFetch({ "GET /api/auth/me": () => SIGNED_OUT });
+    renderWithProviders(<LoginPage />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Microsoft sign-in did not complete. Try again.");
+    expect(window.location.search).toBe("");
+  });
+
   it("reveals the password form via 'Use a password instead', reusing the typed email, within one click", async () => {
     mockFetch({ "GET /api/auth/me": () => ({ ...SIGNED_OUT, providers: { password: true, magicLink: true, google: false } }) });
     const user = userEvent.setup();

@@ -24,7 +24,7 @@ describe("magic link sign-in", () => {
 
   it("provisions an allowed-domain user, signs them in, and the link is single-use", async () => {
     const status = await request(ctx.app).get("/api/auth/status");
-    expect(status.body.providers).toEqual({ password: true, magicLink: true, google: false });
+    expect(status.body.providers).toEqual({ password: true, magicLink: true, google: false, entra: false });
     expect(status.body.allowedDomains).toEqual(["enelhealth.com", "f3insights.com"]);
 
     const orgsRepo = new (await import("../db/repositories/organizations")).OrganizationsRepo(ctx.db);

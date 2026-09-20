@@ -14,6 +14,7 @@ import { AiProviderSettings } from "./AiProviderSettings";
 import { PublishingSettingsCard } from "./PublishingSettingsCard";
 import { UsersCard } from "./UsersCard";
 import { SignInPolicyCard } from "./SignInPolicyCard";
+import { EmailDeliveryCard } from "./EmailDeliveryCard";
 import { AccessRequestsCard } from "./AccessRequestsCard";
 
 function errorMessage(e: unknown): string {
@@ -154,6 +155,7 @@ export function SettingsPage() {
           <SectionTitle>Users & access</SectionTitle>
           <UsersCard />
           <SignInPolicyCard />
+          {can.manageSettings && <EmailDeliveryCard />}
           <AccessRequestsCard />
         </section>
       )}

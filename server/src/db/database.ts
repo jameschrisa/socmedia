@@ -183,6 +183,7 @@ export function runIncrementalMigrations(db: Db): void {
   if (!hasColumn(db, "publish_jobs", "runAt")) db.exec("ALTER TABLE publish_jobs ADD COLUMN runAt TEXT");
 
   if (!hasColumn(db, "users", "googleSub")) db.exec("ALTER TABLE users ADD COLUMN googleSub TEXT");
+  if (!hasColumn(db, "users", "entraSub")) db.exec("ALTER TABLE users ADD COLUMN entraSub TEXT");
 
   if (!hasTable(db, "login_tokens")) {
     db.exec(`

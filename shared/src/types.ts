@@ -332,7 +332,7 @@ export interface ClipRequest {
 
 /* ---------- Activity log / console ---------- */
 export type LogLevel = "debug" | "info" | "warn" | "error";
-export type LogSource = "http" | "auth" | "scheduler" | "publisher" | "media" | "agent" | "quick" | "inbound" | "system";
+export type LogSource = "http" | "auth" | "scheduler" | "publisher" | "media" | "agent" | "quick" | "inbound" | "system" | "backup";
 
 export interface LogEntry {
   id: string;
@@ -425,6 +425,21 @@ export interface AuthProviders {
   /** Email sign-in links; true when a mail provider is configured, or in development where links go to the console. */
   magicLink: boolean;
   google: boolean;
+  /** Microsoft Entra ID (formerly Azure AD); true when a tenant, client id and secret are configured. */
+  entra: boolean;
+}
+
+/** What the mail provider is doing right now, for the Settings page and the send-test action. */
+export interface MailStatus {
+  provider: "resend" | "smtp" | "log";
+  /** True when the provider has everything it needs to actually send. */
+  configured: boolean;
+  from: string | null;
+  /** False in production with no provider: magic links cannot be delivered. */
+  canSendMagicLinks: boolean;
+  lastTestAt?: string | null;
+  lastTestOk?: boolean | null;
+  lastTestError?: string | null;
 }
 
 /** A domain whose members may sign themselves in (magic link or Google) and how they are provisioned. */

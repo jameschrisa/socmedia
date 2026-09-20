@@ -12,6 +12,7 @@ import { agentRouter, platformDocsRouter } from "./routes/agent";
 import { aiRouter } from "./routes/ai";
 import { analyticsRouter } from "./routes/analytics";
 import { authRouter } from "./routes/auth";
+import { backupsRouter } from "./routes/backups";
 import { connectionsOAuthCallback, connectionsRouter } from "./routes/connections";
 import { healthRouter } from "./routes/health";
 import { inboundRouter } from "./routes/inbound";
@@ -46,6 +47,7 @@ export function createApp(db: Db): express.Express {
   app.use("/api/auth", authRouter(db));
   app.use("/api/users", usersRouter(db));
   app.use("/api/settings", requireRole("admin"), settingsRouter(db));
+  app.use("/api/backups", requireRole("admin"), backupsRouter(db));
   app.use("/api", orgsRouter(db));
   app.use("/api/logs", logsRouter(db));
   // Not org-scoped: carries its own public webhooks (Twilio/Telegram) plus per-route role/org checks

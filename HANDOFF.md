@@ -149,30 +149,35 @@ Analytics, Settings, plus a full-page Console at `/console`.
 - **Platform documentation** under `docs/platforms/` is indexed and searchable by the agent through
   `/docs` and `/diagnose`, and from the Documentation rail.
 
-Test counts at handoff: shared 14, server 203, client 265, Playwright 87 passing with one
+Test counts at handoff: shared 14, server 223, client 265, Playwright 87 passing with one
 environment-dependent skip.
 
 ---
 
 ## 7. Where we left off
 
-Two pieces of work were in progress at the moment this was written.
+**Microsoft Entra sign-in is built on both sides and merged.** The client shows a "Continue with
+Microsoft" button whenever the server reports `providers.entra`, and the server has
+`/api/auth/entra/start` and `/api/auth/entra/callback`, an `entraSub` column, and full id token
+validation: RS256 signature against the tenant's JWKS, plus `aud`, `iss`, `tid`, `exp` and `nonce`
+checks. It is inert until three environment variables are set on Render, which is punchlist item 5.
 
-1. **Microsoft Entra sign-in.** The client half is **done and merged**: a "Continue with Microsoft"
-   button appears on the sign-in card whenever the server reports `providers.entra`, and an error
-   notice exists for `?auth=error&reason=entra`. The server half was still being built:
-   `server/src/services/entraAuth.ts`, routes `/api/auth/entra/start` and `/api/auth/entra/callback`,
-   an `entraSub` column, full id token validation against the tenant's JWKS, and tests. **Check
-   whether it finished and is committed before continuing.**
-2. **Mail self-test.** The client half is done: an Email delivery card in Settings showing the
-   provider, the from address, whether magic links can be delivered, and a "Send a test email"
-   button. The server endpoints `GET /api/settings/mail` and `POST /api/settings/mail/test` were
-   part of the same in-flight server work.
+**The mail self-test is built.** Settings has an Email delivery card showing the provider, the from
+address, whether magic links can be delivered, and a Send a test email button backed by
+`GET /api/settings/mail` and `POST /api/settings/mail/test`. Magic links stay dark in production
+until a provider is configured, which is punchlist item 4.
 
-Neither feature can be finished without configuration that only an administrator can create, which
-is the first two punchlist items.
+**A trap was removed along the way.** Any account an admin creates carries a temporary password and
+a "must change it" flag, which would have demanded a password from someone signing in through
+Microsoft, Google or an emailed link who never had one. Federated sign-in now clears that flag and
+preserves the account's existing role, so an owner signing in with Microsoft stays an owner rather
+than being downgraded to the domain default.
 
----
+**The operator's Microsoft identity is `james@f3insights.com`**, and they administer that tenant.
+That address sits on a domain the sign-in policy already maps to editor on F3i, so an account was
+pre-created for it as an **owner with access to every organization**. Because the account already
+exists, the first Microsoft sign-in will match it and keep owner rights instead of provisioning a
+fresh editor. The separate `james.christopher@holistiplan.com` owner account still works.
 
 ## 8. Punchlist
 
@@ -192,9 +197,12 @@ Ordered by value. The first three are the ones that make this reliable for someo
 4. **Turn on mail so magic links work.** Create a Resend account, add `suprstar.social` as a sending
    domain, add the DKIM records at the registrar, and set `MAIL_PROVIDER=resend`, `RESEND_API_KEY`
    and `MAIL_FROM` on Render. An SMTP URL works instead. Verify with the Send a test email button.
-5. **Finish Entra.** Register the app in the Entra admin center: single tenant, redirect URI
-   `https://suprstar.social/api/auth/entra/callback` (add the localhost equivalent for development),
-   then set `ENTRA_CLIENT_ID`, `ENTRA_TENANT_ID` and `ENTRA_CLIENT_SECRET` on Render.
+5. **Switch Entra on.** The code is done; this is configuration only. In the Entra admin center
+   register an app: single tenant, redirect URI `https://suprstar.social/api/auth/entra/callback`
+   (add `http://localhost:5173/api/auth/entra/callback` for development). Copy the Application
+   (client) ID and Directory (tenant) ID, create a client secret, then set `ENTRA_CLIENT_ID`,
+   `ENTRA_TENANT_ID` and `ENTRA_CLIENT_SECRET` on Render. No API permissions need adding; the
+   delegated `openid`, `profile` and `email` scopes are the defaults.
 6. **Replace the GitHub token** and, optionally, the Render and Vercel keys. All three were shared
    in a conversation. None are used by the running application, so revoking them breaks nothing;
    the GitHub one matters most because write access reaches production through the deploy path.

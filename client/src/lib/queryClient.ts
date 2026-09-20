@@ -28,6 +28,7 @@ export const qk = {
   quickTokens: (orgId: string | null) => ["quick", "tokens", orgId] as const,
   quickInfo: (token: string) => ["quick", "info", token] as const,
   accessPolicy: ["settings", "accessPolicy"] as const,
+  mailStatus: ["settings", "mail"] as const,
   accessRequests: (status: AccessRequestStatus) => ["accessRequests", status] as const,
   terminalStatus: ["terminal", "status"] as const,
   docsSearch: (params: { platform?: string; q: string }) => ["docs", "platforms", params] as const,
