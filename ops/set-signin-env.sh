@@ -32,7 +32,7 @@ fi
 
 # Keys pushed when they have a value in ops/.env.ops. Anything blank is skipped rather than
 # written as an empty string, because an empty ENTRA_CLIENT_ID turns Microsoft sign-in off.
-KEYS="ENTRA_CLIENT_ID ENTRA_TENANT_ID ENTRA_CLIENT_SECRET MAIL_PROVIDER MAIL_FROM RESEND_API_KEY SMTP_URL"
+KEYS="ROOT_ADMIN_EMAILS ENTRA_CLIENT_ID ENTRA_TENANT_ID ENTRA_CLIENT_SECRET MAIL_PROVIDER MAIL_FROM RESEND_API_KEY SMTP_URL"
 
 pushed=0
 skipped=0

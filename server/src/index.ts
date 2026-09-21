@@ -8,6 +8,7 @@ import { attachTerminalServer } from "./routes/terminal";
 import { ensureBootstrapAdmin } from "./services/auth";
 import { startBackupScheduler } from "./services/backup";
 import { log } from "./services/logger";
+import { ensureRootAdmins } from "./services/rootAdmins";
 import { startScheduler } from "./services/scheduler";
 
 async function main() {
@@ -17,6 +18,8 @@ async function main() {
   const db = openDatabase(dbPath);
   ensureBootstrapAdmin(db);
   await seedIfEmpty(db);
+  // After seeding, so a first boot has its organizations before root administrators are created.
+  ensureRootAdmins(db);
 
   const app = createApp(db);
   const stopScheduler = startScheduler(db, config.schedulerIntervalMs);

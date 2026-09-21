@@ -9,6 +9,7 @@ import { SessionsRepo } from "../db/repositories/sessions";
 import type { UpdateUserPatch } from "../db/repositories/users";
 import { UsersRepo } from "../db/repositories/users";
 import { requireRole } from "../middleware/auth";
+import { isRootAdmin } from "../services/rootAdmins";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../middleware/errors";
 import { generateTemporaryPassword, hashPassword } from "../services/auth";
 import { createMagicLinkToken } from "../services/magicLink";
@@ -144,6 +145,20 @@ export function usersRouter(db: Db): Router {
       const input = userUpdateSchema.parse(req.body);
       const actor = req.user!;
 
+      // A root administrator is defined by ROOT_ADMIN_EMAILS on the host, so no session can take
+      // their rights away: not an admin's, and not another owner's. Renaming and a password reset
+      // are still allowed, since neither changes what they can reach.
+      if (isRootAdmin(existing.email)) {
+        const strippingRole = input.role !== undefined && input.role !== "owner";
+        const strippingOrgs = input.orgIds !== undefined && input.orgIds !== "*";
+        const deactivating = input.active === false;
+        if (strippingRole || strippingOrgs || deactivating) {
+          throw new ForbiddenError(
+            "This is a root administrator. Their access is set by ROOT_ADMIN_EMAILS on the server and cannot be changed from the app."
+          );
+        }
+      }
+
       const demotingOwner = input.role !== undefined && input.role !== "owner" && existing.role === "owner";
       const deactivatingOwner = input.active === false && existing.role === "owner" && existing.active;
       if ((demotingOwner || deactivatingOwner) && actor.role !== "owner") {
@@ -185,6 +200,11 @@ export function usersRouter(db: Db): Router {
       if (!existing) throw new NotFoundError(`User ${req.params.id} not found`);
       const actor = req.user!;
       if (existing.id === actor.id) throw new BadRequestError("You cannot delete your own account");
+      if (isRootAdmin(existing.email)) {
+        throw new ForbiddenError(
+          "This is a root administrator. Remove them from ROOT_ADMIN_EMAILS on the server before deleting the account."
+        );
+      }
       if (existing.role === "owner" && actor.role !== "owner") {
         throw new ForbiddenError("Owners cannot be deleted by an admin");
       }

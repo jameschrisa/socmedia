@@ -1,5 +1,17 @@
 import path from "node:path";
 
+/** Splits a comma/whitespace-separated env list into trimmed, lowercased, de-duplicated entries. */
+function emailList(name: string): string[] {
+  const raw = process.env[name];
+  if (!raw) return [];
+  const seen = new Set<string>();
+  for (const part of raw.split(/[,\s]+/)) {
+    const email = part.trim().toLowerCase();
+    if (email.includes("@")) seen.add(email);
+  }
+  return [...seen];
+}
+
 function num(name: string, def: number): number {
   const raw = process.env[name];
   if (!raw) return def;
@@ -23,6 +35,14 @@ export const config = {
   adminEmail: process.env.ADMIN_EMAIL || "",
   adminPassword: process.env.ADMIN_PASSWORD || "",
   adminName: process.env.ADMIN_NAME || "Owner",
+  /**
+   * Root administrators (see server/src/services/rootAdmins.ts): comma-separated emails that are
+   * always owners with access to every organization, whatever the sign-in policy's domain rules
+   * would otherwise grant them, and that no admin can demote, deactivate, narrow or delete.
+   * Deliberately an environment variable rather than an in-app setting, so changing who holds
+   * root needs access to the host rather than an admin session.
+   */
+  rootAdminEmails: emailList("ROOT_ADMIN_EMAILS"),
   /** Test-only: when set (and isTest), attachUser treats cookie-less requests as this user id. */
   testAuthUserId: null as string | null,
   /** Google SSO (see server/src/services/googleAuth.ts). Both must be set for /auth/google/* to work. */

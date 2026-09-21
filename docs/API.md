@@ -41,6 +41,23 @@ Stored in `app_settings` under key `access_policy`; default is `{ domains: [{ do
 - `GET /settings/access-policy` (admin+) → `AccessPolicy`
 - `PUT /settings/access-policy` (admin+) body `accessPolicySchema` → `AccessPolicy`. Every `orgSlugs` entry must reference an existing organization or be `"*"` (400 otherwise); `role` can never be `owner` (rejected by the schema itself).
 
+### Organization scoping (who can see which organizations)
+Every user carries `orgIds`: either `"*"` (every organization) or an explicit list. It is enforced server-side on every surface, not hidden in the UI:
+- **Org-scoped routers** (`/connections`, `/media`, `/posts`, `/jobs`, `/analytics`, `/ai`, `/agent`, `/quick/tokens`) go through `orgMiddleware`, which resolves `X-Org-Id` (or `?orgId=`) and answers 403 `{ error: "You do not have access to this organization" }` when the user's `orgIds` does not contain it. The role gate runs after, so a wrong org is refused before any role question.
+- **`GET /orgs` and `GET /orgs/:id`** are filtered by the same rule, so a scoped user's switcher never even lists an organization they cannot open, and an unreachable org id answers 404 rather than confirming it exists.
+- **`GET /logs` and `GET /logs/stream`** drop entries whose `orgId` is outside the user's `orgIds`, and hide `auth`/`system` entries from non-admins entirely.
+- **`/inbound/bindings` and `/inbound/messages`** carry their own check (they are not behind `orgMiddleware`, because an admin legitimately sees every organization's channels): an `editor`/`viewer` must send `X-Org-Id` and is refused 403 for any other organization.
+- **Widening your own access is admin+ only**: `/users*`, `/settings/access-policy` and every org mutation are gated, so a scoped editor has no route to grant themselves another organization.
+
+### Root administrators (`ROOT_ADMIN_EMAILS`)
+A comma-separated environment variable naming the accounts that own the whole installation. It is deliberately **not** an in-app setting: granting root needs access to the host, not an admin session, otherwise an admin could hand themselves the keys that org scoping exists to withhold.
+
+A root administrator is always `role: "owner"` with `orgIds: "*"` and `active: true`:
+- **At startup** `ensureRootAdmins()` creates any that are missing (with a random, never-communicated password, since they sign in through Microsoft, Google or a magic link) and repairs any that drifted, so a restored backup or a hand-edited database converges back.
+- **At every sign-in** (password, magic link, Google, Entra) `enforceRootAdmin()` repairs the record again, so a root administrator is never locked out by a demotion or a deactivation, and is never refused on domain grounds.
+- **They outrank the access policy.** `james@enelhealth.com` signs in as an owner over every organization even though `enelhealth.com` maps to editor on Enel Health alone; `someone.else@enelhealth.com` is still scoped to Enel Health.
+- **`PATCH /users/:id`** answers 403 for any attempt to change a root administrator's `role`, `orgIds` or `active`, and **`DELETE /users/:id`** answers 403 outright, for admins *and* other owners. A rename or a password reset is still allowed, since neither changes what they can reach.
+
 ### Access requests
 For anyone outside the allowed domains: `POST /auth/access-requests` (public) body `accessRequestCreateSchema` `{ name, email, organization?, message? }` → 201 `AccessRequest` (`status: "pending"`). 409 when an account with that email already exists, or another request for it is still pending. Rate limited: 5 per IP per hour. When a mailer is configured, every active `owner`/`admin` is emailed a short notice.
 - `GET /users/access-requests` (admin+) `?status=pending|approved|declined` → `AccessRequest[]`, newest first.

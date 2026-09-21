@@ -7,6 +7,7 @@ import { UsersRepo } from "../db/repositories/users";
 import { hashPassword } from "./auth";
 import { getAccessPolicy, findAllowedDomain } from "./accessPolicy";
 import { log } from "./logger";
+import { enforceRootAdmin, isRootAdmin } from "./rootAdmins";
 
 export type SignOnDenyReason = "domain" | "inactive";
 
@@ -48,12 +49,16 @@ export function checkSignOnAllowed(db: Db, rawEmail: string): { ok: true } | Sig
   const email = rawEmail.trim().toLowerCase();
   const policy = getAccessPolicy(db);
   const allowedDomain = findAllowedDomain(policy, email);
+  const root = isRootAdmin(email);
   const existing = new UsersRepo(db).getByEmail(email);
   if (existing) {
+    // A root administrator is never locked out by a deactivation or a domain rule: those are the
+    // in-app edits root exists to be immune to, and the account is repaired on sign-in.
+    if (root) return { ok: true };
     if (!existing.active) return { ok: false, reason: "inactive" };
     return policy.allowInvitedUsersAnyDomain || allowedDomain ? { ok: true } : { ok: false, reason: "domain" };
   }
-  return allowedDomain ? { ok: true } : { ok: false, reason: "domain" };
+  return root || allowedDomain ? { ok: true } : { ok: false, reason: "domain" };
 }
 
 export function resolveSignOnUser(db: Db, rawEmail: string): SignOnResult {
@@ -64,6 +69,9 @@ export function resolveSignOnUser(db: Db, rawEmail: string): SignOnResult {
   const existing = usersRepo.getByEmail(email);
 
   if (existing) {
+    if (isRootAdmin(email)) {
+      return { ok: true, user: enforceRootAdmin(db, existing), provisioned: false };
+    }
     if (!existing.active) return { ok: false, reason: "inactive" };
     if (policy.allowInvitedUsersAnyDomain || allowedDomain) {
       // An invited account carries a temporary password and a "must change it" flag. Proving who
@@ -77,12 +85,14 @@ export function resolveSignOnUser(db: Db, rawEmail: string): SignOnResult {
           data: { email },
         });
       }
-      return { ok: true, user: usersRepo.get(existing.id)!, provisioned: false };
+      // A root administrator signs in with full rights even if the stored record drifted.
+      return { ok: true, user: enforceRootAdmin(db, usersRepo.get(existing.id)!), provisioned: false };
     }
     return { ok: false, reason: "domain" };
   }
 
-  if (!allowedDomain) return { ok: false, reason: "domain" };
+  const root = isRootAdmin(email);
+  if (!allowedDomain && !root) return { ok: false, reason: "domain" };
 
   const now = new Date().toISOString();
   // A random, never-communicated password: this account only ever signs in via magic link/Google.
@@ -91,8 +101,9 @@ export function resolveSignOnUser(db: Db, rawEmail: string): SignOnResult {
     id: nanoid(),
     email,
     name: email.split("@")[0],
-    role: allowedDomain.role,
-    orgIds: resolveOrgIdsFromSlugs(db, allowedDomain.orgSlugs),
+    // A root administrator is never held to a domain entry's role or org list.
+    role: root ? "owner" : allowedDomain!.role,
+    orgIds: root ? "*" : resolveOrgIdsFromSlugs(db, allowedDomain!.orgSlugs),
     passwordHash: hashPassword(unusablePassword),
     active: true,
     mustChangePassword: false,
@@ -101,7 +112,7 @@ export function resolveSignOnUser(db: Db, rawEmail: string): SignOnResult {
   });
   log.info("auth", `User auto-provisioned via self-serve sign-in: ${email}`, {
     userId: created.id,
-    data: { email, role: created.role, domain: allowedDomain.domain },
+    data: { email, role: created.role, domain: allowedDomain?.domain ?? null, rootAdmin: root },
   });
   return { ok: true, user: created, provisioned: true };
 }

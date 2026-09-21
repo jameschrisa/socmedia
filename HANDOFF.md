@@ -3,7 +3,7 @@
 Everything a new session needs to pick this project up. No secrets live in this file; it points at
 where each one is kept.
 
-Last updated 2026-09-20 (second session).
+Last updated 2026-09-21.
 
 ---
 
@@ -154,6 +154,15 @@ Analytics, Settings, plus a full-page Console at `/console`.
   `enelhealth.com` to editor on Enel Health, `f3insights.com` to editor on F3i. Users an admin
   invited can sign in from any domain. Everyone else is refused and pointed at a request-access
   page, whose requests appear in Settings for approval.
+- **Organization isolation** is enforced server-side on every surface: the org-scoped routers
+  through `orgMiddleware`, plus the org list, org detail, the activity log and the inbound routes,
+  which each carry their own check. A scoped editor cannot even see another organization's name in
+  the switcher, and has no admin route to widen their own access. `orgIsolation.test.ts` proves it
+  from a real signed-in session rather than from the repository layer.
+- **Root administrators** come from `ROOT_ADMIN_EMAILS` on the host: always owner, always every
+  organization, created and repaired at startup and at every sign-in, and immune to demotion,
+  narrowing, deactivation and deletion from inside the app (403 even for another owner). Currently
+  `james@f3insights.com` and `james@enelhealth.com`. See `docs/API.md` for the full rules.
 - **Backups**: nightly archive of the database and uploads, local rotation, optional upload to
   S3-compatible storage, a restore script, and backup age reported in the health endpoint.
 - **Platform documentation** under `docs/platforms/` is indexed and searchable by the agent through
@@ -213,11 +222,16 @@ flag and preserves the account's existing role.
 
 Ordered by value.
 
-1. **Switch Entra on in production.** One command: fill `RENDER_API_KEY` into `ops/.env.ops`, then
-   `bash ops/set-signin-env.sh`. It reads the Entra values already in that file and pushes them to
-   Render without printing any of them (`--dry-run` shows what it would push). Render restarts the
-   service itself. Confirm with `curl -s https://suprstar.social/api/auth/status`, which should
-   report `"entra":true`, then sign in with Microsoft at https://suprstar.social.
+1. **Switch Entra on and set the root administrators in production.** One command: fill
+   `RENDER_API_KEY` into `ops/.env.ops`, then `bash ops/set-signin-env.sh`. It reads the Entra
+   values and `ROOT_ADMIN_EMAILS` already in that file and pushes them to Render without printing
+   any of them (`--dry-run` shows what it would push). Render restarts the service itself. Confirm
+   with `curl -s https://suprstar.social/api/auth/status`, which should report `"entra":true`, then
+   sign in with Microsoft at https://suprstar.social.
+
+   Until `ROOT_ADMIN_EMAILS` is set on Render, root is not in force there: the two james accounts
+   hold owner rights only because they were created that way by hand in an earlier session, and a
+   database restore would silently drop them back to the domain default of editor on one org.
 2. **Gate deploys on CI.** CI runs now, but both hosts still deploy on their own, so a red build
    still ships. Create a deploy hook in each dashboard, add them as the repository secrets
    `RENDER_DEPLOY_HOOK` and `VERCEL_DEPLOY_HOOK`, then turn off auto-deploy on both hosts. Full

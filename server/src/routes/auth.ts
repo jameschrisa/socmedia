@@ -41,6 +41,7 @@ import {
 import { log } from "../services/logger";
 import { checkMagicLinkRateLimit, createMagicLinkToken, verifyMagicLinkToken } from "../services/magicLink";
 import { magicLinkAvailable, mailerStatus, sendMail } from "../services/mailer";
+import { enforceRootAdmin } from "../services/rootAdmins";
 import { checkSignOnAllowed, resolveSignOnUser } from "../services/signOn";
 import { asyncHandler } from "../utils/asyncHandler";
 
@@ -125,7 +126,7 @@ export function authRouter(db: Db): Router {
       const now = new Date().toISOString();
       usersRepo.touchLogin(record.id, now);
       signIn(res, db, record.id);
-      const user = usersRepo.get(record.id)!;
+      const user = enforceRootAdmin(db, usersRepo.get(record.id)!);
       log.info("auth", `Login succeeded for ${input.email}`, { userId: user.id, data: { email: input.email } });
       res.json({ authenticated: true, needsSetup: false, user });
     })
