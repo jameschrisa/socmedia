@@ -421,6 +421,18 @@ export async function createDemoOrg(db: Db, base: DemoProfile, overrides: Partia
   return org;
 }
 
+/**
+ * Names a real account on one of an organization's connections without pretending it is connected.
+ * The sandbox adapter keeps an existing displayName/handle, so a later Connect shows the real
+ * channel rather than stamping "Sandbox Account" over it.
+ */
+function setConnectionIdentity(db: Db, orgId: string, platform: Platform, displayName: string, handle: string): void {
+  const repo = new ConnectionsRepo(db);
+  const existing = repo.getByOrgAndPlatform(orgId, platform);
+  if (!existing) return;
+  repo.save({ ...existing, displayName, handle, updatedAt: now() });
+}
+
 /** Copy a logo bundled with the server (server/assets) into the uploads folder for a seeded org. */
 function seedBundledLogo(db: Db, orgId: string, assetName: string): void {
   try {
@@ -469,6 +481,10 @@ export async function seedIfEmpty(db: Db): Promise<void> {
   });
   ensureConnectionsForOrg(db, org.id);
   seedBundledLogo(db, org.id, "f3i-mark.svg");
+  // F3i's real YouTube channel. Named here rather than left blank so a fresh database, or a
+  // restore into a new environment, carries the channel instead of an anonymous placeholder.
+  // Left disconnected on purpose: no OAuth has happened, and sandbox "connected" would imply it has.
+  setConnectionIdentity(db, org.id, "youtube", "Executive Upskill", "@ExecutiveUpskill");
 
   await createDemoOrg(db, DEMO_PROFILES.larkspur!);
 

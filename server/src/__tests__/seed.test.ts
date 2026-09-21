@@ -50,6 +50,15 @@ describe("seedIfEmpty", () => {
     const org2Connections = connectionsRepo.listByOrg(org2.id);
     expect(org2Connections.every((c) => c.status === "disconnected")).toBe(true);
 
+    // F3i's YouTube slot carries the real channel, and stays disconnected: naming an account is
+    // not the same as having authorized one, and sandbox "connected" would imply OAuth happened.
+    const f3iYouTube = org2Connections.find((c) => c.platform === "youtube")!;
+    expect(f3iYouTube.displayName).toBe("Executive Upskill");
+    expect(f3iYouTube.handle).toBe("@ExecutiveUpskill");
+    expect(f3iYouTube.status).toBe("disconnected");
+    // Every other F3i platform is still an unnamed placeholder.
+    expect(org2Connections.filter((c) => c.displayName !== "").map((c) => c.platform)).toEqual(["youtube"]);
+
     const xConnection = org1Connections.find((c) => c.platform === "x")!;
     expect(xConnection).toBeTruthy();
     expect(xConnection.handle).toBe("@larkspurhealth");

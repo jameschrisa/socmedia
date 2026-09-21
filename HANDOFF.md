@@ -3,7 +3,7 @@
 Everything a new session needs to pick this project up. No secrets live in this file; it points at
 where each one is kept.
 
-Last updated 2026-09-21.
+Last updated 2026-09-21 (evening).
 
 ---
 
@@ -18,6 +18,11 @@ Three organizations exist in production: **F3i**, **Larkspur Health** and **Enel
 Every platform connection is in **sandbox mode**, which simulates connect, test, publish and
 metrics deterministically. Nothing has published to a real social network yet. Switching a
 connection to live requires real OAuth credentials for that platform (see section 9).
+
+One real account is named: F3i's YouTube connection is **Executive Upskill**
+(`@ExecutiveUpskill`, https://www.youtube.com/@ExecutiveUpskill). It carries the channel's name
+and handle but is deliberately left **disconnected**, because no OAuth has happened and a sandbox
+"connected" state would imply it had. Every other F3i platform is still an unnamed placeholder.
 
 ---
 
@@ -174,6 +179,10 @@ Test counts at handoff: shared 14, server 226, client 265, Playwright 88, all pa
 
 ## 7. Where we left off
 
+**Microsoft sign-in is live in production** as of 2026-09-21: `/api/auth/status` reports
+`"entra":true`. `ROOT_ADMIN_EMAILS` went up in the same batch, so root administrators are in force
+on the host rather than being hand-made database rows.
+
 **The Entra app registration exists and its credentials are verified.** An app named `suprstar`
 was registered in the F3 Insights tenant (`1bc7d4b2-f419-43c5-8563-143103cdee41`), single tenant,
 with both redirect URIs (`https://suprstar.social/api/auth/entra/callback` and the localhost one),
@@ -222,16 +231,11 @@ flag and preserves the account's existing role.
 
 Ordered by value.
 
-1. **Switch Entra on and set the root administrators in production.** One command: fill
-   `RENDER_API_KEY` into `ops/.env.ops`, then `bash ops/set-signin-env.sh`. It reads the Entra
-   values and `ROOT_ADMIN_EMAILS` already in that file and pushes them to Render without printing
-   any of them (`--dry-run` shows what it would push). Render restarts the service itself. Confirm
-   with `curl -s https://suprstar.social/api/auth/status`, which should report `"entra":true`, then
-   sign in with Microsoft at https://suprstar.social.
-
-   Until `ROOT_ADMIN_EMAILS` is set on Render, root is not in force there: the two james accounts
-   hold owner rights only because they were created that way by hand in an earlier session, and a
-   database restore would silently drop them back to the domain default of editor on one org.
+1. **Gate deploys on CI.** CI runs on every push, but both hosts still deploy on their own, so a
+   red build still ships. Create a deploy hook in each dashboard, add them as the repository
+   secrets `RENDER_DEPLOY_HOOK` and `VERCEL_DEPLOY_HOOK`, then turn off auto-deploy on both hosts.
+   Full steps in `docs/CI.md`, step 2. A `VERCEL_TOKEN` in `ops/.env.ops` would let this be
+   scripted rather than clicked; it is the only thing that token is needed for today.
 2. **Gate deploys on CI.** CI runs now, but both hosts still deploy on their own, so a red build
    still ships. Create a deploy hook in each dashboard, add them as the repository secrets
    `RENDER_DEPLOY_HOOK` and `VERCEL_DEPLOY_HOOK`, then turn off auto-deploy on both hosts. Full
