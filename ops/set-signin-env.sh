@@ -3,14 +3,23 @@
 # ops/.env.ops onto the Render API service. Values are read from disk and sent over HTTPS;
 # none is ever printed, and none is passed on a command line.
 #
-# Usage: bash ops/set-signin-env.sh [--dry-run]
+# Usage: bash ops/set-signin-env.sh [--dry-run] [--no-deploy]
 #
-# Render restarts the service itself after an environment change, so a deploy takes a minute
-# or two and the API answers 502 briefly while the disk moves. That is normal; see HANDOFF.md.
+# Setting an environment variable through Render's API does NOT restart the service on its own
+# (unlike editing one in the dashboard), so this script triggers a deploy afterwards and waits
+# for it to go live. The API answers 502 for a few seconds during the swap, because the disk can
+# only attach to one instance; that is normal. --no-deploy skips it.
 set -uo pipefail
 
 dry_run=0
-[ "${1:-}" = "--dry-run" ] && dry_run=1
+deploy=1
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) dry_run=1 ;;
+    --no-deploy) deploy=0 ;;
+    *) echo "Unknown option: $arg"; exit 2 ;;
+  esac
+done
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 envfile="$here/.env.ops"
@@ -67,10 +76,49 @@ done
 
 echo
 echo "$pushed pushed, $skipped skipped, $failed failed"
-if [ "$failed" -eq 0 ] && [ "$pushed" -gt 0 ] && [ "$dry_run" = "0" ]; then
-  echo
-  echo "Render is restarting the service. When it is back:"
-  echo "  curl -s https://suprstar.social/api/auth/status"
-  echo "should report \"entra\":true, and \"magicLink\":true once a mail provider is set."
+
+if [ "$failed" -ne 0 ] || [ "$pushed" -eq 0 ] || [ "$dry_run" = "1" ]; then
+  [ "$failed" -eq 0 ]
+  exit $?
 fi
+
+if [ "$deploy" = "0" ]; then
+  echo
+  echo "Skipped the deploy. The new values only take effect on the next one, because a variable"
+  echo "set through the API does not restart the service by itself."
+  exit 0
+fi
+
+echo
+echo "Triggering a deploy so the service picks the new values up..."
+deploy_id=$(curl -s -m 60 -X POST \
+  -H "Authorization: Bearer $RENDER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"clearCache":"do_not_clear"}' \
+  "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" |
+  node -e 'let b="";process.stdin.on("data",c=>b+=c).on("end",()=>{try{process.stdout.write(JSON.parse(b).id||"")}catch{}})')
+
+if [ -z "$deploy_id" ]; then
+  echo "  could not trigger a deploy. Trigger one from the Render dashboard, or the values stay dormant."
+  exit 1
+fi
+echo "  deploy $deploy_id started"
+
+# Poll rather than guess: a Render deploy takes a couple of minutes and briefly 502s on the swap.
+for _ in $(seq 1 60); do
+  sleep 10
+  state=$(curl -s -m 30 -H "Authorization: Bearer $RENDER_API_KEY" \
+    "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/$deploy_id" |
+    node -e 'let b="";process.stdin.on("data",c=>b+=c).on("end",()=>{try{process.stdout.write(JSON.parse(b).status||"")}catch{}})')
+  case "$state" in
+    live) echo "  deploy live"; break ;;
+    build_failed|update_failed|canceled|pre_deploy_failed)
+      echo "  deploy ended as: $state"; exit 1 ;;
+  esac
+done
+
+echo
+echo "Check what the API now reports:"
+echo "  curl -s https://suprstar-api.onrender.com/api/auth/status"
+echo "Expect \"entra\":true, and \"magicLink\":true once a mail provider is set."
 [ "$failed" -eq 0 ]
