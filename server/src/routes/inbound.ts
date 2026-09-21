@@ -34,9 +34,13 @@ import { asyncHandler } from "../utils/asyncHandler";
 const PING_INTERVAL_MS = 20_000;
 const ALL_CHANNELS: InboundChannel[] = ["twilio", "telegram", "test"];
 
-/** True when `user` may see/act on things scoped to `orgId` (admins/owners see everything). */
+/**
+ * True when `user` may see or act on things scoped to `orgId`. The same rule the org middleware
+ * applies, keyed off `orgIds` rather than role: an admin scoped to one organization is scoped
+ * here too. These routes sit outside the org middleware only because an admin who holds every
+ * organization legitimately reads across all of them, which `orgIds: "*"` already expresses.
+ */
 function canAccessOrg(user: User, orgId: string): boolean {
-  if (user.role === "admin" || user.role === "owner") return true;
   return user.orgIds === "*" || user.orgIds.includes(orgId);
 }
 
@@ -222,7 +226,9 @@ export function inboundRouter(db: Db): Router {
     requireRole("editor"),
     asyncHandler(async (req, res) => {
       const user = req.user!;
-      if (user.role === "admin" || user.role === "owner") {
+      // Only an admin or owner who actually holds every organization sees the unscoped list. An
+      // admin scoped to one organization falls through to the header path like anyone else.
+      if ((user.role === "admin" || user.role === "owner") && user.orgIds === "*") {
         res.json(bindingsRepo.listAll().map((b) => toPublicBinding(b, false)));
         return;
       }
@@ -333,7 +339,7 @@ export function inboundRouter(db: Db): Router {
       const limitRaw = req.query.limit;
       const limit = typeof limitRaw === "string" && /^\d+$/.test(limitRaw) ? Math.min(500, Math.max(1, Number(limitRaw))) : 100;
 
-      if (user.role === "admin" || user.role === "owner") {
+      if ((user.role === "admin" || user.role === "owner") && user.orgIds === "*") {
         res.json(messagesRepo.listAll({ status, channel, limit }));
         return;
       }

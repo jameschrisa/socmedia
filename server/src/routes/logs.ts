@@ -9,10 +9,16 @@ import { asyncHandler } from "../utils/asyncHandler";
 const LOG_FILE_NAME_RE = /^app-\d{4}-\d{2}-\d{2}\.log$/;
 const PING_INTERVAL_MS = 20_000;
 
-/** Non-admins only see entries scoped to their orgs, and never auth/system-source entries. */
+/**
+ * Two independent filters. `auth` and `system` entries are for admins and owners only, because
+ * they carry sign-in and infrastructure detail. Everything else is filtered by organization, by
+ * `orgIds` rather than by role: an admin scoped to one organization is still scoped to it here,
+ * otherwise the activity log would be a way around the isolation every other route enforces.
+ * An admin or owner with `orgIds: "*"`, which is what a normal admin has, sees everything.
+ */
 function visibleToUser(user: User, entry: LogEntry): boolean {
-  if (user.role === "admin" || user.role === "owner") return true;
-  if (entry.source === "auth" || entry.source === "system") return false;
+  const elevated = user.role === "admin" || user.role === "owner";
+  if ((entry.source === "auth" || entry.source === "system") && !elevated) return false;
   if (entry.orgId == null) return true;
   if (user.orgIds === "*") return true;
   return user.orgIds.includes(entry.orgId);

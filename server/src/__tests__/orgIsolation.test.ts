@@ -132,6 +132,51 @@ describe("organization isolation", () => {
     expect((await agent.post("/api/orgs").send({ name: "Mine", brandColor: "#000000", timezone: "UTC" })).status).toBe(403);
   });
 
+  it("confines a scoped admin as tightly as an editor, on the routes that key off role", async () => {
+    // The access policy can map a domain to admin, and admins see every organization's activity
+    // log and inbound channels. That bypass must key off orgIds, not the role alone, or an admin
+    // scoped to one organization would be a way around the isolation every other route enforces.
+    const usersRepo = new (await import("../db/repositories/users")).UsersRepo(ctx.db);
+    const { hashPassword } = await import("../services/auth");
+    usersRepo.create({
+      id: "u_scoped_admin",
+      email: "admin@enelhealth.com",
+      name: "Scoped Admin",
+      role: "admin",
+      orgIds: [enelId],
+      passwordHash: hashPassword("password123"),
+      active: true,
+      mustChangePassword: false,
+      createdAt: new Date().toISOString(),
+      lastLoginAt: null,
+    });
+    const agent = request.agent(ctx.app);
+    await agent.post("/api/auth/login").send({ email: "admin@enelhealth.com", password: "password123" });
+
+    log.info("posts", "Enel Health admin-visible line", { orgId: enelId });
+    log.info("posts", "F3i admin-visible line", { orgId: f3iId });
+    const logs = await agent.get("/api/logs?limit=200");
+    const messages = logs.body.entries.map((e: { message: string }) => e.message);
+    expect(messages).toContain("Enel Health admin-visible line");
+    expect(messages).not.toContain("F3i admin-visible line");
+
+    // The unscoped inbound listing is for admins who actually hold every organization.
+    expect((await agent.get("/api/inbound/bindings").set("X-Org-Id", f3iId)).status).toBe(403);
+    expect((await agent.get("/api/inbound/messages").set("X-Org-Id", f3iId)).status).toBe(403);
+    expect((await agent.get("/api/orgs")).body.map((o: { id: string }) => o.id)).toEqual([enelId]);
+  });
+
+  it("still gives an admin who holds every organization the unscoped views", async () => {
+    // ctx.owner has orgIds "*", so the role-based shortcuts must still apply to them.
+    const agent = request.agent(ctx.app);
+    await agent.post("/api/auth/login").send({ email: "owner@test.local", password: "password123" });
+
+    log.info("posts", "Cross-org line for an unscoped owner", { orgId: f3iId });
+    const logs = await agent.get("/api/logs?limit=200");
+    expect(logs.body.entries.map((e: { message: string }) => e.message)).toContain("Cross-org line for an unscoped owner");
+    expect((await agent.get("/api/inbound/bindings")).status).toBe(200);
+  });
+
   it("scopes an f3insights.com user to F3i the same way, in the other direction", async () => {
     const agent = await signInVia("analyst@f3insights.com");
 
